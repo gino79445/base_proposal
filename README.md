@@ -31,5 +31,5 @@ Note that we use a modified version of the isaac-sim conda environment `isaac-si
     ```
 - To test the installation, an example random policy can be run:
     ```
-    python learned_robot_placement/scripts/basic.py
+    python base_proposal/scripts/basic.py
     ```
