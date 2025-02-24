@@ -1,0 +1,17 @@
+__pycache___
+__pycache__/
+*.egg-info*
+*logs*
+*wandb/
+filt_reach_map*
+*pth
+*ckpt*
+*usd
+*SpaceLLaVA/
+*GroundingDINO/
+*pytorch_kinematics/
+*segment-anything/
+*weights/
+*data/
+base_proposal/maps/
+*txt
