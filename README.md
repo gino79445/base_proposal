@@ -14,7 +14,7 @@ Note that we use a modified version of the isaac-sim conda environment `isaac-si
 ### Setup RL algorithm and environments
 - Install this repository's python package:
     ```
-    cd learned_robot_placement
+    cd base_proposal
     pip install -e .
     ```
 
