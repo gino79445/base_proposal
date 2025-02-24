@@ -32,7 +32,7 @@ from abc import abstractmethod
 import numpy as np
 import torch
 # from gym import spaces
-from mushroom_rl.utils.spaces import *
+#from mushroom_rl.utils.spaces import *
 from omni.isaac.core.tasks import BaseTask
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.utils.prims import define_prim
