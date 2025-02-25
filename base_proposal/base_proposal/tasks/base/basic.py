@@ -196,8 +196,8 @@ class Task(BaseTask):
         #self.rgb_data = rgb
         #print("depth_data: ", self.depth_data)
         #
-        ego_viewport  = get_active_viewport()
-        ego_viewport.camera_path = str(camera_prim.GetPath())
+        self.ego_viewport  = get_active_viewport()
+        self.ego_viewport.camera_path = str(camera_prim.GetPath())
         vp_window = vp_utils.create_viewport_window("viewport")
 
 
@@ -241,13 +241,13 @@ class Task(BaseTask):
         aspect_ratio = width / height
         # get camera prim attached to viewport
         #viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
-        viewport_window = get_active_viewport()
-        camera = stage.GetPrimAtPath(viewport_window.get_active_camera())
+        #viewport_window = get_active_viewport()
+        camera = stage.GetPrimAtPath(self.ego_viewport.get_active_camera())
+
         focal_length = camera.GetAttribute("focalLength").Get()
         horiz_aperture = camera.GetAttribute("horizontalAperture").Get()
         
         vert_aperture = height/width * horiz_aperture
-        near, far = camera.GetAttribute("clippingRange").Get()
         fov = 2 * math.atan(horiz_aperture / (2 * focal_length))
 
         focal_y = height * focal_length / vert_aperture
@@ -271,6 +271,9 @@ class Task(BaseTask):
         R = np.array([[np.cos(np.radians(-30)), 0, np.sin(np.radians(-30))],
                         [0, 1, 0],
                         [-np.sin(np.radians(-30)), 0, np.cos(np.radians(-30))]])
+      #  R = np.array([[1, 0, 0],
+      #                  [0, 1, 0],
+      #                  [0, 0, 1]])
 #        # rotate z axis
 #        R = np.array([[np.cos(np.radians(-10)), -np.sin(np.radians(-10)), 0],
 #                        [np.sin(np.radians(-10)), np.cos(np.radians(-10)), 0],

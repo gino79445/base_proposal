@@ -250,7 +250,6 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         #     pos = self.torso_fixed_state.unsqueeze(dim=0)
         #     self.robots.set_joint_positions(positions=pos, joint_indices=self.torso_dof_idx)
         if self._move_group == "arm_left": # Hack to avoid arm falling when it isn't controlled
-            print("arm_left")
             pos = self.arm_right_start.unsqueeze(dim=0)
             self.robots.set_joint_positions(positions=pos, joint_indices=self.arm_right_dof_idxs)
         # elif self._move_group == "arm_right": # Hack to avoid arm falling when it isn't controlled

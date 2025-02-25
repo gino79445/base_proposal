@@ -144,9 +144,10 @@ class NMTask(Task):
 
     def get_point_cloud(self,R, T, fx, fy, cx, cy):
         point_cloud = []
-        depth =self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
-        rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
-    
+        #depth =self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
+        #rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
+        depth = self.get_depth_data()
+        rgb_data = self.get_rgb_data()
 
         for i in range(rgb_data.shape[1]):
             for j in range(rgb_data.shape[0]):
@@ -389,8 +390,6 @@ class NMTask(Task):
       #      for j in range(-20, 20):
       #          self.occupancy_2d_map[100+j,100+i] = 0
 
-        print(self.rgb_data.shape)
-        print(depth.shape)
         if depth.shape[0] == 0:
             return
 
@@ -406,7 +405,7 @@ class NMTask(Task):
                     map_y = int(point[1] / cell_size)
                     map_y += int(map_size[1] / 2)
                     if 0 <= map_x < map_size[0] and 0 <= map_y < map_size[1]:
-                        if point[2] > 0.3:
+                        if point[2] > 0.1:
                             self.occupancy_2d_map[map_y, map_x] = 255
                         #else:
                         #    self.occupancy_2d_map[map_y, map_x] = 255
@@ -694,7 +693,7 @@ class NMTask(Task):
                 end_q = end_q.cpu().numpy()
                 end_q = end_q[0]
                 self.end_q = end_q
-                self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array([base_positions[4:]]),dtype=torch.float,device=self._device))
+                #self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array([base_positions[4:]]),dtype=torch.float,device=self._device))
                 return
 
         if actions == 'return_arm':
@@ -743,13 +742,13 @@ class NMTask(Task):
         self._curr_goal_tf = self._goal_tf.clone()
         self._goals_xy_dist = torch.linalg.norm(self._goal[:, 0:2], dim=1)  # 計算每個 goal 到原點的 x, y 距離
         # Pitch visualizer by 90 degrees for aesthetics
-       # for i in range(goal_num):
-       #     goal_viz_rot = goal_rots[i] * Rotation.from_euler("xyz", [0, np.pi / 2.0, 0])
-       #     print(f"self._goal[i, :3]: {self._goal[i, :3]}")
-       #     if i == 0:
-       #         self._goal_vizs1.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))   
-       #     if i == 1:
-       #         self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
+        for i in range(goal_num):
+            goal_viz_rot = goal_rots[i] * Rotation.from_euler("xyz", [0, np.pi / 2.0, 0])
+            print(f"self._goal[i, :3]: {self._goal[i, :3]}")
+            if i == 0:
+                self._goal_vizs1.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))   
+            if i == 1:
+                self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
             
 
         # bookkeeping
