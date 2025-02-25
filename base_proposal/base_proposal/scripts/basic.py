@@ -76,6 +76,8 @@ def parse_hydra_configs(cfg: DictConfig):
         t += 1
         
 
+
+    env.step(['start'])
     env.step(['navigate', [1.4, -0.1]])
     env.step(['rotate', [np.pi/2]])
     env.step(['manipulate'])

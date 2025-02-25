@@ -17,7 +17,6 @@ INSTALL_REQUIRES = [
 
 # Installation operation
 setup(
-    #name="learned_robot_placement",
     name="base_proposal",
     author="Snehal Jauhri",
     version="1.0.0",
@@ -26,7 +25,7 @@ setup(
     include_package_data=True,
     install_requires=INSTALL_REQUIRES,
     packages=find_packages("."),
-    classifiers=["Natural Language :: English", "Programming Language :: Python :: 3.7, 3.8"],
+    classifiers=["Natural Language :: English", "Programming Language :: Python :: 3.10"],
     zip_safe=False,
 )
 

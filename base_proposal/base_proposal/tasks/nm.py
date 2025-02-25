@@ -56,11 +56,8 @@ import os
 import time
 import math
 
-from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
-from segment_anything import SamPredictor, sam_model_registry
-# from omni.isaac.core.utils.prims import get_prim_at_path
-# from omni.isaac.core.utils.prims import create_prim
-# from omni.isaac.core.utils.stage import add_reference_to_stage
+#from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+#from segment_anything import SamPredictor, sam_model_registry
 
 from omni.isaac.core.utils.torch.maths import torch_rand_float, tensor_clamp
 from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats, quat_diff_rad
@@ -384,11 +381,15 @@ class NMTask(Task):
         depth = self.depth_data
         map_size = (200, 200)
         cell_size = 0.05
-        for i in range(-10, 20):
-            for j in range(-20, 20):
-                self.occupancy_2d_map[100+j,100+i] = 0
+      #  for i in range(-10, 20):
+      #      for j in range(-20, 20):
+      #          self.occupancy_2d_map[100+j,100+i] = 0
 
-        
+        print(self.rgb_data.shape)
+        print(depth.shape)
+        if depth.shape[0] == 0:
+            return
+
         for i in range(self.rgb_data.shape[1]):
             for j in range(self.rgb_data.shape[0]):
                 i = self.rgb_data.shape[1] - i 
@@ -401,10 +402,10 @@ class NMTask(Task):
                     map_y = int(point[1] / cell_size)
                     map_y += int(map_size[1] / 2)
                     if 0 <= map_x < map_size[0] and 0 <= map_y < map_size[1]:
-                        if point[2] < 0.1:
-                            self.occupancy_2d_map[map_y, map_x] = 0
-                        else:
+                        if point[2] > 0.3:
                             self.occupancy_2d_map[map_y, map_x] = 255
+                        #else:
+                        #    self.occupancy_2d_map[map_y, map_x] = 255
         
 
         im = Image.fromarray(self.occupancy_2d_map)
@@ -424,9 +425,18 @@ class NMTask(Task):
        # self.depth_data = self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
        # self.pose_data = self.sd_helper.get_groundtruth(["pose"], self.ego_viewport.get_viewport_window())["pose"]
        # self.rgb_data = self.rgb_data[:,:,:3]
-        self.rgb_data = self.get_rgb_data()
         self.depth_data = self.get_depth_data()
-    
+        self.rgb_data = self.get_rgb_data()
+        #print("rgb_data shape: ", self.rgb_data.shape)
+        #print("depth_data shape: ", self.depth_data.shape) 
+        # save the depth image if shape is not empty
+        if self.depth_data.shape[0] != 0:
+            #normalization
+            depth_data = self.depth_data / 5
+            depth_data = depth_data * 255.0
+            depth_data = depth_data.astype('uint8')
+            im = Image.fromarray(depth_data)
+            im.save("./data/depth.png")
         # get the camera parameters
         R,T ,fx, fy, cx, cy = self.retrieve_camera_params()
         depth = self.depth_data
@@ -434,8 +444,6 @@ class NMTask(Task):
         # save the rgb image
         im = Image.fromarray(self.rgb_data)
         im.save("./data/rgb.png")
-        print(depth.shape)
-        print(self.depth_data)
 
 
         rgb = self.rgb_data.copy()        
@@ -451,10 +459,11 @@ class NMTask(Task):
         if self._task_cfg["env"]["check_env"] == True:
             return
 
-        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        #self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
                 
         #self.build_local_map(R, T, fx, fy, cx, cy)
 
+        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
         return 
 
     def get_render(self):
@@ -686,7 +695,6 @@ class NMTask(Task):
 
         if actions == 'return_arm':
             if self.ik_success:
-                print("return arm")
                 #self.start_q = self.end_q
                 self.end_q = self.start_q.copy()
                 self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array([self.end_q[4:]]),dtype=torch.float,device=self._device))

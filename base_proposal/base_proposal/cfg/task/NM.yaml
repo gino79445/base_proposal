@@ -23,10 +23,10 @@ env:
   action_xy_radius: 1.0 # position control
   action_ang_lim:  1.57079632
   max_rot_vel : 3.14159265
-  #max_rot_vel: 2.0944 # in radians (default is 60 degrees per second)
+    #max_rot_vel: 2.0944 # in radians (default is 60 degrees per second)
   max_base_xy_vel: 2 # metres per second
   # cabinet, stove, booksfelf, light, oven, lamp, window ,oven_cluster, cabinet_cluster, cluster_table 
-  obstacles: ["cabinet_clutter1"]
+  obstacles: ["cabinet_clutter"]
   target: ["pot" , "cup" ]
   se3: []
 
@@ -51,6 +51,7 @@ env:
 
 sim:
   dt: 0.0083 # 1/120 s
+  #dt: 0.00625 # 1/120 s
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
   gravity: [0.0, 0.0, -9.81]
   add_ground_plane: True

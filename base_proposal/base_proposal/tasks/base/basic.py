@@ -208,7 +208,6 @@ class Task(BaseTask):
         #depth_data =np.zeros((1280, 720)).astype(np.float32)
         render_product = rep.create.render_product(self.camera_path, (1280, 720))
         distance_to_image_plane = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
-#
         distance_to_image_plane.attach(render_product)
         depth_data = distance_to_image_plane.get_data()
 

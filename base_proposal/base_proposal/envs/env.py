@@ -138,6 +138,10 @@ class IsaacEnv():
             self._world.step(render=self._run_sim_rendering)
             self.sim_frame_count += 1
 
+    def render(self):
+        for _ in range(self._task.control_frequency_inv):
+            self._world.step(render=self._run_sim_rendering)
+            self.sim_frame_count += 1
 
     def step(self, action):
         """ Basic implementation for stepping simulation. 
@@ -154,6 +158,9 @@ class IsaacEnv():
             info(dict): Dictionary of extra data.
         """
     
+        if action[0] == 'start':
+            self._task.pre_physics_step('start')
+            self.render()
 
         if action[0] == 'navigate':
             position = np.array(action[1:])
@@ -163,64 +170,60 @@ class IsaacEnv():
             for position in positions:
                 task_actions = 'get_base'
                 self._task.pre_physics_step(task_actions)
-                for _ in range(self._task.control_frequency_inv):
-                    self._world.step(render=self._run_sim_rendering)
-                    self.sim_frame_count += 1
+                self.render()
+                
                 x_scaled = position[0]
                 y_scaled = position[1]
-
                 x_scaled  = torch.tensor(x_scaled,dtype=torch.float,device=self._device)
                 y_scaled = torch.tensor(y_scaled,dtype=torch.float,device=self._device)
                 distance = torch.sqrt(x_scaled**2 + y_scaled**2)
                 phi = torch.atan2(y_scaled,x_scaled)
                 theta = torch.atan2(y_scaled,x_scaled)
-
                 angle = phi
                 theta_scaled = theta
+                
                 if angle < 0:
                     self.left_rotation(angle)
                 else:
                     self.right_rotation(angle)
-                
-
                 self.forward(distance)
+                self.render()
+                
                 theta_scaled =  theta_scaled - angle
                 
                 if theta_scaled < 0:
                     self.left_rotation(theta_scaled)
                 else:
                     self.right_rotation(theta_scaled)
+                self.render()
+                
                 self._task.pre_physics_step('set_base')
-                for _ in range(self._task.control_frequency_inv):
-                    self._world.step(render=self._run_sim_rendering)
-                    self.sim_frame_count += 1
+                self.render()
 
         if action[0] == 'rotate':
             self._task.set_angle(action[1][0])
             self._task.pre_physics_step('set_angle')
-            for _ in range(self._task.control_frequency_inv):
-                self._world.step(render=self._run_sim_rendering)
-                self.sim_frame_count += 1
+            self.render()
+           
             angle = action[1][0]
             if angle < 0:
                 self.left_rotation(angle)
             else:
                 self.right_rotation(angle)
-
+            self.render()
+            
             self._task.pre_physics_step('set_base')
+            self.render()
 
 
 
         if action[0] == 'manipulate':
             self._task.pre_physics_step('manipulate')
-            for _ in range(self._task.control_frequency_inv):
-                self._world.step(render=self._run_sim_rendering)
-                self.sim_frame_count += 1
+            self.render()
+
         if action[0] == 'return_arm':
             self._task.pre_physics_step('return_arm')
-            for _ in range(self._task.control_frequency_inv):
-                self._world.step(render=self._run_sim_rendering)
-                self.sim_frame_count += 1
+            self.render()
 
 
         #    self._task.pre_physics_step('get_point_cloud')
@@ -234,6 +237,8 @@ class IsaacEnv():
         #        for _ in range(self._task.control_frequency_inv):
         #            self._world.step(render=self._run_sim_rendering)
         #        self.sim_frame_count += 1
+        
+        self.render()
         resets = self._task.post_physics_step() # buffers of obs, reward, dones and infos. Need to be squeezed
         print("Resets: ",resets)
 
@@ -288,9 +293,7 @@ class IsaacEnv():
                 if angle >= 0:
                     return True
                 self._task.pre_physics_step(actions)
-                for i in range(self._task.control_frequency_inv):
-                    self._world.step(render=self._run_sim_rendering)
-                    self.sim_frame_count += 1
+                self.render()
 
 
     def right_rotation(self, angle,velocity=1):
@@ -306,9 +309,7 @@ class IsaacEnv():
                 if angle <= 0:
                     return True
                 self._task.pre_physics_step(actions)
-                for i in range(self._task.control_frequency_inv):
-                    self._world.step(render=self._run_sim_rendering)
-                    self.sim_frame_count += 1
+                self.render()
 
     def forward(self, distance,velocity=1):
         actions = np.zeros(5)
@@ -323,8 +324,6 @@ class IsaacEnv():
                 if distance <= 0:
                     return True
                 self._task.pre_physics_step(actions)
-                for i in range(self._task.control_frequency_inv):
-                    self._world.step(render=self._run_sim_rendering)
-                    self.sim_frame_count += 1
+                self.render()
 
 
