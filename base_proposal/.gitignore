@@ -6,13 +6,13 @@ __pycache__/
 filt_reach_map*
 *pth
 *ckpt*
-*usd
+*Props*
 *SpaceLLaVA/
 *GroundingDINO/
 *pytorch_kinematics/
 *segment-anything/
 *weights/
-*data/
+*data
 base_proposal/maps/
 *txt
 .env

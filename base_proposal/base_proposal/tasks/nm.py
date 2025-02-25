@@ -118,11 +118,11 @@ class NMTask(Task):
 
         self._collided = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
         self._is_success = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
-        self.sam = sam_model_registry["vit_h"](checkpoint="sam_vit_h_4b8939.pth")
+        #self.sam = sam_model_registry["vit_h"](checkpoint="sam_vit_h_4b8939.pth")
         #self.collided = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
-        self.sam.to(self._device)
+        #self.sam.to(self._device)
        # self.mask_generator = SamAutomaticMaskGenerator(self.sam)
-        self.mask_predictor = SamPredictor(self.sam)
+        #self.mask_predictor = SamPredictor(self.sam)
         self.final_place = np.zeros((2), dtype=np.float32) 
         
         self.instruction = self._task_cfg["env"]["instruction"]        
