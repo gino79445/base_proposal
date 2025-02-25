@@ -42,6 +42,7 @@ class IsaacEnv():
 
         if sim_app_cfg_path: sim_app_cfg_path = os.path.dirname(base_proposal.__file__) + sim_app_cfg_path
         self._simulation_app = SimulationApp({
+                                        #      "experience": sim_app_cfg_path,
                                               "headless": headless,
                                               "window_width": 1920,
                                               "window_height": 1080,

@@ -20,9 +20,9 @@ seed: -1
 # set to True for deterministic performance
 torch_deterministic: False
 # Use the isaac sim configuration from file
-sim_app_cfg_path: "/isaac_app_configs/omni.isaac.sim.python_minimal.kit"
+#sim_app_cfg_path: "/isaac_app_configs/omni.isaac.sim.python_minimal.kit"
 #sim_app_cfg_path: "/isaac_app_configs/omni.isaac.sim.python.kit"
-
+sim_app_cfg_path: "/home/gino79445/Downloads/isaac-sim-standalone@4.2.0-rc.18+release.16044.3b2ed111.gl.linux-x86_64.release/apps/omni.isaac.sim.python.kit"
 # set the maximum number of learning iterations to train for. overrides default per-environment setting
 # max_iterations: 500
 

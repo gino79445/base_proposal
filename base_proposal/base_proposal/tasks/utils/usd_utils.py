@@ -84,4 +84,4 @@ def set_drive(prim_path, drive_type, target_type, target_value, stiffness, dampi
 def create_distant_light(prim_path="/World/defaultDistantLight", intensity=500):
     stage = get_current_stage()
     light = UsdLux.DistantLight.Define(stage, prim_path)
-    light.GetPrim().GetAttribute("intensity").Set(intensity)
+#    light.GetPrim().GetAttribute("intensity").Set(intensity)

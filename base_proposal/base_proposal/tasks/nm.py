@@ -38,8 +38,10 @@ from base_proposal.tasks.utils import scene_utils
 from base_proposal.tasks.utils import astar_utils
 from base_proposal.tasks.utils import rrt_utils
 from base_proposal.tasks.utils import get_features
-from omni.isaac.isaac_sensor import _isaac_sensor
-#from omni.isaac.sensor import _sensor as _isaac_sensor
+#from omni.isaac.isaac_sensor import _isaac_sensor
+from omni.isaac.sensor import _sensor as _isaac_sensor
+#from omni.isaac.sensor import ContactSensor as _isaac_sensor
+
 from omni.isaac.core.utils.semantics import add_update_semantics
 from base_proposal.vlm.get_target import identify_object_in_image
 from base_proposal.vlm.get_part import determine_part_to_grab
@@ -63,6 +65,7 @@ from segment_anything import SamPredictor, sam_model_registry
 from omni.isaac.core.utils.torch.maths import torch_rand_float, tensor_clamp
 from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats, quat_diff_rad
 from scipy.spatial.transform import Rotation
+from omni.isaac.core.utils.extensions import enable_extension
 from PIL import Image
 
 
@@ -208,22 +211,33 @@ class NMTask(Task):
             scene.add(grasp_obj)
             self._grasp_objs_dimensions.append(scene.compute_object_AABB(grasp_obj.name)) # Axis aligned bounding box used as dimensions
         # Optional viewport for rendering in a separate viewer
-        from omni.isaac.synthetic_utils import SyntheticDataHelper
-        self.viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
-        self.sd_helper = SyntheticDataHelper()
-        sensor_names = [
-            "rgb",
-            "depth",
-            "boundingBox2DTight",
-            "boundingBox2DLoose",
-            "instanceSegmentation",
-            "semanticSegmentation",
-            "boundingBox3D",
-            "camera",
-            "pose",
-        ]
-        self.sd_helper.initialize(sensor_names, viewport=self.viewport_window)
         
+
+        rgb = self.get_rgb_data()
+        im = Image.fromarray(rgb)
+
+        #rgb_data = rgb.get_data()
+        #im = Image.fromarray(rgb_data)
+        #im.save("./data/start_rgb.png")
+        
+
+       # from omni.isaac.synthetic_utils import SyntheticDataHelper
+#        from omni.isaac.synthetic_utils import SyntheticDataHelper
+ #       self.viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
+  #      self.sd_helper = SyntheticDataHelper()
+#        sensor_names = [
+#            "rgb",
+#            "depth",
+#            "boundingBox2DTight",
+#            "boundingBox2DLoose",
+#            "instanceSegmentation",
+#            "semanticSegmentation",
+#            "boundingBox3D",
+#            "camera",
+#            "pose",
+#        ]
+#        self.sd_helper.initialize(sensor_names, viewport=self.viewport_window)
+#        
        
 
     def post_reset(self):
@@ -405,11 +419,13 @@ class NMTask(Task):
         
         
         # perceptial data
-        self.bounding_box = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
-        self.rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
-        self.depth_data = self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
-        self.pose_data = self.sd_helper.get_groundtruth(["pose"], self.ego_viewport.get_viewport_window())["pose"]
-        self.rgb_data = self.rgb_data[:,:,:3]
+       # self.bounding_box = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
+       # self.rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
+       # self.depth_data = self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
+       # self.pose_data = self.sd_helper.get_groundtruth(["pose"], self.ego_viewport.get_viewport_window())["pose"]
+       # self.rgb_data = self.rgb_data[:,:,:3]
+        self.rgb_data = self.get_rgb_data()
+        self.depth_data = self.get_depth_data()
     
         # get the camera parameters
         R,T ,fx, fy, cx, cy = self.retrieve_camera_params()
@@ -418,16 +434,18 @@ class NMTask(Task):
         # save the rgb image
         im = Image.fromarray(self.rgb_data)
         im.save("./data/rgb.png")
+        print(depth.shape)
+        print(self.depth_data)
 
 
         rgb = self.rgb_data.copy()        
-        for box in self.bounding_box:
-            if box['semanticLabel'] == 'target':  
-                x_min, y_min, x_max, y_max = int(box['x_min']), int(box['y_min']), int(box['x_max']), int(box['y_max'])
-                cv2.rectangle(rgb, (x_min, y_min), (x_max, y_max), (220, 0, 0), 1)
-                # save the rgb image        
-                im = Image.fromarray(rgb)
-                im.save("./data/original.png")
+        #for box in self.bounding_box:
+        #    if box['semanticLabel'] == 'target':  
+        #        x_min, y_min, x_max, y_max = int(box['x_min']), int(box['y_min']), int(box['x_max']), int(box['y_max'])
+        #        cv2.rectangle(rgb, (x_min, y_min), (x_max, y_max), (220, 0, 0), 1)
+        #        # save the rgb image        
+        #        im = Image.fromarray(rgb)
+        #        im.save("./data/original.png")
         
 
         if self._task_cfg["env"]["check_env"] == True:
@@ -773,8 +791,9 @@ class NMTask(Task):
             # Collision detected. Give penalty and no other rewards
             self._collided[0] = 1
             self._is_success[0] = 0 # Success isn't considered in this case
-        data = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
-        rgb = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
+#        data = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
+#        rgb = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
+        rgb = self.get_rgb_data()
         im = Image.fromarray(rgb)
         im.save("./data/end.png")
         #for box in data:

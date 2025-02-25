@@ -38,6 +38,10 @@ from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.utils.prims import define_prim
 from omni.isaac.cloner import GridCloner
 from base_proposal.tasks.utils.usd_utils import create_distant_light
+from omni.kit.viewport.utility import get_active_viewport
+import omni.kit.viewport.utility as vp_utils
+import omni.replicator.core as rep
+
 import omni.kit
 import omni
 from pxr import UsdGeom
@@ -146,7 +150,9 @@ class Task(BaseTask):
 
 
     def set_initial_camera_params(self, camera_position=[10, 10, 3], camera_target=[0, 0, 0]):
-        viewport = omni.kit.viewport_legacy.get_default_viewport_window()
+        #viewport = omni.kit.viewport_legacy.get_default_viewport_window()
+        #viewport = get_active_viewport()
+
        # viewport.set_camera_position("/OmniverseKit_Persp", camera_position[0], camera_position[1], camera_position[2], True)
        # viewport.set_camera_target("/OmniverseKit_Persp", camera_target[0], camera_target[1], camera_target[2], True)
 
@@ -171,12 +177,60 @@ class Task(BaseTask):
                                                 [self.camera_world_rotation[1][0], self.camera_world_rotation[1][1], self.camera_world_rotation[1][2]],
                                                 [self.camera_world_rotation[2][0], self.camera_world_rotation[2][1], self.camera_world_rotation[2][2]]])
 
-        import omni.kit.viewport.utility as vp_utils
+
+        RESOLUTION = (1280, 720)
+# EDIT:
+        #rep_camera = rep.create.camera(camera)
+        self.camera_path = camera_path
+        #render_product = rep.create.render_product(camera_path, RESOLUTION)
+
+        #rgb = rep.AnnotatorRegistry.get_annotator("rgb")
+        #distance_to_image_plane = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
+        #
+        #distance_to_image_plane.attach(render_product)
+        #rgb.attach(render_product)
+        #
+        #rep.orchestrator.step()
+
+        #self.depth_data = distance_to_image_plane
+        #self.rgb_data = rgb
+        #print("depth_data: ", self.depth_data)
+        #
+        ego_viewport  = get_active_viewport()
+        ego_viewport.camera_path = str(camera_prim.GetPath())
         vp_window = vp_utils.create_viewport_window("viewport")
-        self.ego_viewport = omni.kit.viewport_legacy.get_viewport_interface()
-        self.ego_viewport.get_viewport_window().set_active_camera(str(camera_prim.GetPath()))
-        viewport.set_camera_position("/OmniverseKit_Persp", camera_position[0], camera_position[1], camera_position[2], True)
-        viewport.set_camera_target("/OmniverseKit_Persp", camera_target[0], camera_target[1], camera_target[2], True)
+
+
+
+    def get_depth_data(self):
+        """ Retrieves observations from the environment.
+        """
+        #depth_data =np.zeros((1280, 720)).astype(np.float32)
+        render_product = rep.create.render_product(self.camera_path, (1280, 720))
+        distance_to_image_plane = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
+#
+        distance_to_image_plane.attach(render_product)
+        depth_data = distance_to_image_plane.get_data()
+
+        return depth_data
+
+    def get_rgb_data(self):
+        """ Retrieves observations from the environment.
+        """
+        #rep.orchestrator.step()
+        render_product = rep.create.render_product(self.camera_path, (1280, 720))
+        rgb = rep.AnnotatorRegistry.get_annotator("rgb")
+        rgb.attach(render_product)
+        rgb_data = rgb.get_data()
+       # rgb_data = np.zeros((1280, 720, 3)).astype(np.uint8)
+        
+        return rgb_data
+        
+
+
+        #self.ego_viewport.get_viewport_window().set_active_camera(str(camera_prim.GetPath()))
+        #viewport.set_camera_position("/OmniverseKit_Persp", camera_position[0], camera_position[1], camera_position[2], True)
+        #viewport.set_camera_target("/OmniverseKit_Persp", camera_target[0], camera_target[1], camera_target[2], True)
         # Near Clipping Plane
        
 
@@ -187,7 +241,8 @@ class Task(BaseTask):
         height = 720
         aspect_ratio = width / height
         # get camera prim attached to viewport
-        viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
+        #viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
+        viewport_window = get_active_viewport()
         camera = stage.GetPrimAtPath(viewport_window.get_active_camera())
         focal_length = camera.GetAttribute("focalLength").Get()
         horiz_aperture = camera.GetAttribute("horizontalAperture").Get()
