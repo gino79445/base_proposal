@@ -165,6 +165,10 @@ class NMTask(Task):
     
     def set_up_scene(self, scene) -> None:
         import omni
+
+        # if no data folder, create one
+        if not os.path.exists("./data"):
+            os.makedirs("./data")
         if self._task_cfg["env"]["plane"] == True:
             scene_utils.add_plane(name="building", prim_path=self.tiago_handler.default_zero_env_path, device=self._device)
         self.tiago_handler.get_robot()
