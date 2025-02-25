@@ -18,8 +18,8 @@ import os
 import time
 import math
 
-from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
-from segment_anything import SamPredictor, sam_model_registry
+#from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+#from segment_anything import SamPredictor, sam_model_registry
 from scipy.spatial.transform import Rotation
 from PIL import Image
 
