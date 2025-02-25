@@ -5,17 +5,22 @@
 
 
 
-- Install isaac-sim on your PC by following the procedure outlined here: https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/install_basic.html\
-**Note:** This code was tested on isaac-sim **version 2022.1.0**
-- Follow the isaac-sim python conda environment installation at: https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/install_python.html#advanced-running-with-anaconda\
-Note that we use a modified version of the isaac-sim conda environment `isaac-sim-lrp` which needs to be used instead and is available at `learned_robot_placement/environment.yml`. Don't forget to source the `setup_conda_env.sh` script in the isaac-sim directory before running experiments. (You could also add it to the .bashrc)
-- The code uses pinocchio [3] for inverse kinematics. The installation of pinoccio is known to be troublesome but the easiest way is to run `conda install pinocchio -c conda-forge` after activating the `Nav2Manip ` conda environment.
+- Download the isaac-sim **[version 4.2.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/installation/download.html)**.
+  The downloaded folder contains the **setup_conda_env.sh** file.
 
-### Setup RL algorithm and environments
+     **Note:** This code was tested on isaac-sim **version 4.2.0** and python **version 3.10**
+
+### setup the enviroment
 - Install this repository's python package:
     ```
-    cd base_proposal
+    conda create --name Nav2Manip python=3.10
+    conda activate Nav2Manip
+    conda install pinocchio -c conda-forge
+    cd base_proposal/base_proposal/
     pip install -e .
+    pip install open3d
+    pip install openai
+    pip install dotenv
     ```
 
 ## Experiments
@@ -29,7 +34,8 @@ Note that we use a modified version of the isaac-sim conda environment `isaac-si
     ```
     source <PATH_TO_ISAAC_SIM>/isaac_sim-2022.1.0/setup_conda_env.sh
     ```
-- To test the installation, an example random policy can be run:
+- To test the installation, an example can be run:
     ```
-    python base_proposal/scripts/basic.py
+    cd base_proposal/base_proposal/
+    python  base_proposal/scripts/basic.py task=NM
     ```
