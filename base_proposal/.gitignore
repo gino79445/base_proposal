@@ -12,7 +12,7 @@ filt_reach_map*
 *pytorch_kinematics/
 *segment-anything/
 *weights/
-*data
+*data/*.*
 base_proposal/maps/
 *txt
 .env
