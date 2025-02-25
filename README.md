@@ -37,5 +37,5 @@
 - To test the installation, an example can be run:
     ```
     cd base_proposal/base_proposal/
-    python  base_proposal/scripts/basic.py task=NM
+    python base_proposal/scripts/basic.py task=NM
     ```
