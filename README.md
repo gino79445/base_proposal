@@ -32,7 +32,7 @@
     ```
 - source the isaac-sim conda_setup file:
     ```
-    source <PATH_TO_ISAAC_SIM>/isaac_sim-4.2.0/setup_conda_env.sh
+    source <PATH_TO_ISAAC_SIM>/setup_conda_env.sh
     ```
 - To test the installation, an example can be run:
     ```
