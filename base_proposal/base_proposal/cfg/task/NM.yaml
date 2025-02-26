@@ -27,13 +27,13 @@ env:
   max_base_xy_vel: 2 # metres per second
   # cabinet, stove, booksfelf, light, oven, lamp, window ,oven_cluster, cabinet_cluster, cluster_table 
   obstacles: ["cabinet_clutter"]
-  target: ["pot" , "cup" ]
+  target: ["pot" , "nothing" ]
   se3: []
 
 
 
 
-  instruction: "Take the cookies out of the cabinet."
+  instruction: "Put the pot next to the glass on the table."
   house: True
   plane: True
   

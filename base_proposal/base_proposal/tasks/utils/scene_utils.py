@@ -157,17 +157,18 @@ def setup_tabular_scene(grasp_objs, device):
 
     goal_pose = []
     for obj in grasp_objs:
-        if obj.name == 'pot':
+
+        if obj.name == 'nothing':
+            obj.set_world_pose(position=torch.tensor([1.5000000, -2, 0.3],device=device),
+                                 orientation=euler_angles_to_quats(torch.tensor([[-torch.pi/2,0,torch.pi]],device=device))[0])
+            pose = torch.hstack(( torch.tensor([1.3, -1.3, 0.6],dtype=torch.float,device=device),
+                euler_angles_to_quats(torch.tensor([[-torch.pi/2,-torch.pi/2,0]],dtype=torch.float,device=device))[0] ))
+        else:
             obj.set_world_pose(position=torch.tensor([1.5, 0.8, 0.8],device=device),
                                  orientation=euler_angles_to_quats(torch.tensor([[-torch.pi/2,0,torch.pi]],device=device))[0])
             pose = torch.hstack(( torch.tensor([1.5, 0.6, 0.88],dtype=torch.float,device=device),
                 euler_angles_to_quats(torch.tensor([[-torch.pi/2,-torch.pi/2,0]],dtype=torch.float,device=device))[0] ))
 
-        if obj.name == 'cup':
-            obj.set_world_pose(position=torch.tensor([1.5000000, -2, 0.3],device=device),
-                                 orientation=euler_angles_to_quats(torch.tensor([[-torch.pi/2,0,torch.pi]],device=device))[0])
-            pose = torch.hstack(( torch.tensor([1.3, -1.3, 0.6],dtype=torch.float,device=device),
-                euler_angles_to_quats(torch.tensor([[-torch.pi/2,-torch.pi/2,0]],dtype=torch.float,device=device))[0] ))
         goal_pose.append(pose)
     #tranlate list to tensor
     goal_pose = torch.stack(goal_pose)

@@ -6,7 +6,7 @@ __pycache__/
 filt_reach_map*
 *pth
 *ckpt*
-*Props*
+*NVD@*
 *SpaceLLaVA/
 *GroundingDINO/
 *pytorch_kinematics/
