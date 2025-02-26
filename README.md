@@ -22,6 +22,26 @@
     pip install openai
     pip install dotenv
     ```
+## 3D Content Pack Download
+Download the following 3d model packs
+1. [Commercial 3D Models Pack](https://docs.omniverse.nvidia.com/launcher/latest/it-managed-launcher/content_install.html#commercial3dmodels)
+2. [Residential 3D Models Pack](https://docs.omniverse.nvidia.com/launcher/latest/it-managed-launcher/content_install.html#residential3dmodels)
+3. [Base Materials Pack](https://docs.omniverse.nvidia.com/launcher/latest/it-managed-launcher/content_install.html#basematerials)
+
+- Unzip them and put them into the Props folder.
+```
+└── Props
+    ├── Base_Materials_NVD@10013/   -> Base materials such as textures and shaders
+    ├── building/                   -> Structural elements related to buildings    
+    ├── Commercial_NVD@10013/       -> Assets for commercial environments
+    ├── Residential_NVD@10012/      -> Assets for residential environments
+    ├── Shapenet/                   -> 3D models from the ShapeNet dataset
+    └── YCB/                        -> Objects from the YCB dataset for robotics research
+```
+
+
+
+
 
 ## Experiments
 
