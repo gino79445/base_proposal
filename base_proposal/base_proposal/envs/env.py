@@ -220,12 +220,12 @@ class IsaacEnv():
         if action[0] == 'manipulate':
             self._task.pre_physics_step('manipulate')
             self.render()
-            self._task.pre_physics_step('get_point_cloud')
-            self.render()
-            motion_num = self._task.get_motion_num()
-            for i in range(motion_num):
-                self._task.pre_physics_step('move_arm')
-                self.render()        
+            #self._task.pre_physics_step('get_point_cloud')
+            #self.render()
+            #motion_num = self._task.get_motion_num()
+            #for i in range(motion_num):
+            #    self._task.pre_physics_step('move_arm')
+            #    self.render()        
 
         if action[0] == 'return_arm':
             self._task.pre_physics_step('return_arm')
@@ -234,7 +234,7 @@ class IsaacEnv():
 
         self.render()
         resets = self._task.post_physics_step() # buffers of obs, reward, dones and infos. Need to be squeezed
-        print("Resets: ",resets)
+        #print("Resets: ",resets)
 
         done = resets[0].cpu().item()
 

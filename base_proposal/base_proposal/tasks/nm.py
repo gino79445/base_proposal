@@ -198,6 +198,9 @@ class NMTask(Task):
         super().set_up_scene(scene)
         self._robots = self.tiago_handler.create_articulation_view()
         scene.add(self._robots)
+        # Contact sensor interface for robot collision detection
+
+
         self._goal_vizs1 = GeometryPrimView(prim_paths_expr="/World/envs/.*/goal1",name="goal_viz1")
         scene.add(self._goal_vizs1)
         self._goal_vizs2 = GeometryPrimView(prim_paths_expr="/World/envs/.*/goal2",name="goal_viz2")
@@ -559,7 +562,7 @@ class NMTask(Task):
             point_cloud = point_cloud[::100]
             point_cloud = point_cloud[point_cloud[:, 2] > 0.1]
             point_cloud = point_cloud[point_cloud[:, 2] < 3]
-            path = self._motion_planner.rrt_motion_plan_with_obstacles(self.start_q, self.end_q, point_cloud, max_iters=500, step_size=0.1)
+            path = self._motion_planner.rrt_motion_plan_with_obstacles(self.start_q, self.end_q, point_cloud, max_iters=1000, step_size=0.3)
             self.motion_path = path
             return
 
@@ -658,6 +661,7 @@ class NMTask(Task):
             self.path_num = 0
             self.motion_path = []
             if success:
+                print("IK Success")
 
 
                 self.ik_success = True
@@ -693,7 +697,8 @@ class NMTask(Task):
                 end_q = end_q.cpu().numpy()
                 end_q = end_q[0]
                 self.end_q = end_q
-                #self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array([base_positions[4:]]),dtype=torch.float,device=self._device))
+
+                self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array([base_positions[4:]]),dtype=torch.float,device=self._device))
                 return
 
         if actions == 'return_arm':
@@ -776,8 +781,7 @@ class NMTask(Task):
             raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(obst.prim_path + "/Contact_Sensor")
             if raw_readings.shape[0]:                
                 for reading in raw_readings:
-                 #   print(f"sensors: {self._contact_sensor_interface.decode_body_name(reading['body0'])}")
-                 #   print(f"sensors: {self._contact_sensor_interface.decode_body_name(reading['body1'])}")
+                    # str 
                     if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body1"])):
                         return True # Collision detected with some part of the robot
                     if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body0"])):

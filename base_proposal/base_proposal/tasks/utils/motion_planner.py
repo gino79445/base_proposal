@@ -240,7 +240,7 @@ class MotionPlannerTiago:
 
         for joint_idx in range(path.shape[1]):
             cs = CubicSpline(t, path[:, joint_idx])
-            t_fine = np.linspace(0, 1, len(path) * 5)  # 增加插值密度
+            t_fine = np.linspace(0, 1, len(path) * 20)  # 增加插值密度
             smoothed_path.append(cs(t_fine))
 
         smoothed_path = np.array(smoothed_path).T

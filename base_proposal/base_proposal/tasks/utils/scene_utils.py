@@ -39,17 +39,17 @@ def get_se3_transform(prim):
 
 def add_plane(name, prim_path, device):
     object_usd_path = os.path.join(get_usd_path(),'Props',name,'plane.usd')
-    add_reference_to_stage(object_usd_path, prim_path+ '/'  + name)
+    add_reference_to_stage(object_usd_path, prim_path  + name)
     obj = GeometryPrim(
-        prim_path=prim_path + '/'+ name,
+        prim_path=prim_path  + name,
         name=name,
         position= torch.tensor([0.0, 0.0, 0.0], device=device),
         orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
         scale=[1.5,0.01,1.5], # Has to be scaled down to metres. Default usd units for these objects is cms
-        collision=True
+        #collision=True
     )
     # Enable tight collision approximation
-    obj.set_collision_approximation("convexDecomposition")
+    #obj.set_collision_approximation("convexDecomposition")
 
 def sence(name, prim_path, device):
     # Spawn Shapenet obstacle model from usd path
@@ -66,11 +66,11 @@ def sence(name, prim_path, device):
         name=name,
         position= pose,
         #orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
-        scale=[4,4,2], # Has to be scaled down to metres. Default usd units for these objects is cms
-        collision=True
+        scale=[4,4,3.5], # Has to be scaled down to metres. Default usd units for these objects is cms
+        #collision=True
     )
     # Enable tight collision approximation
-    obj.set_collision_approximation("convexDecomposition")
+    #obj.set_collision_approximation("convexDecomposition")
 
     return obj
 
@@ -91,7 +91,7 @@ def spawn_obstacle(name, prim_path, device):
         collision=True
     )
     # Enable tight collision approximation
-    obj.set_collision_approximation("convexDecomposition")
+    #obj.set_collision_approximation("convexDecomposition")
 
 
     RigidPrim.__init__(
@@ -102,7 +102,7 @@ def spawn_obstacle(name, prim_path, device):
         orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
         scale=[0.01,0.01,0.01], # Has to be scaled down to metres. Default usd units for these objects is cms
         # visible=visible,
-        mass=999999999999,
+        #mass=-1,
         # linear_velocity=linear_velocity,
         # angular_velocity=angular_velocity,
     )
@@ -126,7 +126,7 @@ def spawn_grasp_object(name, prim_path, device):
         collision=True
     )
     # Enable tight collision approximation
-    obj.set_collision_approximation("convexDecomposition")
+    #obj.set_collision_approximation("convexDecomposition")
 
     RigidPrim.__init__(
         obj, # Add Rigid prim attributes since it can move
