@@ -742,13 +742,13 @@ class NMTask(Task):
         self._curr_goal_tf = self._goal_tf.clone()
         self._goals_xy_dist = torch.linalg.norm(self._goal[:, 0:2], dim=1)  # 計算每個 goal 到原點的 x, y 距離
         # Pitch visualizer by 90 degrees for aesthetics
-        for i in range(goal_num):
-            goal_viz_rot = goal_rots[i] * Rotation.from_euler("xyz", [0, np.pi / 2.0, 0])
-            print(f"self._goal[i, :3]: {self._goal[i, :3]}")
-            if i == 0:
-                self._goal_vizs1.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))   
-            if i == 1:
-                self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
+      #  for i in range(goal_num):
+      #      goal_viz_rot = goal_rots[i] * Rotation.from_euler("xyz", [0, np.pi / 2.0, 0])
+      #      print(f"self._goal[i, :3]: {self._goal[i, :3]}")
+      #      if i == 0:
+      #          self._goal_vizs1.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))   
+      #      if i == 1:
+      #          self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
             
 
         # bookkeeping
@@ -776,16 +776,16 @@ class NMTask(Task):
             raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(obst.prim_path + "/Contact_Sensor")
             if raw_readings.shape[0]:                
                 for reading in raw_readings:
-                   # print(f"sensors: {self._contact_sensor_interface.decode_body_name(reading['body0'])}")
-                   # print(f"sensors: {self._contact_sensor_interface.decode_body_name(reading['body1'])}")
+                 #   print(f"sensors: {self._contact_sensor_interface.decode_body_name(reading['body0'])}")
+                 #   print(f"sensors: {self._contact_sensor_interface.decode_body_name(reading['body1'])}")
                     if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body1"])):
                         return True # Collision detected with some part of the robot
                     if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body0"])):
                         return True # Collision detected with some part of the robot
-        #for grasp_obj in self._grasp_objs:
+        for grasp_obj in self._grasp_objs:
         #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
 
-       #     raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(grasp_obj.prim_path + "/Contact_Sensor")
+            raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(grasp_obj.prim_path + "/Contact_Sensor")
             if raw_readings.shape[0]:
                 for reading in raw_readings:
                     if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body1"])):
