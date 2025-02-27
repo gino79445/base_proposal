@@ -30,7 +30,7 @@ Download the following 3d model packs
 
 - Unzip them and put them into the Props folder.
 ```
-└── Props
+└── base_proposal/base_proposal/base_proposal/usd/Props/
     ├── Base_Materials_NVD@10013/   
     ├── building/                   
     ├── Commercial_NVD@10013/       
