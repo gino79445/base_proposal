@@ -4,10 +4,12 @@ import os
 import numpy as np
 import torch
 from pxr import Gf
+
 # from omni.isaac.core.prims import XFormPrim
 from omni.isaac.core.prims.rigid_prim import RigidPrim
 from omni.isaac.core.prims.geometry_prim import GeometryPrim
 from omni.physx.scripts import utils
+
 # from pxr import UsdGeom
 from base_proposal.utils.files import get_usd_path
 from omni.isaac.core.utils.prims import get_prim_at_path, is_prim_path_valid
@@ -15,10 +17,14 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats
 from omni.isaac.core.utils.semantics import add_update_semantics
 from pxr import UsdGeom
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 goal_center = torch.tensor([0.0, 0.0, 0.0], device=device)
+
+
 def get_goal_center():
     return goal_center
+
 
 def get_se3_transform(prim):
     # Check if the prim is valid and has a computed transform
@@ -37,40 +43,52 @@ def get_se3_transform(prim):
 
     return local_transform
 
+
 def add_plane(name, prim_path, device):
-    object_usd_path = os.path.join(get_usd_path(),'Props',name,'plane.usd')
-    add_reference_to_stage(object_usd_path, prim_path  + name)
+    object_usd_path = os.path.join(get_usd_path(), "Props", name, "plane.usd")
+    add_reference_to_stage(object_usd_path, prim_path + name)
     obj = GeometryPrim(
-        prim_path=prim_path  + name,
+        prim_path=prim_path + name,
         name=name,
-        position= torch.tensor([0.0, 0.0, 0.0], device=device),
-        orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
-        scale=[1.5,0.01,1.5], # Has to be scaled down to metres. Default usd units for these objects is cms
-        #collision=True
+        position=torch.tensor([0.0, 0.0, 0.0], device=device),
+        orientation=torch.tensor(
+            [0.707106, 0.707106, 0.0, 0.0], device=device
+        ),  # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
+        scale=[
+            1.5,
+            0.01,
+            1.5,
+        ],  # Has to be scaled down to metres. Default usd units for these objects is cms
+        # collision=True
     )
     # Enable tight collision approximation
-    #obj.set_collision_approximation("convexDecomposition")
+    # obj.set_collision_approximation("convexDecomposition")
+
 
 def sence(name, prim_path, device):
     # Spawn Shapenet obstacle model from usd path
-    object_usd_path = os.path.join(get_usd_path(),'Props',name,'house.usd')
+    object_usd_path = os.path.join(get_usd_path(), "Props", name, "house.usd")
     print(object_usd_path)
     if not os.path.exists(object_usd_path):
         print("Could not find object at path: ", object_usd_path)
         return None
     add_reference_to_stage(object_usd_path, prim_path + "/obstacle/" + name)
 
-    pose = torch.tensor([0.0,0,0.8],device=device)
+    pose = torch.tensor([0.0, 0, 0.8], device=device)
     obj = GeometryPrim(
         prim_path=prim_path + "/obstacle/" + name,
         name=name,
-        position= pose,
-        #orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
-        scale=[4,4,3.5], # Has to be scaled down to metres. Default usd units for these objects is cms
-        #collision=True
+        position=pose,
+        # orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
+        scale=[
+            4,
+            4,
+            3.5,
+        ],  # Has to be scaled down to metres. Default usd units for these objects is cms
+        # collision=True
     )
     # Enable tight collision approximation
-    #obj.set_collision_approximation("convexDecomposition")
+    # obj.set_collision_approximation("convexDecomposition")
 
     return obj
 
@@ -78,31 +96,44 @@ def sence(name, prim_path, device):
 def spawn_obstacle(name, prim_path, device):
     # Spawn Shapenet obstacle model from usd path
 
-    object_usd_path = os.path.join(get_usd_path(),'Props','Shapenet',name,'models','model_normalized.usd')
+    object_usd_path = os.path.join(
+        get_usd_path(), "Props", "Shapenet", name, "models", "model_normalized.usd"
+    )
     add_reference_to_stage(object_usd_path, prim_path + "/obstacle/" + name)
     prim = get_prim_at_path(prim_path + "/obstacle/" + name)
 
     obj = GeometryPrim(
         prim_path=prim_path + "/obstacle/" + name,
         name=name,
-        position= torch.tensor([0.0, 0.0, 0.0], device=device),
-        orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
-        scale=[0.01,0.01,0.01], # Has to be scaled down to metres. Default usd units for these objects is cms
-        collision=True
+        position=torch.tensor([0.0, 0.0, 0.0], device=device),
+        orientation=torch.tensor(
+            [0.707106, 0.707106, 0.0, 0.0], device=device
+        ),  # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
+        scale=[
+            0.01,
+            0.01,
+            0.01,
+        ],  # Has to be scaled down to metres. Default usd units for these objects is cms
+        collision=True,
     )
     # Enable tight collision approximation
-    #obj.set_collision_approximation("convexDecomposition")
-
+    # obj.set_collision_approximation("convexDecomposition")
 
     RigidPrim.__init__(
         obj,
         prim_path=prim_path + "/obstacle/" + name,
         name=obj.name,
-        position= torch.tensor([0.0, 0.0, 0.0], device=device),
-        orientation= torch.tensor([0.707106, 0.707106, 0.0, 0.0], device=device), # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
-        scale=[0.01,0.01,0.01], # Has to be scaled down to metres. Default usd units for these objects is cms
+        position=torch.tensor([0.0, 0.0, 0.0], device=device),
+        orientation=torch.tensor(
+            [0.707106, 0.707106, 0.0, 0.0], device=device
+        ),  # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
+        scale=[
+            0.01,
+            0.01,
+            0.01,
+        ],  # Has to be scaled down to metres. Default usd units for these objects is cms
         # visible=visible,
-        #mass=-1,
+        mass=99999999,
         # linear_velocity=linear_velocity,
         # angular_velocity=angular_velocity,
     )
@@ -112,41 +143,49 @@ def spawn_obstacle(name, prim_path, device):
 
 def spawn_grasp_object(name, prim_path, device):
     # Spawn YCB object model from usd path
-    object_usd_path = os.path.join(get_usd_path(),'Props','YCB','Axis_Aligned',name+'.usd')
+    object_usd_path = os.path.join(
+        get_usd_path(), "Props", "YCB", "Axis_Aligned", name + ".usd"
+    )
     add_reference_to_stage(object_usd_path, prim_path + "/grasp_obj/ycb_" + name)
     prim = get_prim_at_path(prim_path + "/grasp_obj/ycb_" + name)
 
-    
     obj = GeometryPrim(
         prim_path=prim_path + "/grasp_obj/ycb_" + name,
         name=name,
-        position= torch.tensor([0.0, 0.0, 0.0], device=device),
-        orientation= torch.tensor([0.707106, -0.707106, 0.0, 0.0], device=device), # YCB model may be downward facing. Rotate in X direction by -90 degrees,
-        scale=[0.01,0.01,0.01], # Has to be scaled down to metres. Default usd units for these objects is cms
-        collision=True
+        position=torch.tensor([0.0, 0.0, 0.0], device=device),
+        orientation=torch.tensor(
+            [0.707106, -0.707106, 0.0, 0.0], device=device
+        ),  # YCB model may be downward facing. Rotate in X direction by -90 degrees,
+        scale=[
+            0.01,
+            0.01,
+            0.01,
+        ],  # Has to be scaled down to metres. Default usd units for these objects is cms
+        collision=True,
     )
     # Enable tight collision approximation
-    #obj.set_collision_approximation("convexDecomposition")
+    obj.set_collision_approximation("convexDecomposition")
 
     RigidPrim.__init__(
-        obj, # Add Rigid prim attributes since it can move
+        obj,  # Add Rigid prim attributes since it can move
         prim_path=prim_path + "/grasp_obj/ycb_" + name,
         name=name,
-        position= torch.tensor([0.0, 0.0, 0.0], device=device),
-        orientation= torch.tensor([0.707106, -0.707106, 0.0, 0.0], device=device), # YCB model may be downward facing. Rotate in X direction by -90 degrees,
-        scale=[0.01,0.01,0.01] # Has to be scaled down to metres. Default usd units for these objects is cms
+        position=torch.tensor([0.0, 0.0, 0.0], device=device),
+        orientation=torch.tensor(
+            [0.707106, -0.707106, 0.0, 0.0], device=device
+        ),  # YCB model may be downward facing. Rotate in X direction by -90 degrees,
+        scale=[
+            0.01,
+            0.01,
+            0.01,
+        ],  # Has to be scaled down to metres. Default usd units for these objects is cms
     )
     # Add collider to rigid body with tight collision approximation (Redundant if collider already set)
     # utils.setRigidBody(obj.prim, "convexDecomposition", False)
-   # print(prim)
+    # print(prim)
     transform = get_se3_transform(prim)
-   # print("Transform: ", transform)
+    # print("Transform: ", transform)
     return obj
-
-
-
-
-
 
 
 def setup_tabular_scene(grasp_objs, device):
@@ -157,34 +196,51 @@ def setup_tabular_scene(grasp_objs, device):
 
     goal_pose = []
     for obj in grasp_objs:
-
-        if obj.name == 'nothing':
-            obj.set_world_pose(position=torch.tensor([1.5000000, -2, 0.3],device=device),
-                                 orientation=euler_angles_to_quats(torch.tensor([[-torch.pi/2,0,torch.pi]],device=device))[0])
-            pose = torch.hstack(( torch.tensor([1.3, -1.3, 0.6],dtype=torch.float,device=device),
-                euler_angles_to_quats(torch.tensor([[-torch.pi/2,-torch.pi/2,0]],dtype=torch.float,device=device))[0] ))
+        if obj.name == "nothing":
+            obj.set_world_pose(
+                position=torch.tensor([1.5000000, -2, 0.3], device=device),
+                orientation=euler_angles_to_quats(
+                    torch.tensor([[-torch.pi / 2, 0, torch.pi]], device=device)
+                )[0],
+            )
+            pose = torch.hstack(
+                (
+                    torch.tensor([1.3, -1.3, 0.6], dtype=torch.float, device=device),
+                    euler_angles_to_quats(
+                        torch.tensor(
+                            [[-torch.pi / 2, -torch.pi / 2, 0]],
+                            dtype=torch.float,
+                            device=device,
+                        )
+                    )[0],
+                )
+            )
         else:
-            obj.set_world_pose(position=torch.tensor([1.5, 0.8, 0.8],device=device),
-                                 orientation=euler_angles_to_quats(torch.tensor([[-torch.pi/2,0,torch.pi]],device=device))[0])
-            pose = torch.hstack(( torch.tensor([1.5, 0.6, 0.88],dtype=torch.float,device=device),
-                euler_angles_to_quats(torch.tensor([[-torch.pi/2,-torch.pi/2,0]],dtype=torch.float,device=device))[0] ))
+            obj.set_world_pose(
+                position=torch.tensor([1.5, 0.8, 0.75], device=device),
+                orientation=euler_angles_to_quats(
+                    torch.tensor([[-torch.pi / 2, 0, torch.pi]], device=device)
+                )[0],
+            )
+            pose = torch.hstack(
+                (
+                    torch.tensor([1.45, 0.6, 0.8], dtype=torch.float, device=device),
+                    euler_angles_to_quats(
+                        torch.tensor(
+                            # [[-torch.pi / 2, -torch.pi / 2, 0]],
+                            [[0, 0, torch.pi / 2]],
+                            dtype=torch.float,
+                            device=device,
+                        )
+                    )[0],
+                )
+            )
 
         goal_pose.append(pose)
-    #tranlate list to tensor
+    # tranlate list to tensor
     goal_pose = torch.stack(goal_pose)
-    #print type
+    # print type
     return goal_pose
-
-
-
-
-
-
-
-
-
-
-
 
 
 #    object_positions, object_yaws, objects_dimensions = [], [], []
@@ -201,7 +257,7 @@ def setup_tabular_scene(grasp_objs, device):
 #    tab_r = 100
 #    tab_phi = np.random.uniform(-np.pi/2,-np.pi/2)
 #
-#    tab_phi = -np.pi # Place tabular obstacle on the right side of the robot 
+#    tab_phi = -np.pi # Place tabular obstacle on the right side of the robot
 #    tab_x, tab_y = tab_r*np.cos(tab_phi), tab_r*np.sin(tab_phi)
 #    tab_position = [tab_x,tab_y,tab_z_to_ground]
 #    obstacles[tab_index].set_world_pose(position=torch.tensor(tab_position,dtype=torch.float,device=device),
@@ -211,7 +267,7 @@ def setup_tabular_scene(grasp_objs, device):
 #    # Place all grasp objects on the tabular obstacle (without overlaps)
 #    for idx, _ in enumerate(grasp_objs):
 #        grasp_obj_z_to_ground = - grasp_objs_dimensions[idx][0,2]
-#        
+#
 #        while(1): # Be careful about infinite loops!
 #            # Add random orientation (yaw) to object
 #            grasp_obj_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
@@ -220,7 +276,7 @@ def setup_tabular_scene(grasp_objs, device):
 #            # compute new AxisAligned bbox
 #            self._scene._bbox_cache.Clear()
 #            grasp_obj_aabbox = self._scene.compute_object_AABB(grasp_objs[idx].name)
-#            
+#
 #            # Place object at height of tabular obstacle and in the x-y range of the tabular obstacle
 #            grasp_obj_x = tab_x + np.random.uniform((-tab_xyz_size[0]-grasp_obj_aabbox[0,0])/2.0, (tab_xyz_size[0]-grasp_obj_aabbox[1,0])/2.0)
 #            grasp_obj_y = tab_y + np.random.uniform((-tab_xyz_size[1]-grasp_obj_aabbox[0,1])/2.0, (tab_xyz_size[1]-grasp_obj_aabbox[1,1])/2.0)
@@ -250,7 +306,7 @@ def setup_tabular_scene(grasp_objs, device):
 #                object_yaws.append(grasp_obj_yaw)
 #                objects_dimensions.append(grasp_objs_dimensions[idx])
 #                break
-#    
+#
 #    # Now add a random orientation to the tabular obstacle and move all the grasp objects placed on it accordingly
 #    tab_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
 #    obstacles[tab_index].set_world_pose(orientation=euler_angles_to_quats(torch.tensor([[torch.pi/2,0,tab_yaw]],device=device))[0])
@@ -271,13 +327,13 @@ def setup_tabular_scene(grasp_objs, device):
 #    objects_dimensions.append(obstacles_dimensions[tab_index])
 #    self._scene._bbox_cache.Clear()
 #    obst_aabboxes.append(self._scene.compute_object_AABB(obstacles[tab_index].name))
-#    
+#
 #    # Now we need to place all the other obstacles (without overlaps):
 #    for idx, _ in enumerate(obstacles):
 #        if (idx == tab_index): continue # Skip this since we have already placed tabular obstacle
 #
 #        obst_xyz_size = obstacles_dimensions[idx][1] - obstacles_dimensions[idx][0]
-#        obst_z_to_ground = - obstacles_dimensions[idx][0,2] 
+#        obst_z_to_ground = - obstacles_dimensions[idx][0,2]
 #        first = False
 #        if idx == 0:
 #            first = True
@@ -293,8 +349,8 @@ def setup_tabular_scene(grasp_objs, device):
 #            room_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
 #            if first:
 #                obst_phi = 0 # Place first obstacle on the right side of the robot
-#                obst_r = world_xy_radius  
-#                obst_r = 2  
+#                obst_r = world_xy_radius
+#                obst_r = 2
 #                obst_x, obst_y = obst_r*np.cos(obst_phi), obst_r*np.sin(obst_phi)
 #                obst_position = [obst_x,obst_y,obst_z_to_ground]
 #                #room_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
@@ -331,25 +387,25 @@ def setup_tabular_scene(grasp_objs, device):
 #                    #obst_pos = [obst_pos[0]+0.13*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.13*np.sin(room_yaw+np.pi/2), obst_pos[2]-0.3]
 #                    angle = [0,np.pi/2+np.pi/4,room_yaw-np.pi/2]
 #                    goal_center = [obst_pos[0]+0.4*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.4*np.sin(room_yaw+np.pi/2)]
-#                    
-#                
+#
+#
 #                if target == 'oven_cluster':
 #                    #obst_pos = [obst_pos[0]-0.2*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.2*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.65]
 #                    obst_pos = [obst_pos[0]+0.63*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.63*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.75]
 #                    angle = [np.pi/2,np.pi/2+np.pi/4,room_yaw-np.pi/2]
 #                    goal_center = [obst_pos[0]+0.4*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.4*np.sin(room_yaw+np.pi/2)]
-#                
+#
 #                if target == 'light':
 #                    obst_pos = [obst_pos[0]+1.2*np.cos(room_yaw+np.pi/1.5), obst_pos[1]+1.2*np.sin(room_yaw+np.pi/1.5), obst_pos[2]+0.88]
 #                    #angle = [0,np.pi/2+np.pi/2,room_yaw-np.pi/2]
 #                    angle = [np.pi/2,np.pi/2+np.pi/2,room_yaw-np.pi/2]
 #                    goal_center = [obst_pos[0]+0.3*np.cos(room_yaw+np.pi/1.5), obst_pos[1]+0.3*np.sin(room_yaw+np.pi/1.5)]
 #
-#                
+#
 #                if target == 'lamp':
 #                    obst_pos = [obst_pos[0]-0.4*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.4*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.5]
 #                    angle = [0,np.pi/2+np.pi/4,room_yaw-np.pi/2]
-#                
+#
 #                if target == 'oven':
 #                    # mid
 #                    obst_pos = [obst_pos[0]-0.35*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.35*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.7]
@@ -365,77 +421,76 @@ def setup_tabular_scene(grasp_objs, device):
 #                    obst_pos = [obst_pos[0]-0.1*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.1*np.sin(room_yaw+np.pi/2), obst_pos[2]-0.3]
 #                    angle = [0,np.pi/2+np.pi/4,room_yaw-np.pi/2]
 #                    goal_center = obstacle_pose[0:3]
-#                
+#
 #                obstacle_pose = torch.hstack(( torch.tensor(obst_pos,dtype=torch.float,device=device),
 #                        euler_angles_to_quats(torch.tensor([angle],dtype=torch.float,device=device))[0] ))
 #            break
 #
 #            obstacles[idx].set_world_pose(position=torch.tensor(obst_position,device=device),
 #                                          orientation=euler_angles_to_quats(torch.tensor([[torch.pi/2,0,room_yaw]],device=device))[0])
-            # compute new AxisAligned bbox
- #           self._scene._bbox_cache.Clear()
- #           obst_aabbox = self._scene.compute_object_AABB(obstacles[idx].name)
- #           # Check for overlap with all existing grasp objects
- #           overlap = False
- #           for other_aabbox in obst_aabboxes: # loop over existing AAbboxes
- #               obst_range = Gf.Range3d(Gf.Vec3d(obst_aabbox[0,0],obst_aabbox[0,1],obst_aabbox[0,2]),Gf.Vec3d(obst_aabbox[1,0],obst_aabbox[1,1],obst_aabbox[1,2]))
- #               other_obst_range = Gf.Range3d(Gf.Vec3d(other_aabbox[0,0],other_aabbox[0,1],other_aabbox[0,2]),Gf.Vec3d(other_aabbox[1,0],other_aabbox[1,1],other_aabbox[1,2]))
- #               intersec = Gf.Range3d.GetIntersection(obst_range, other_obst_range)
- #               if (not intersec.IsEmpty()):
- #                   overlap = True # Failed. Try another pose
- #                   break
- #           if (overlap):
- #               continue # Failed. Try another pose
- #           else:
- #               # Success. Add this valid AAbbox to the list
- #               obst_aabboxes.append(obst_aabbox)
- #               # Store obstacle position, orientation (yaw) and dimensions
- #               object_positions.append(obst_position)
- #               object_yaws.append(room_yaw)
- #               objects_dimensions.append(obstacles_dimensions[idx])
- #               break
+# compute new AxisAligned bbox
+#           self._scene._bbox_cache.Clear()
+#           obst_aabbox = self._scene.compute_object_AABB(obstacles[idx].name)
+#           # Check for overlap with all existing grasp objects
+#           overlap = False
+#           for other_aabbox in obst_aabboxes: # loop over existing AAbboxes
+#               obst_range = Gf.Range3d(Gf.Vec3d(obst_aabbox[0,0],obst_aabbox[0,1],obst_aabbox[0,2]),Gf.Vec3d(obst_aabbox[1,0],obst_aabbox[1,1],obst_aabbox[1,2]))
+#               other_obst_range = Gf.Range3d(Gf.Vec3d(other_aabbox[0,0],other_aabbox[0,1],other_aabbox[0,2]),Gf.Vec3d(other_aabbox[1,0],other_aabbox[1,1],other_aabbox[1,2]))
+#               intersec = Gf.Range3d.GetIntersection(obst_range, other_obst_range)
+#               if (not intersec.IsEmpty()):
+#                   overlap = True # Failed. Try another pose
+#                   break
+#           if (overlap):
+#               continue # Failed. Try another pose
+#           else:
+#               # Success. Add this valid AAbbox to the list
+#               obst_aabboxes.append(obst_aabbox)
+#               # Store obstacle position, orientation (yaw) and dimensions
+#               object_positions.append(obst_position)
+#               object_yaws.append(room_yaw)
+#               objects_dimensions.append(obstacles_dimensions[idx])
+#               break
 
- #   # All objects placed in the scene!
- #   # Pick one object to be the grasp object and compute its grasp:
- #   goal_obj_index = np.random.randint(len(grasp_objs))
- #   # For now, generating only top grasps: no roll, pitch 90, same yaw as object
- #   goal_roll = 0.0 # np.random.uniform(-np.pi,np.pi)
- #   goal_pitch = np.pi/2.0 # np.random.uniform(0,np.pi/2.0)
- #   goal_yaw = object_yaws[goal_obj_index]
- #   goal_position = np.array(object_positions[goal_obj_index])
- #   goal_position[2] = (grasp_obj_aabboxes[goal_obj_index][1,2] + np.random.uniform(0.05,0.20)) # Add (random) z offset to object top (5 to 20 cms)
- #   goal_pose = torch.hstack(( torch.tensor(goal_position,dtype=torch.float,device=device),
- #                       euler_angles_to_quats(torch.tensor([[goal_roll,goal_pitch,goal_yaw]],dtype=torch.float,device=device))[0] ))
+#   # All objects placed in the scene!
+#   # Pick one object to be the grasp object and compute its grasp:
+#   goal_obj_index = np.random.randint(len(grasp_objs))
+#   # For now, generating only top grasps: no roll, pitch 90, same yaw as object
+#   goal_roll = 0.0 # np.random.uniform(-np.pi,np.pi)
+#   goal_pitch = np.pi/2.0 # np.random.uniform(0,np.pi/2.0)
+#   goal_yaw = object_yaws[goal_obj_index]
+#   goal_position = np.array(object_positions[goal_obj_index])
+#   goal_position[2] = (grasp_obj_aabboxes[goal_obj_index][1,2] + np.random.uniform(0.05,0.20)) # Add (random) z offset to object top (5 to 20 cms)
+#   goal_pose = torch.hstack(( torch.tensor(goal_position,dtype=torch.float,device=device),
+#                       euler_angles_to_quats(torch.tensor([[goal_roll,goal_pitch,goal_yaw]],dtype=torch.float,device=device))[0] ))
 
- #   
- #   # Remove the goal object from obj_positions and yaws list (for computing oriented bboxes)
- #   del object_positions[goal_obj_index], object_yaws[goal_obj_index]
- #   
- #   # Compute oriented bounding boxes for all remaining objects
- #   for idx in range(len(object_positions)):
- #       bbox_tf = np.zeros((3,3))
- #       bbox_tf[:2,:2] = np.array([[np.cos(object_yaws[idx]), -np.sin(object_yaws[idx])],[np.sin(object_yaws[idx]), np.cos(object_yaws[idx])]])
- #       bbox_tf[:,-1] = np.array([object_positions[idx][0], object_positions[idx][1], 1.0]) # x,y,1
- #       min_xy_vertex = np.array([[objects_dimensions[idx][0,0],objects_dimensions[idx][0,1],1.0]]).T
- #       max_xy_vertex = np.array([[objects_dimensions[idx][1,0],objects_dimensions[idx][1,1],1.0]]).T
- #       new_min_xy_vertex = (bbox_tf @ min_xy_vertex)[0:2].T.squeeze()
- #       new_max_xy_vertex = (bbox_tf @ max_xy_vertex)[0:2].T.squeeze()
- #       z_top_to_ground = object_positions[idx][2] + objects_dimensions[idx][1,2] # z position plus distance to object top
- #       # Oriented bbox: x0, y0, x1, y1, z_to_ground, yaw
- #       oriented_bbox = torch.tensor([ new_min_xy_vertex[0], new_min_xy_vertex[1],
- #                                      new_max_xy_vertex[0], new_max_xy_vertex[1],
- #                                           z_top_to_ground,     object_yaws[idx], ] ,dtype=torch.float,device=device)
- #       if idx == 0:
- #           object_oriented_bboxes = oriented_bbox
- #       else:
- #           object_oriented_bboxes = torch.vstack(( object_oriented_bboxes, oriented_bbox ))
+#
+#   # Remove the goal object from obj_positions and yaws list (for computing oriented bboxes)
+#   del object_positions[goal_obj_index], object_yaws[goal_obj_index]
+#
+#   # Compute oriented bounding boxes for all remaining objects
+#   for idx in range(len(object_positions)):
+#       bbox_tf = np.zeros((3,3))
+#       bbox_tf[:2,:2] = np.array([[np.cos(object_yaws[idx]), -np.sin(object_yaws[idx])],[np.sin(object_yaws[idx]), np.cos(object_yaws[idx])]])
+#       bbox_tf[:,-1] = np.array([object_positions[idx][0], object_positions[idx][1], 1.0]) # x,y,1
+#       min_xy_vertex = np.array([[objects_dimensions[idx][0,0],objects_dimensions[idx][0,1],1.0]]).T
+#       max_xy_vertex = np.array([[objects_dimensions[idx][1,0],objects_dimensions[idx][1,1],1.0]]).T
+#       new_min_xy_vertex = (bbox_tf @ min_xy_vertex)[0:2].T.squeeze()
+#       new_max_xy_vertex = (bbox_tf @ max_xy_vertex)[0:2].T.squeeze()
+#       z_top_to_ground = object_positions[idx][2] + objects_dimensions[idx][1,2] # z position plus distance to object top
+#       # Oriented bbox: x0, y0, x1, y1, z_to_ground, yaw
+#       oriented_bbox = torch.tensor([ new_min_xy_vertex[0], new_min_xy_vertex[1],
+#                                      new_max_xy_vertex[0], new_max_xy_vertex[1],
+#                                           z_top_to_ground,     object_yaws[idx], ] ,dtype=torch.float,device=device)
+#       if idx == 0:
+#           object_oriented_bboxes = oriented_bbox
+#       else:
+#           object_oriented_bboxes = torch.vstack(( object_oriented_bboxes, oriented_bbox ))
 
 
 #    return obstacle_pose
 
 
-
-#def setup_tabular_scene(self, target ,target_angle ,obstacles, tabular_obstacle_mask, grasp_objs, obstacles_dimensions, grasp_objs_dimensions, world_xy_radius, device):
+# def setup_tabular_scene(self, target ,target_angle ,obstacles, tabular_obstacle_mask, grasp_objs, obstacles_dimensions, grasp_objs_dimensions, world_xy_radius, device):
 #    # Randomly arrange the objects in the environment. Ensure no overlaps, collisions!
 #    # Grasp objects will be placed on a random tabular obstacle.
 #    # Returns: target grasp object, target grasp/goal, all object's oriented bboxes
@@ -454,7 +509,7 @@ def setup_tabular_scene(grasp_objs, device):
 #    tab_r = 100
 #    tab_phi = np.random.uniform(-np.pi/2,-np.pi/2)
 #
-#    tab_phi = -np.pi # Place tabular obstacle on the right side of the robot 
+#    tab_phi = -np.pi # Place tabular obstacle on the right side of the robot
 #    tab_x, tab_y = tab_r*np.cos(tab_phi), tab_r*np.sin(tab_phi)
 #    tab_position = [tab_x,tab_y,tab_z_to_ground]
 #    obstacles[tab_index].set_world_pose(position=torch.tensor(tab_position,dtype=torch.float,device=device),
@@ -464,7 +519,7 @@ def setup_tabular_scene(grasp_objs, device):
 #    # Place all grasp objects on the tabular obstacle (without overlaps)
 #    for idx, _ in enumerate(grasp_objs):
 #        grasp_obj_z_to_ground = - grasp_objs_dimensions[idx][0,2]
-#        
+#
 #        while(1): # Be careful about infinite loops!
 #            # Add random orientation (yaw) to object
 #            grasp_obj_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
@@ -473,7 +528,7 @@ def setup_tabular_scene(grasp_objs, device):
 #            # compute new AxisAligned bbox
 #            self._scene._bbox_cache.Clear()
 #            grasp_obj_aabbox = self._scene.compute_object_AABB(grasp_objs[idx].name)
-#            
+#
 #            # Place object at height of tabular obstacle and in the x-y range of the tabular obstacle
 #            grasp_obj_x = tab_x + np.random.uniform((-tab_xyz_size[0]-grasp_obj_aabbox[0,0])/2.0, (tab_xyz_size[0]-grasp_obj_aabbox[1,0])/2.0)
 #            grasp_obj_y = tab_y + np.random.uniform((-tab_xyz_size[1]-grasp_obj_aabbox[0,1])/2.0, (tab_xyz_size[1]-grasp_obj_aabbox[1,1])/2.0)
@@ -503,7 +558,7 @@ def setup_tabular_scene(grasp_objs, device):
 #                object_yaws.append(grasp_obj_yaw)
 #                objects_dimensions.append(grasp_objs_dimensions[idx])
 #                break
-#    
+#
 #    # Now add a random orientation to the tabular obstacle and move all the grasp objects placed on it accordingly
 #    tab_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
 #    obstacles[tab_index].set_world_pose(orientation=euler_angles_to_quats(torch.tensor([[torch.pi/2,0,tab_yaw]],device=device))[0])
@@ -524,13 +579,13 @@ def setup_tabular_scene(grasp_objs, device):
 #    objects_dimensions.append(obstacles_dimensions[tab_index])
 #    self._scene._bbox_cache.Clear()
 #    obst_aabboxes.append(self._scene.compute_object_AABB(obstacles[tab_index].name))
-#    
+#
 #    # Now we need to place all the other obstacles (without overlaps):
 #    for idx, _ in enumerate(obstacles):
 #        if (idx == tab_index): continue # Skip this since we have already placed tabular obstacle
 #
 #        obst_xyz_size = obstacles_dimensions[idx][1] - obstacles_dimensions[idx][0]
-#        obst_z_to_ground = - obstacles_dimensions[idx][0,2] 
+#        obst_z_to_ground = - obstacles_dimensions[idx][0,2]
 #        first = False
 #        if idx == 0:
 #            first = True
@@ -546,8 +601,8 @@ def setup_tabular_scene(grasp_objs, device):
 #            room_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
 #            if first:
 #                obst_phi = 0 # Place first obstacle on the right side of the robot
-#                obst_r = world_xy_radius  
-#                obst_r = 2  
+#                obst_r = world_xy_radius
+#                obst_r = 2
 #                obst_x, obst_y = obst_r*np.cos(obst_phi), obst_r*np.sin(obst_phi)
 #                obst_position = [obst_x,obst_y,obst_z_to_ground]
 #                #room_yaw = np.random.uniform(-np.pi,np.pi) # random yaw
@@ -584,25 +639,25 @@ def setup_tabular_scene(grasp_objs, device):
 #                    #obst_pos = [obst_pos[0]+0.13*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.13*np.sin(room_yaw+np.pi/2), obst_pos[2]-0.3]
 #                    angle = [0,np.pi/2+np.pi/4,room_yaw-np.pi/2]
 #                    goal_center = [obst_pos[0]+0.4*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.4*np.sin(room_yaw+np.pi/2)]
-#                    
-#                
+#
+#
 #                if target == 'oven_cluster':
 #                    #obst_pos = [obst_pos[0]-0.2*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.2*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.65]
 #                    obst_pos = [obst_pos[0]+0.63*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.63*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.75]
 #                    angle = [np.pi/2,np.pi/2+np.pi/4,room_yaw-np.pi/2]
 #                    goal_center = [obst_pos[0]+0.4*np.cos(room_yaw+np.pi/2), obst_pos[1]+0.4*np.sin(room_yaw+np.pi/2)]
-#                
+#
 #                if target == 'light':
 #                    obst_pos = [obst_pos[0]+1.2*np.cos(room_yaw+np.pi/1.5), obst_pos[1]+1.2*np.sin(room_yaw+np.pi/1.5), obst_pos[2]+0.88]
 #                    #angle = [0,np.pi/2+np.pi/2,room_yaw-np.pi/2]
 #                    angle = [np.pi/2,np.pi/2+np.pi/2,room_yaw-np.pi/2]
 #                    goal_center = [obst_pos[0]+0.3*np.cos(room_yaw+np.pi/1.5), obst_pos[1]+0.3*np.sin(room_yaw+np.pi/1.5)]
 #
-#                
+#
 #                if target == 'lamp':
 #                    obst_pos = [obst_pos[0]-0.4*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.4*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.5]
 #                    angle = [0,np.pi/2+np.pi/4,room_yaw-np.pi/2]
-#                
+#
 #                if target == 'oven':
 #                    # mid
 #                    obst_pos = [obst_pos[0]-0.35*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.35*np.sin(room_yaw+np.pi/2), obst_pos[2]+0.7]
@@ -618,7 +673,7 @@ def setup_tabular_scene(grasp_objs, device):
 #                    obst_pos = [obst_pos[0]-0.1*np.cos(room_yaw+np.pi/2), obst_pos[1]-0.1*np.sin(room_yaw+np.pi/2), obst_pos[2]-0.3]
 #                    angle = [0,np.pi/2+np.pi/4,room_yaw-np.pi/2]
 #                    goal_center = obstacle_pose[0:3]
-#                
+#
 #                obstacle_pose = torch.hstack(( torch.tensor(obst_pos,dtype=torch.float,device=device),
 #                        euler_angles_to_quats(torch.tensor([angle],dtype=torch.float,device=device))[0] ))
 #
@@ -660,10 +715,10 @@ def setup_tabular_scene(grasp_objs, device):
 #    goal_pose = torch.hstack(( torch.tensor(goal_position,dtype=torch.float,device=device),
 #                        euler_angles_to_quats(torch.tensor([[goal_roll,goal_pitch,goal_yaw]],dtype=torch.float,device=device))[0] ))
 #
-#    
+#
 #    # Remove the goal object from obj_positions and yaws list (for computing oriented bboxes)
 #    del object_positions[goal_obj_index], object_yaws[goal_obj_index]
-#    
+#
 #    # Compute oriented bounding boxes for all remaining objects
 #    for idx in range(len(object_positions)):
 #        bbox_tf = np.zeros((3,3))
@@ -687,24 +742,24 @@ def setup_tabular_scene(grasp_objs, device):
 #    return grasp_objs[goal_obj_index], obstacle_pose,  object_oriented_bboxes
 #
 # class DynamicObject(RigidPrim, GeometryPrim):
-#     """Creates and adds a prim to stage from USD reference path, and wraps the prim with RigidPrim and GeometryPrim to 
-#        provide access to APIs for rigid body attributes, physics materials and collisions. Please note that this class 
+#     """Creates and adds a prim to stage from USD reference path, and wraps the prim with RigidPrim and GeometryPrim to
+#        provide access to APIs for rigid body attributes, physics materials and collisions. Please note that this class
 #        assumes the object has only a single mesh prim defining its geometry.
 
 #     Args:
 #         usd_path (str): USD reference path the Prim refers to.
 #         prim_path (str): prim path of the Prim to encapsulate or create.
 #         mesh_path (str): prim path of the underlying mesh Prim.
-#         name (str, optional): shortname to be used as a key by Scene class. Note: needs to be unique if the object is 
+#         name (str, optional): shortname to be used as a key by Scene class. Note: needs to be unique if the object is
 #                               added to the Scene. Defaults to "dynamic_object".
-#         position (Optional[np.ndarray], optional): position in the world frame of the prim. Shape is (3, ). Defaults to 
+#         position (Optional[np.ndarray], optional): position in the world frame of the prim. Shape is (3, ). Defaults to
 #                                                    None, which means left unchanged.
-#         translation (Optional[np.ndarray], optional): translation in the local frame of the prim (with respect to its 
-#                                                       parent prim). Shape is (3, ). Defaults to None, which means left 
+#         translation (Optional[np.ndarray], optional): translation in the local frame of the prim (with respect to its
+#                                                       parent prim). Shape is (3, ). Defaults to None, which means left
 #                                                       unchanged.
 #         orientation (Optional[np.ndarray], optional): quaternion orientation in the world/local frame of the prim
-#                                                       (depends if translation or position is specified). Quaternion is 
-#                                                       scalar-first (w, x, y, z). Shape is (4, ). Defaults to None, which 
+#                                                       (depends if translation or position is specified). Quaternion is
+#                                                       scalar-first (w, x, y, z). Shape is (4, ). Defaults to None, which
 #                                                       means left unchanged.
 #         scale (Optional[np.ndarray], optional): local scale to be applied to the prim's dimensions. Shape is (3, ).
 #                                                 Defaults to None, which means left unchanged.

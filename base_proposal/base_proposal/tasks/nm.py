@@ -38,9 +38,11 @@ from base_proposal.tasks.utils import scene_utils
 from base_proposal.tasks.utils import astar_utils
 from base_proposal.tasks.utils import rrt_utils
 from base_proposal.tasks.utils import get_features
-#from omni.isaac.isaac_sensor import _isaac_sensor
+
+# from omni.isaac.isaac_sensor import _isaac_sensor
 from omni.isaac.sensor import _sensor as _isaac_sensor
-#from omni.isaac.sensor import ContactSensor as _isaac_sensor
+
+# from omni.isaac.sensor import ContactSensor as _isaac_sensor
 
 from omni.isaac.core.utils.semantics import add_update_semantics
 from base_proposal.vlm.get_target import identify_object_in_image
@@ -56,8 +58,8 @@ import os
 import time
 import math
 
-#from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
-#from segment_anything import SamPredictor, sam_model_registry
+# from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+# from segment_anything import SamPredictor, sam_model_registry
 
 from omni.isaac.core.utils.torch.maths import torch_rand_float, tensor_clamp
 from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats, quat_diff_rad
@@ -68,13 +70,7 @@ from PIL import Image
 
 # Base placement environment for fetching a target object among clutter
 class NMTask(Task):
-    def __init__(
-        self,
-        name,
-        sim_config,
-        env
-    ) -> None:
-
+    def __init__(self, name, sim_config, env) -> None:
         self._sim_config = sim_config
         self._cfg = sim_config.config
         self._task_cfg = sim_config.task_config
@@ -82,88 +78,139 @@ class NMTask(Task):
         self._device = self._cfg["sim_device"]
         self._num_envs = self._task_cfg["env"]["numEnvs"]
         self._env_spacing = self._task_cfg["env"]["envSpacing"]
-        
+
         self._gamma = self._task_cfg["env"]["gamma"]
         self._max_episode_length = self._task_cfg["env"]["horizon"]
-        
-        self._randomize_robot_on_reset = self._task_cfg["env"]["randomize_robot_on_reset"]
+
+        self._randomize_robot_on_reset = self._task_cfg["env"][
+            "randomize_robot_on_reset"
+        ]
 
         # Get dt for integrating velocity commands and checking limit violations
-        self._dt = torch.tensor(self._sim_config.task_config["sim"]["dt"]*self._sim_config.task_config["env"]["controlFrequencyInv"],device=self._device)
+        self._dt = torch.tensor(
+            self._sim_config.task_config["sim"]["dt"]
+            * self._sim_config.task_config["env"]["controlFrequencyInv"],
+            device=self._device,
+        )
 
         # Environment object settings: (reset() randomizes the environment)
-        self._obstacle_names = self._task_cfg["env"]["obstacles"] 
-        #self._tabular_obstacle_mask = [False, True] # Mask to denote which objects are tabular (i.e. grasp objects can be placed on them)
+        self._obstacle_names = self._task_cfg["env"]["obstacles"]
+        # self._tabular_obstacle_mask = [False, True] # Mask to denote which objects are tabular (i.e. grasp objects can be placed on them)
         self._grasp_obj_names = self._task_cfg["env"]["target"]
-        self._num_obstacles = min(self._task_cfg["env"]["num_obstacles"],len(self._obstacle_names))
-        self._num_grasp_objs = min(self._task_cfg["env"]["num_grasp_objects"],len(self._grasp_obj_names))
+        self._num_obstacles = min(
+            self._task_cfg["env"]["num_obstacles"], len(self._obstacle_names)
+        )
+        self._num_grasp_objs = min(
+            self._task_cfg["env"]["num_grasp_objects"], len(self._grasp_obj_names)
+        )
         self._obstacles = []
         self._obstacles_dimensions = []
         self._grasp_objs = []
         self._grasp_objs_dimensions = []
         #  Contact sensor interface for collision detection:
-        self._contact_sensor_interface = _isaac_sensor.acquire_contact_sensor_interface()
+        self._contact_sensor_interface = (
+            _isaac_sensor.acquire_contact_sensor_interface()
+        )
 
-        
         self._move_group = self._task_cfg["env"]["move_group"]
         self._use_torso = self._task_cfg["env"]["use_torso"]
         # Position control. Actions are base SE2 pose (3) and discrete arm activation (2)
         # env specific limits
-        self.max_rot_vel = torch.tensor(self._task_cfg["env"]["max_rot_vel"], device=self._device)
-        self.max_base_xy_vel = torch.tensor(self._task_cfg["env"]["max_base_xy_vel"], device=self._device)
-        
+        self.max_rot_vel = torch.tensor(
+            self._task_cfg["env"]["max_rot_vel"], device=self._device
+        )
+        self.max_base_xy_vel = torch.tensor(
+            self._task_cfg["env"]["max_base_xy_vel"], device=self._device
+        )
+
         # End-effector reaching settings
         self._goal_pos_threshold = self._task_cfg["env"]["goal_pos_thresh"]
         self._goal_ang_threshold = self._task_cfg["env"]["goal_ang_thresh"]
 
-        self._collided = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
-        self._is_success = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
-        #self.sam = sam_model_registry["vit_h"](checkpoint="sam_vit_h_4b8939.pth")
-        #self.collided = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
-        #self.sam.to(self._device)
-       # self.mask_generator = SamAutomaticMaskGenerator(self.sam)
-        #self.mask_predictor = SamPredictor(self.sam)
-        self.final_place = np.zeros((2), dtype=np.float32) 
-        
-        self.instruction = self._task_cfg["env"]["instruction"]        
+        self._collided = torch.zeros(
+            self._num_envs, device=self._device, dtype=torch.long
+        )
+        self._is_success = torch.zeros(
+            self._num_envs, device=self._device, dtype=torch.long
+        )
+        # self.sam = sam_model_registry["vit_h"](checkpoint="sam_vit_h_4b8939.pth")
+        # self.collided = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
+        # self.sam.to(self._device)
+        # self.mask_generator = SamAutomaticMaskGenerator(self.sam)
+        # self.mask_predictor = SamPredictor(self.sam)
+        self.final_place = np.zeros((2), dtype=np.float32)
+
+        self.instruction = self._task_cfg["env"]["instruction"]
         self.arm = self._task_cfg["env"]["move_group"]
         self.step_count = 0
         # IK solver
-        self._ik_solver = PinTiagoIKSolver(move_group=self._move_group, include_torso=self._use_torso, include_base=True, max_rot_vel=100.0) # No max rot vel
-        self._motion_planner = MotionPlannerTiago(move_group=self._move_group, include_torso=self._use_torso, include_base=True, max_rot_vel=100.0)
-       
-       # Handler for Tiago
-        self.tiago_handler = TiagoDualWBHandler(move_group=self._move_group, use_torso=self._use_torso, sim_config=self._sim_config, num_envs=self._num_envs, device=self._device)
+        self._ik_solver = PinTiagoIKSolver(
+            move_group=self._move_group,
+            include_torso=self._use_torso,
+            include_base=True,
+            max_rot_vel=100.0,
+        )  # No max rot vel
+        self._motion_planner = MotionPlannerTiago(
+            move_group=self._move_group,
+            include_torso=self._use_torso,
+            include_base=True,
+            max_rot_vel=100.0,
+        )
 
-        #RLTask.__init__(self, name, env)
-        Task.__init__(self, name,  env)
+        # Handler for Tiago
+        self.tiago_handler = TiagoDualWBHandler(
+            move_group=self._move_group,
+            use_torso=self._use_torso,
+            sim_config=self._sim_config,
+            num_envs=self._num_envs,
+            device=self._device,
+        )
+
+        # RLTask.__init__(self, name, env)
+        Task.__init__(self, name, env)
 
     def get_camera_intrinsics(self):
         # Get camera intrinsics for rendering
         return self.sd_helper.get_camera_intrinsics()
 
-    def get_point_cloud(self,R, T, fx, fy, cx, cy):
+    def get_point_cloud(self, R, T, fx, fy, cx, cy):
         point_cloud = []
-        #depth =self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
-        #rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
+        # depth =self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
+        # rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
         depth = self.get_depth_data()
         rgb_data = self.get_rgb_data()
 
         for i in range(rgb_data.shape[1]):
             for j in range(rgb_data.shape[0]):
-                i = rgb_data.shape[1] - i 
-                j = rgb_data.shape[0] - j 
-                if  i > 0 and j > 0 and i < rgb_data.shape[1] and j < rgb_data.shape[0] and depth[j,i] > 0:
-                    point = self.get_3d_point(i, j, depth[rgb_data.shape[0] - j,rgb_data.shape[1] - i], R, T, fx, fy, cx, cy)
+                i = rgb_data.shape[1] - i
+                j = rgb_data.shape[0] - j
+                if (
+                    i > 0
+                    and j > 0
+                    and i < rgb_data.shape[1]
+                    and j < rgb_data.shape[0]
+                    and depth[j, i] > 0
+                ):
+                    point = self.get_3d_point(
+                        i,
+                        j,
+                        depth[rgb_data.shape[0] - j, rgb_data.shape[1] - i],
+                        R,
+                        T,
+                        fx,
+                        fy,
+                        cx,
+                        cy,
+                    )
                     point_cloud.append(point)
         point_cloud = np.array(point_cloud)
 
         # save rgb image
         im = Image.fromarray(rgb_data)
         im.save("./data/end_rgb.png")
-       # save the point cloud
+        # save the point cloud
         np.save("./data/point_cloud.npy", point_cloud)
-    
+
     def set_up_scene(self, scene) -> None:
         import omni
 
@@ -171,84 +218,122 @@ class NMTask(Task):
         if not os.path.exists("./data"):
             os.makedirs("./data")
         if self._task_cfg["env"]["plane"] == True:
-            scene_utils.add_plane(name="building", prim_path=self.tiago_handler.default_zero_env_path, device=self._device)
+            scene_utils.add_plane(
+                name="building",
+                prim_path=self.tiago_handler.default_zero_env_path,
+                device=self._device,
+            )
         self.tiago_handler.get_robot()
         if self._task_cfg["env"]["house"] == True:
-            scene_utils.sence(name="building", prim_path=self.tiago_handler.default_zero_env_path, device=self._device)
+            scene_utils.sence(
+                name="building",
+                prim_path=self.tiago_handler.default_zero_env_path,
+                device=self._device,
+            )
         # Spawn obstacles (from ShapeNet usd models):
         for i in range(self._num_obstacles):
-            obst = scene_utils.spawn_obstacle(name=self._obstacle_names[i], prim_path=self.tiago_handler.default_zero_env_path, device=self._device)
-            self._obstacles.append(obst) # Add to list of obstacles (Geometry Prims)
+            obst = scene_utils.spawn_obstacle(
+                name=self._obstacle_names[i],
+                prim_path=self.tiago_handler.default_zero_env_path,
+                device=self._device,
+            )
+            self._obstacles.append(obst)  # Add to list of obstacles (Geometry Prims)
             # Optional: Add contact sensors for collision detection. Covers whole body by default
-            omni.kit.commands.execute("IsaacSensorCreateContactSensor", path="/Contact_Sensor", sensor_period=float(self._sim_config.task_config["sim"]["dt"]),
-                parent=obst.prim_path)
+            omni.kit.commands.execute(
+                "IsaacSensorCreateContactSensor",
+                path="/Contact_Sensor",
+                sensor_period=float(self._sim_config.task_config["sim"]["dt"]),
+                parent=obst.prim_path,
+            )
         # Spawn grasp objs (from YCB usd models):
         for i in range(self._num_grasp_objs):
-            grasp_obj = scene_utils.spawn_grasp_object(name=self._grasp_obj_names[i], prim_path=self.tiago_handler.default_zero_env_path, device=self._device)
-            self._grasp_objs.append(grasp_obj) # Add to list of grasp objects (Rigid Prims)
+            grasp_obj = scene_utils.spawn_grasp_object(
+                name=self._grasp_obj_names[i],
+                prim_path=self.tiago_handler.default_zero_env_path,
+                device=self._device,
+            )
+            self._grasp_objs.append(
+                grasp_obj
+            )  # Add to list of grasp objects (Rigid Prims)
             # Optional: Add contact sensors for collision detection. Covers whole body by default
-            omni.kit.commands.execute("IsaacSensorCreateContactSensor", path="/Contact_Sensor", sensor_period=float(self._sim_config.task_config["sim"]["dt"]),
-                parent=grasp_obj.prim_path)
+            omni.kit.commands.execute(
+                "IsaacSensorCreateContactSensor",
+                path="/Contact_Sensor",
+                sensor_period=float(self._sim_config.task_config["sim"]["dt"]),
+                parent=grasp_obj.prim_path,
+            )
         # Goal visualizer
-        goal_viz1 = VisualCone(prim_path=self.tiago_handler.default_zero_env_path+"/goal1",
-                                radius=0.05,height=0.05,color=np.array([1.0,0.0,0.0]))
-        goal_viz2 = VisualCone(prim_path=self.tiago_handler.default_zero_env_path+"/goal2",
-                                radius=0.05,height=0.05,color=np.array([0,0.0,1.0]))
+        goal_viz1 = VisualCone(
+            prim_path=self.tiago_handler.default_zero_env_path + "/goal1",
+            radius=0.05,
+            height=0.05,
+            color=np.array([1.0, 0.0, 0.0]),
+        )
+        goal_viz2 = VisualCone(
+            prim_path=self.tiago_handler.default_zero_env_path + "/goal2",
+            radius=0.05,
+            height=0.05,
+            color=np.array([0, 0.0, 1.0]),
+        )
 
         super().set_up_scene(scene)
         self._robots = self.tiago_handler.create_articulation_view()
         scene.add(self._robots)
         # Contact sensor interface for robot collision detection
 
-
-        self._goal_vizs1 = GeometryPrimView(prim_paths_expr="/World/envs/.*/goal1",name="goal_viz1")
+        self._goal_vizs1 = GeometryPrimView(
+            prim_paths_expr="/World/envs/.*/goal1", name="goal_viz1"
+        )
         scene.add(self._goal_vizs1)
-        self._goal_vizs2 = GeometryPrimView(prim_paths_expr="/World/envs/.*/goal2",name="goal_viz2")
+        self._goal_vizs2 = GeometryPrimView(
+            prim_paths_expr="/World/envs/.*/goal2", name="goal_viz2"
+        )
         scene.add(self._goal_vizs2)
-        
+
         # Enable object axis-aligned bounding box computations
         scene.enable_bounding_boxes_computations()
         # Add spawned objects to scene registry and store their bounding boxes:
         for obst in self._obstacles:
             scene.add(obst)
-            self._obstacles_dimensions.append(scene.compute_object_AABB(obst.name)) # Axis aligned bounding box used as dimensions
+            self._obstacles_dimensions.append(
+                scene.compute_object_AABB(obst.name)
+            )  # Axis aligned bounding box used as dimensions
         for grasp_obj in self._grasp_objs:
             scene.add(grasp_obj)
-            self._grasp_objs_dimensions.append(scene.compute_object_AABB(grasp_obj.name)) # Axis aligned bounding box used as dimensions
+            self._grasp_objs_dimensions.append(
+                scene.compute_object_AABB(grasp_obj.name)
+            )  # Axis aligned bounding box used as dimensions
         # Optional viewport for rendering in a separate viewer
-        
 
         rgb = self.get_rgb_data()
         im = Image.fromarray(rgb)
 
-        #rgb_data = rgb.get_data()
-        #im = Image.fromarray(rgb_data)
-        #im.save("./data/start_rgb.png")
-        
+        # rgb_data = rgb.get_data()
+        # im = Image.fromarray(rgb_data)
+        # im.save("./data/start_rgb.png")
 
-       # from omni.isaac.synthetic_utils import SyntheticDataHelper
-#        from omni.isaac.synthetic_utils import SyntheticDataHelper
- #       self.viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
-  #      self.sd_helper = SyntheticDataHelper()
-#        sensor_names = [
-#            "rgb",
-#            "depth",
-#            "boundingBox2DTight",
-#            "boundingBox2DLoose",
-#            "instanceSegmentation",
-#            "semanticSegmentation",
-#            "boundingBox3D",
-#            "camera",
-#            "pose",
-#        ]
-#        self.sd_helper.initialize(sensor_names, viewport=self.viewport_window)
-#        
-       
+    # from omni.isaac.synthetic_utils import SyntheticDataHelper
+    #        from omni.isaac.synthetic_utils import SyntheticDataHelper
+    #       self.viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
+    #      self.sd_helper = SyntheticDataHelper()
+    #        sensor_names = [
+    #            "rgb",
+    #            "depth",
+    #            "boundingBox2DTight",
+    #            "boundingBox2DLoose",
+    #            "instanceSegmentation",
+    #            "semanticSegmentation",
+    #            "boundingBox3D",
+    #            "camera",
+    #            "pose",
+    #        ]
+    #        self.sd_helper.initialize(sensor_names, viewport=self.viewport_window)
+    #
 
     def post_reset(self):
         # reset that takes place when the isaac world is reset (typically happens only once)
         self.tiago_handler.post_reset()
-    
+
     def get_pixel(self, point, R, T, fx, fy, cx, cy):
         point = R @ (point - T)
         X = point[1]
@@ -263,46 +348,43 @@ class NMTask(Task):
 
     def get_3d_point(self, u, v, Z, R, T, fx, fy, cx, cy):
         # Retrieve camera parameters
-        
+
         # Convert pixel coordinates to normalized camera coordinates
         X = (u - cx) * Z / fx
         Y = (v - cy) * Z / fy
-        
+
         # Convert to camera coordinates (as column vector)
         point = np.array([[Z], [X], [Y]])
         # Apply the inverse transformation (R^-1 and translation)
         R_inv = np.linalg.inv(R)
-        point_3d = R_inv @ point + T 
+        point_3d = R_inv @ point + T
         return point_3d
 
     def transform_points(self, points, old_origin, new_origin, old_vector, new_vector):
         old_vector = old_vector / np.linalg.norm(old_vector)
         new_vector = new_vector / np.linalg.norm(new_vector)
-        
-        angle = np.arctan2(old_vector[1], old_vector[0]) - np.arctan2(new_vector[1], new_vector[0])
-        #print(f"angle: {angle}")
-        #print(f"angle: {angle * 180 / np.pi}")
-        
-        rotation_matrix = np.array([
-            [np.cos(angle), -np.sin(angle)],
-            [np.sin(angle), np.cos(angle)]
-        ])
-        
+
+        angle = np.arctan2(old_vector[1], old_vector[0]) - np.arctan2(
+            new_vector[1], new_vector[0]
+        )
+        # print(f"angle: {angle}")
+        # print(f"angle: {angle * 180 / np.pi}")
+
+        rotation_matrix = np.array(
+            [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+        )
 
         translation_vector = new_origin - old_origin
-        
+
         rotated_points = np.dot(points, rotation_matrix)
         final_points = rotated_points + translation_vector
-        
-        
+
         return final_points
- 
 
     def get_path(self):
         return self.path
-    
 
-    def transform_path(self,path):
+    def transform_path(self, path):
         transformed_path = []
         pre_angle = 0  # 初始角度
         pre_x, pre_y = 0, 0  # 初始座標
@@ -333,14 +415,14 @@ class NMTask(Task):
         ux, uy = u
         vx, vy = v
         # 內積：u dot v = |u|*|v|*cos(theta)
-        dot = ux*vx + uy*vy
-        mag_u = np.sqrt(ux*ux + uy*uy)
-        mag_v = np.sqrt(vx*vx + vy*vy)
+        dot = ux * vx + uy * vy
+        mag_u = np.sqrt(ux * ux + uy * uy)
+        mag_v = np.sqrt(vx * vx + vy * vy)
         # 為避免浮點誤差超出 [-1,1]，我們夾住在 [-1,1]
-        cos_theta = max(-1.0, min(1.0, dot/(mag_u*mag_v + 1e-12)))
+        cos_theta = max(-1.0, min(1.0, dot / (mag_u * mag_v + 1e-12)))
         return np.arccos(cos_theta)
 
-    def merge_small_angle_increments(self,local_increments, deg_threshold=5.0):
+    def merge_small_angle_increments(self, local_increments, deg_threshold=5.0):
         rad_threshold = np.deg2rad(deg_threshold)
         merged = []
 
@@ -367,7 +449,7 @@ class NMTask(Task):
         goal = position
 
         start = (100, 100)
-        end = (int(goal[1] / cell_size )+100, int(goal[0] / cell_size + 100))
+        end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
 
         occupancy_2d_map = self.occupancy_2d_map
         path = astar_utils.a_star2(occupancy_2d_map, start, end)
@@ -382,27 +464,42 @@ class NMTask(Task):
         return self.path
 
     def build_local_map(self, R, T, fx, fy, cx, cy):
-
         # 2d occupancy map
         self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-        #self.occupancy_2d_map.fill(255)
+        # self.occupancy_2d_map.fill(255)
         depth = self.depth_data
         map_size = (200, 200)
         cell_size = 0.05
-      #  for i in range(-10, 20):
-      #      for j in range(-20, 20):
-      #          self.occupancy_2d_map[100+j,100+i] = 0
+        #  for i in range(-10, 20):
+        #      for j in range(-20, 20):
+        #          self.occupancy_2d_map[100+j,100+i] = 0
 
         if depth.shape[0] == 0:
             return
 
         for i in range(self.rgb_data.shape[1]):
             for j in range(self.rgb_data.shape[0]):
-                i = self.rgb_data.shape[1] - i 
-                j = self.rgb_data.shape[0] - j 
-                if  i > 0 and j > 0 and i < self.rgb_data.shape[1] and j < self.rgb_data.shape[0] and depth[j,i] > 0:
-                    depth[j,i] = depth[j,i]  
-                    point = self.get_3d_point(i, j, depth[self.rgb_data.shape[0] - j,self.rgb_data.shape[1] - i], R, T, fx, fy, cx, cy)
+                i = self.rgb_data.shape[1] - i
+                j = self.rgb_data.shape[0] - j
+                if (
+                    i > 0
+                    and j > 0
+                    and i < self.rgb_data.shape[1]
+                    and j < self.rgb_data.shape[0]
+                    and depth[j, i] > 0
+                ):
+                    depth[j, i] = depth[j, i]
+                    point = self.get_3d_point(
+                        i,
+                        j,
+                        depth[self.rgb_data.shape[0] - j, self.rgb_data.shape[1] - i],
+                        R,
+                        T,
+                        fx,
+                        fy,
+                        cx,
+                        cy,
+                    )
                     map_x = int(point[0] / cell_size)
                     map_x += int(map_size[0] / 2)
                     map_y = int(point[1] / cell_size)
@@ -410,102 +507,108 @@ class NMTask(Task):
                     if 0 <= map_x < map_size[0] and 0 <= map_y < map_size[1]:
                         if point[2] > 0.1:
                             self.occupancy_2d_map[map_y, map_x] = 255
-                        #else:
+                        # else:
                         #    self.occupancy_2d_map[map_y, map_x] = 255
-        
 
         im = Image.fromarray(self.occupancy_2d_map)
         im.save("./data/occupancy_2d_map.png")
-
 
     def get_observations(self):
         # Handle any pending resets
         reset_env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(reset_env_ids) > 0:
             self.reset_idx(reset_env_ids)
-        
-        
+
         # perceptial data
-       # self.bounding_box = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
-       # self.rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
-       # self.depth_data = self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
-       # self.pose_data = self.sd_helper.get_groundtruth(["pose"], self.ego_viewport.get_viewport_window())["pose"]
-       # self.rgb_data = self.rgb_data[:,:,:3]
+        # self.bounding_box = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
+        # self.rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
+        # self.depth_data = self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
+        # self.pose_data = self.sd_helper.get_groundtruth(["pose"], self.ego_viewport.get_viewport_window())["pose"]
+        # self.rgb_data = self.rgb_data[:,:,:3]
         self.depth_data = self.get_depth_data()
         self.rgb_data = self.get_rgb_data()
-        #print("rgb_data shape: ", self.rgb_data.shape)
-        #print("depth_data shape: ", self.depth_data.shape) 
+        # print("rgb_data shape: ", self.rgb_data.shape)
+        # print("depth_data shape: ", self.depth_data.shape)
         # save the depth image if shape is not empty
         if self.depth_data.shape[0] != 0:
-            #normalization
+            # normalization
             depth_data = self.depth_data / 5
             depth_data = depth_data * 255.0
-            depth_data = depth_data.astype('uint8')
+            depth_data = depth_data.astype("uint8")
             im = Image.fromarray(depth_data)
             im.save("./data/depth.png")
         # get the camera parameters
-        R,T ,fx, fy, cx, cy = self.retrieve_camera_params()
+        R, T, fx, fy, cx, cy = self.retrieve_camera_params()
         depth = self.depth_data
-        self.rgb_data = self.rgb_data.astype('uint8')      
+        self.rgb_data = self.rgb_data.astype("uint8")
         # save the rgb image
         im = Image.fromarray(self.rgb_data)
         im.save("./data/rgb.png")
 
-
-        rgb = self.rgb_data.copy()        
-        #for box in self.bounding_box:
-        #    if box['semanticLabel'] == 'target':  
+        rgb = self.rgb_data.copy()
+        # for box in self.bounding_box:
+        #    if box['semanticLabel'] == 'target':
         #        x_min, y_min, x_max, y_max = int(box['x_min']), int(box['y_min']), int(box['x_max']), int(box['y_max'])
         #        cv2.rectangle(rgb, (x_min, y_min), (x_max, y_max), (220, 0, 0), 1)
-        #        # save the rgb image        
+        #        # save the rgb image
         #        im = Image.fromarray(rgb)
         #        im.save("./data/original.png")
-        
 
         if self._task_cfg["env"]["check_env"] == True:
             return
 
-        #self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-                
-        #self.build_local_map(R, T, fx, fy, cx, cy)
+        # self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+
+        # self.build_local_map(R, T, fx, fy, cx, cy)
 
         self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-        return 
+        return
 
     def get_render(self):
         # Get ground truth viewport rgb image
         gt = self.sd_helper.get_groundtruth(
-            ["rgb"], self.viewport_window, verify_sensor_init=False, wait_for_sensor_data=0
+            ["rgb"],
+            self.viewport_window,
+            verify_sensor_init=False,
+            wait_for_sensor_data=0,
         )
         return np.array(gt["rgb"])
-
-
-
 
     def get_motion_num(self):
         return len(self.motion_path)
 
-
-    def set_new_base(self,x_scaled,y_scaled,theta_scaled):
-
+    def set_new_base(self, x_scaled, y_scaled, theta_scaled):
         # NOTE: Actions are in robot frame but the handler is in world frame!
         # Get current base positions
-        base_joint_pos = self.tiago_handler.get_robot_obs()[:,:3] # First three are always base positions
-        base_tf = torch.zeros((4,4),device=self._device)
-        base_tf[:2,:2] = torch.tensor([[torch.cos(base_joint_pos[0,2]), -torch.sin(base_joint_pos[0,2])],[torch.sin(base_joint_pos[0,2]), torch.cos(base_joint_pos[0,2])]]) # rotation about z axis
-        base_tf[2,2] = 1.0 # No rotation here
-        base_tf[:,-1] = torch.tensor([base_joint_pos[0,0], base_joint_pos[0,1], 0.0, 1.0]) # x,y,z,1
+        base_joint_pos = self.tiago_handler.get_robot_obs()[
+            :, :3
+        ]  # First three are always base positions
+        base_tf = torch.zeros((4, 4), device=self._device)
+        base_tf[:2, :2] = torch.tensor(
+            [
+                [torch.cos(base_joint_pos[0, 2]), -torch.sin(base_joint_pos[0, 2])],
+                [torch.sin(base_joint_pos[0, 2]), torch.cos(base_joint_pos[0, 2])],
+            ]
+        )  # rotation about z axis
+        base_tf[2, 2] = 1.0  # No rotation here
+        base_tf[:, -1] = torch.tensor(
+            [base_joint_pos[0, 0], base_joint_pos[0, 1], 0.0, 1.0]
+        )  # x,y,z,1
 
         # Transform actions to world frame and apply to base
-        action_tf = torch.zeros((4,4),device=self._device)
-        action_tf[:2,:2] = torch.tensor([[torch.cos(theta_scaled[0]), -torch.sin(theta_scaled[0])],[torch.sin(theta_scaled[0]), torch.cos(theta_scaled[0])]])
-        action_tf[2,2] = 1.0 # No rotation here
-        action_tf[:,-1] = torch.tensor([x_scaled[0], y_scaled[0], 0.0, 1.0]) # x,y,z,1
+        action_tf = torch.zeros((4, 4), device=self._device)
+        action_tf[:2, :2] = torch.tensor(
+            [
+                [torch.cos(theta_scaled[0]), -torch.sin(theta_scaled[0])],
+                [torch.sin(theta_scaled[0]), torch.cos(theta_scaled[0])],
+            ]
+        )
+        action_tf[2, 2] = 1.0  # No rotation here
+        action_tf[:, -1] = torch.tensor([x_scaled[0], y_scaled[0], 0.0, 1.0])  # x,y,z,1
         return base_tf, action_tf
 
-    def set_angle(self,theta):
-        self.rot  = theta
-
+    def set_angle(self, theta):
+        self.rot = theta
 
     def pre_physics_step(self, actions) -> None:
         # actions (num_envs, num_action)
@@ -513,38 +616,63 @@ class NMTask(Task):
         reset_env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(reset_env_ids) > 0:
             self.reset_idx(reset_env_ids)
-        
-        R,T ,fx, fy, cx, cy = self.retrieve_camera_params()
-      
-        if actions == 'set_angle':
-            x = torch.tensor([0],device=self._device)
-            y = torch.tensor([0],device=self._device)
-            theta = torch.tensor([self.rot],device=self._device)
-            base_tf, action_tf = self.set_new_base(x,y,theta)
-            new_base_tf = torch.matmul(base_tf,action_tf)
-            new_base_xy = new_base_tf[0:2,3].unsqueeze(dim=0)
-            new_base_theta = torch.arctan2(new_base_tf[1,0],new_base_tf[0,0]).unsqueeze(dim=0).unsqueeze(dim=0)
+
+        R, T, fx, fy, cx, cy = self.retrieve_camera_params()
+        action = np.zeros(3)
+        action = torch.tensor(action, dtype=torch.float, device=self._device).unsqueeze(
+            dim=0
+        )
+        self.tiago_handler.apply_base_actions(action)
+        if actions == "close_gripper":
+            self.tiago_handler.close_gripper()
+            return
+
+        if self.flag == 1 and actions != "lift_object":
+            pass
+        # self.tiago_handler.close_gripper()
+        if actions == "lift_object":
+            print("Lifting object")
+            self.flag = 1
+            # self.tiago_handler.close_gripper()
+            self.tiago_handler.lift()
+            return
+        if actions == "set_angle":
+            x = torch.tensor([0], device=self._device)
+            y = torch.tensor([0], device=self._device)
+            theta = torch.tensor([self.rot], device=self._device)
+            base_tf, action_tf = self.set_new_base(x, y, theta)
+            new_base_tf = torch.matmul(base_tf, action_tf)
+            new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
+            new_base_theta = (
+                torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
+                .unsqueeze(dim=0)
+                .unsqueeze(dim=0)
+            )
             self.new_base_tf = new_base_tf
             self.new_base_xy = new_base_xy
             self.new_base_theta = new_base_theta
             self.path = []
-            return 
+            return
 
-        if actions == 'get_base':
-
-            self.final_place = torch.tensor(self.path[self.pos_idx],device=self._device)
-            x_scaled = torch.tensor([self.final_place[0]],device=self._device) 
-            y_scaled = torch.tensor([self.final_place[1]],device=self._device)
-            theta_scaled = torch.atan2(y_scaled,x_scaled)
-            base_tf, action_tf = self.set_new_base(x_scaled,y_scaled,theta_scaled)
-            new_base_tf = torch.matmul(base_tf,action_tf)
-            new_base_xy = new_base_tf[0:2,3].unsqueeze(dim=0)
-            new_base_theta = torch.arctan2(new_base_tf[1,0],new_base_tf[0,0]).unsqueeze(dim=0).unsqueeze(dim=0)
-            self.new_base_tf = new_base_tf  
+        if actions == "get_base":
+            self.final_place = torch.tensor(
+                self.path[self.pos_idx], device=self._device
+            )
+            x_scaled = torch.tensor([self.final_place[0]], device=self._device)
+            y_scaled = torch.tensor([self.final_place[1]], device=self._device)
+            theta_scaled = torch.atan2(y_scaled, x_scaled)
+            base_tf, action_tf = self.set_new_base(x_scaled, y_scaled, theta_scaled)
+            new_base_tf = torch.matmul(base_tf, action_tf)
+            new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
+            new_base_theta = (
+                torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
+                .unsqueeze(dim=0)
+                .unsqueeze(dim=0)
+            )
+            self.new_base_tf = new_base_tf
             self.new_base_xy = new_base_xy
             self.new_base_theta = new_base_theta
             return
-        
 
         if self.check_robot_collisions():
             print("Collision detected")
@@ -552,107 +680,128 @@ class NMTask(Task):
         if self._collided[0] == 1:
             return
 
-         
         if actions == "get_point_cloud":
-            
             self.get_point_cloud(R, T, fx, fy, cx, cy)
 
-            point_cloud = np.load('./data/point_cloud.npy')
+            point_cloud = np.load("./data/point_cloud.npy")
             point_cloud = point_cloud.squeeze()
             point_cloud = point_cloud[::100]
             point_cloud = point_cloud[point_cloud[:, 2] > 0.1]
             point_cloud = point_cloud[point_cloud[:, 2] < 3]
-            path = self._motion_planner.rrt_motion_plan_with_obstacles(self.start_q, self.end_q, point_cloud, max_iters=1000, step_size=0.3)
+            path = self._motion_planner.rrt_motion_plan_with_obstacles(
+                self.start_q, self.end_q, point_cloud, max_iters=1000, step_size=0.3
+            )
             self.motion_path = path
             return
 
-        if actions == 'move_arm':
-            
-                    
+        if actions == "move_arm":
             if self.ik_success:
-                
                 if self.path_num >= len(self.motion_path):
                     return
                 base_positions = self.motion_path[self.path_num][0:3]
 
-                #self.tiago_handler.set_base_positions(jnt_positions=torch.tensor(np.array([base_positions]),dtype=torch.float,device=self._device))
-                self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array(self.motion_path[self.path_num][4:]),dtype=torch.float,device=self._device))
+                # self.tiago_handler.set_base_positions(jnt_positions=torch.tensor(np.array([base_positions]),dtype=torch.float,device=self._device))
+                self.tiago_handler.set_upper_body_positions(
+                    jnt_positions=torch.tensor(
+                        np.array(self.motion_path[self.path_num][4:]),
+                        dtype=torch.float,
+                        device=self._device,
+                    )
+                )
                 self.path_num += 1
-                return 
+                return
 
         if self._is_success[0] == 1:
             return
 
-
-
-        
-        if actions == 'forward':
+        if actions == "forward":
             actions = np.zeros(3)
             actions[0] = self.max_base_xy_vel
-            actions = torch.unsqueeze(torch.tensor(actions,dtype=torch.float,device=self._device),dim=0)
-            self.tiago_handler.apply_base_actions(actions)
-            return
-       
-        if actions == 'right_rotate':
-            actions = np.zeros(3)
-            actions[2] = self.max_rot_vel
-            actions = torch.unsqueeze(torch.tensor(actions,dtype=torch.float,device=self._device),dim=0)
-            self.tiago_handler.apply_base_actions(actions)
-            return
-       
-        if actions == 'left_rotate':
-            actions = np.zeros(3)
-            actions[2] = -self.max_rot_vel
-            actions = torch.unsqueeze(torch.tensor(actions,dtype=torch.float,device=self._device),dim=0)
+            actions = torch.unsqueeze(
+                torch.tensor(actions, dtype=torch.float, device=self._device), dim=0
+            )
             self.tiago_handler.apply_base_actions(actions)
             return
 
-        
+        if actions == "right_rotate":
+            actions = np.zeros(3)
+            actions[2] = self.max_rot_vel
+            actions = torch.unsqueeze(
+                torch.tensor(actions, dtype=torch.float, device=self._device), dim=0
+            )
+            self.tiago_handler.apply_base_actions(actions)
+            return
+
+        if actions == "left_rotate":
+            actions = np.zeros(3)
+            actions[2] = -self.max_rot_vel
+            actions = torch.unsqueeze(
+                torch.tensor(actions, dtype=torch.float, device=self._device), dim=0
+            )
+            self.tiago_handler.apply_base_actions(actions)
+            return
+
         # Move base
-        if actions == 'set_base':
-            self.tiago_handler.set_base_positions(torch.hstack((self.new_base_xy,self.new_base_theta)))
-            self.x_delta= self.new_base_xy[0,0].cpu().numpy()
-            self.y_delta = self.new_base_xy[0,1].cpu().numpy()
-            self.theta_delta = self.new_base_theta[0,0].cpu().numpy()
-            #theta_delta = theta
+        if actions == "set_base":
+            self.tiago_handler.set_base_positions(
+                torch.hstack((self.new_base_xy, self.new_base_theta))
+            )
+            self.x_delta = self.new_base_xy[0, 0].cpu().numpy()
+            self.y_delta = self.new_base_xy[0, 1].cpu().numpy()
+            self.theta_delta = self.new_base_theta[0, 0].cpu().numpy()
+            # theta_delta = theta
             self.pos_idx += 1
             if self.pos_idx == len(self.path) or len(self.path) == 0:
                 self.pos_idx = 0
             inv_base_tf = torch.linalg.inv(self.new_base_tf)
-            self._curr_goal_tf = torch.matmul(inv_base_tf,self._goal_tf)
-#            print(f"Goal position: {self._curr_goal_tf}")
+            self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
+        #            print(f"Goal position: {self._curr_goal_tf}")
 
+        if actions == "manipulate":
+            # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
+            x_scaled = torch.tensor([0], device=self._device)
+            y_scaled = torch.tensor([0], device=self._device)
+            theta_scaled = torch.tensor([0], device=self._device)
 
-        if actions == 'manipulate':
-          #if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
-            x_scaled = torch.tensor([0],device=self._device)
-            y_scaled = torch.tensor([0],device=self._device)
-            theta_scaled = torch.tensor([0],device=self._device)
+            base_tf, action_tf = self.set_new_base(x_scaled, y_scaled, theta_scaled)
+            new_base_tf = torch.matmul(base_tf, action_tf)
+            new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
+            new_base_theta = (
+                torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
+                .unsqueeze(dim=0)
+                .unsqueeze(dim=0)
+            )
+            self.tiago_handler.set_base_positions(
+                torch.hstack((new_base_xy, new_base_theta))
+            )
 
-            base_tf, action_tf = self.set_new_base(x_scaled,y_scaled,theta_scaled)
-            new_base_tf = torch.matmul(base_tf,action_tf)
-            new_base_xy = new_base_tf[0:2,3].unsqueeze(dim=0)
-            new_base_theta = torch.arctan2(new_base_tf[1,0],new_base_tf[0,0]).unsqueeze(dim=0).unsqueeze(dim=0)
-            self.tiago_handler.set_base_positions(torch.hstack((new_base_xy,new_base_theta)))
-            
             # Transform goal to robot frame
             inv_base_tf = torch.linalg.inv(new_base_tf)
-            self._curr_goal_tf = torch.matmul(inv_base_tf,self._goal_tf)
-            curr_goal_pos = self._curr_goal_tf[self.se3_idx,0:3,3]
-            curr_goal_quat = Rotation.from_matrix(self._curr_goal_tf[self.se3_idx,:3,:3]).as_quat()[[3, 0, 1, 2]]
+            self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
+            curr_goal_pos = self._curr_goal_tf[self.se3_idx, 0:3, 3]
+            curr_goal_quat = Rotation.from_matrix(
+                self._curr_goal_tf[self.se3_idx, :3, :3]
+            ).as_quat()[[3, 0, 1, 2]]
             self.se3_idx += 1
 
-            success_list, base_positions_list = self._ik_solver.solve_ik_pos_tiago(des_pos=curr_goal_pos.cpu().numpy(), des_quat=curr_goal_quat,
-                                        #pos_threshold=self._goal_pos_threshold, angle_threshold=self._goal_ang_threshold, verbose=False, Rmin=[-0.0, -0.0, 0.965,-0.259],Rmax=[0.0, 0.0, 1, 0.259])
-                                        pos_threshold=self._goal_pos_threshold, angle_threshold=self._goal_ang_threshold, verbose=False, Rmin=[-0.0, -0.0, 0.866,-0.5],Rmax=[0.0, 0.0, 1, 0.5])
+            success_list, base_positions_list = self._ik_solver.solve_ik_pos_tiago(
+                des_pos=curr_goal_pos.cpu().numpy(),
+                des_quat=curr_goal_quat,
+                # pos_threshold=self._goal_pos_threshold, angle_threshold=self._goal_ang_threshold, verbose=False, Rmin=[-0.0, -0.0, 0.965,-0.259],Rmax=[0.0, 0.0, 1, 0.259])
+                pos_threshold=self._goal_pos_threshold,
+                angle_threshold=self._goal_ang_threshold,
+                verbose=False,
+                Rmin=[-0.0, -0.0, 0.866, -0.5],
+                Rmax=[0.0, 0.0, 1, 0.5],
+            )
             success = False
             for i in range(len(success_list)):
                 if success_list[i]:
-                    x = int((base_positions_list[i][0])/0.05 + 100)
-                    y = int((base_positions_list[i][1])/0.05 + 100)
+                    x = int((base_positions_list[i][0]) / 0.05 + 100)
+                    y = int((base_positions_list[i][1]) / 0.05 + 100)
                     success = success_list[i]
                     base_positions = base_positions_list[i]
-                    
+
                     if astar_utils.is_valid(y, x, self.occupancy_2d_map):
                         success = success_list[i]
                         base_positions = base_positions_list[i]
@@ -663,55 +812,94 @@ class NMTask(Task):
             if success:
                 print("IK Success")
 
-
                 self.ik_success = True
-                theta = torch.arctan2(torch.tensor(base_positions[3]), torch.tensor(base_positions[2])) 
+                theta = torch.arctan2(
+                    torch.tensor(base_positions[3]), torch.tensor(base_positions[2])
+                )
                 theta += theta_scaled.item()
                 theta += self.theta_delta
-            
-                self.tiago_handler.set_base_positions(jnt_positions=torch.tensor(np.array([[base_positions[0]+self.x_delta,base_positions[1]+self.y_delta,theta]]),dtype=torch.float,device=self._device))
+
+                self.tiago_handler.set_base_positions(
+                    jnt_positions=torch.tensor(
+                        np.array(
+                            [
+                                [
+                                    base_positions[0] + self.x_delta,
+                                    base_positions[1] + self.y_delta,
+                                    theta,
+                                ]
+                            ]
+                        ),
+                        dtype=torch.float,
+                        device=self._device,
+                    )
+                )
 
                 self.tmp_x = base_positions[0] + self.x_delta
                 self.tmp_y = base_positions[1] + self.y_delta
-                self.tmp_theta = self.theta_delta 
-                
+                self.tmp_theta = self.theta_delta
+
                 start_arm = self.tiago_handler.get_upper_body_positions()
                 start_base = self.tiago_handler.get_base_positions()
                 start_base = np.array([0, 0, 1, 0])
                 start_base = torch.tensor(start_base)
                 start_base = start_base.unsqueeze(0)
-                start_q = torch.hstack((start_base,start_arm))
+                start_q = torch.hstack((start_base, start_arm))
                 start_q = start_q.unsqueeze(0)
                 start_q = start_q.cpu().numpy()
                 start_q = start_q[0][0]
                 self.start_q = start_q
-                
-                
-                end_base= np.array([base_positions[0],base_positions[1], base_positions[2], base_positions[3]])
+
+                end_base = np.array(
+                    [
+                        base_positions[0],
+                        base_positions[1],
+                        base_positions[2],
+                        base_positions[3],
+                    ]
+                )
                 end_base = np.array([0, 0, 1, 0])
-                end_arm  = np.array([base_positions[4:]])
+                end_arm = np.array([base_positions[4:]])
                 end_base = torch.tensor(end_base)
                 end_arm = torch.tensor(end_arm).squeeze(0)
-                end_q = torch.hstack((end_base,end_arm))
+                end_q = torch.hstack((end_base, end_arm))
                 end_q = end_q.unsqueeze(0)
                 end_q = end_q.cpu().numpy()
                 end_q = end_q[0]
                 self.end_q = end_q
 
-                self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array([base_positions[4:]]),dtype=torch.float,device=self._device))
+                self.tiago_handler.set_upper_body_positions(
+                    jnt_positions=torch.tensor(
+                        np.array([base_positions[4:]]),
+                        dtype=torch.float,
+                        device=self._device,
+                    )
+                )
                 return
 
-        if actions == 'return_arm':
+        if actions == "return_arm":
             if self.ik_success:
-                #self.start_q = self.end_q
+                # self.start_q = self.end_q
                 self.end_q = self.start_q.copy()
-                self.tiago_handler.set_upper_body_positions(jnt_positions=torch.tensor(np.array([self.end_q[4:]]),dtype=torch.float,device=self._device))
+                self.tiago_handler.set_upper_body_positions(
+                    jnt_positions=torch.tensor(
+                        np.array([self.end_q[4:]]),
+                        dtype=torch.float,
+                        device=self._device,
+                    )
+                )
 
-                self.tiago_handler.set_base_positions(jnt_positions=torch.tensor(np.array([[self.tmp_x,self.tmp_y,self.tmp_theta]]),dtype=torch.float,device=self._device))
+                self.tiago_handler.set_base_positions(
+                    jnt_positions=torch.tensor(
+                        np.array([[self.tmp_x, self.tmp_y, self.tmp_theta]]),
+                        dtype=torch.float,
+                        device=self._device,
+                    )
+                )
             return
 
-    def get_se3_transform(self,prim):
-        #print(f"Prim: {prim}")
+    def get_se3_transform(self, prim):
+        # print(f"Prim: {prim}")
         # Check if the prim is valid and has a computed transform
         if not prim:
             print("Invalid Prim")
@@ -728,33 +916,36 @@ class NMTask(Task):
 
         return local_transform
 
-
-
     def reset_idx(self, env_ids):
         # apply resets
         indices = env_ids.to(dtype=torch.int32)
         # reset dof values
-        self.tiago_handler.reset(indices,randomize=self._randomize_robot_on_reset)
-    
+        self.tiago_handler.reset(indices, randomize=self._randomize_robot_on_reset)
+
         # reset the scene objects (randomize), get target end-effector goal/grasp as well as oriented bounding boxes of all other objects
-        self._goal= scene_utils.setup_tabular_scene( self._grasp_objs, self._device)
+        self._goal = scene_utils.setup_tabular_scene(self._grasp_objs, self._device)
         goal_num = self._goal.shape[0]
         self._goal_tf = torch.zeros((goal_num, 4, 4), device=self._device)
         goal_rots = Rotation.from_quat(self._goal[:, 3:])  # 使用所有 goal 的四元數
-        self._goal_tf[:, :3, :3] = torch.tensor(goal_rots.as_matrix(), dtype=float, device=self._device)
-        self._goal_tf[:, :3, -1] = torch.tensor(self._goal[:, :3], device=self._device)  # 設定每個 goal 的 x, y, z
+        self._goal_tf[:, :3, :3] = torch.tensor(
+            goal_rots.as_matrix(), dtype=float, device=self._device
+        )
+        self._goal_tf[:, :3, -1] = torch.tensor(
+            self._goal[:, :3], device=self._device
+        )  # 設定每個 goal 的 x, y, z
         self._goal_tf[:, -1, -1] = 1.0  # 保持齊次變換矩陣的結構
         self._curr_goal_tf = self._goal_tf.clone()
-        self._goals_xy_dist = torch.linalg.norm(self._goal[:, 0:2], dim=1)  # 計算每個 goal 到原點的 x, y 距離
+        self._goals_xy_dist = torch.linalg.norm(
+            self._goal[:, 0:2], dim=1
+        )  # 計算每個 goal 到原點的 x, y 距離
         # Pitch visualizer by 90 degrees for aesthetics
-      #  for i in range(goal_num):
-      #      goal_viz_rot = goal_rots[i] * Rotation.from_euler("xyz", [0, np.pi / 2.0, 0])
-      #      print(f"self._goal[i, :3]: {self._goal[i, :3]}")
-      #      if i == 0:
-      #          self._goal_vizs1.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))   
-      #      if i == 1:
-      #          self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
-            
+        # for i in range(goal_num):
+        #    goal_viz_rot = goal_rots[i] * Rotation.from_euler("xyz", [0, np.pi / 2.0, 0])
+        #    print(f"self._goal[i, :3]: {self._goal[i, :3]}")
+        #    if i == 0:
+        #        self._goal_vizs1.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
+        #    if i == 1:
+        #        self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
 
         # bookkeeping
         self.step_count = 0
@@ -762,56 +953,63 @@ class NMTask(Task):
         self._collided[env_ids] = 0
         self.reset_buf[env_ids] = 0
         self.progress_buf[env_ids] = 0
-        self.final_place = [0,0] 
+        self.final_place = [0, 0]
         self.path = []
         self.pos_idx = 0
         self.start_q = []
         self.end_q = []
         self.path_num = 0
-        self.rot =0 
-        self.se3_idx = 0 
+        self.rot = 0
+        self.se3_idx = 0
 
-
-
+        self.flag = 0
 
     def check_robot_collisions(self):
         # Check if the robot collided with an object
         # TODO: Parallelize
         for obst in self._obstacles:
-            raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(obst.prim_path + "/Contact_Sensor")
-            if raw_readings.shape[0]:                
-                for reading in raw_readings:
-                    # str 
-                    if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body1"])):
-                        return True # Collision detected with some part of the robot
-                    if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body0"])):
-                        return True # Collision detected with some part of the robot
-        for grasp_obj in self._grasp_objs:
-        #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
-
-            raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(grasp_obj.prim_path + "/Contact_Sensor")
+            raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(
+                obst.prim_path + "/Contact_Sensor"
+            )
             if raw_readings.shape[0]:
                 for reading in raw_readings:
-                    if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body1"])):
-                        return True # Collision detected with some part of the robot
-                    if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body0"])):
-                        return True # Collision detected with some part of the robot
+                    # str
+                    if "Tiago" in str(
+                        self._contact_sensor_interface.decode_body_name(
+                            reading["body1"]
+                        )
+                    ):
+                        return True  # Collision detected with some part of the robot
+                    if "Tiago" in str(
+                        self._contact_sensor_interface.decode_body_name(
+                            reading["body0"]
+                        )
+                    ):
+                        return True  # Collision detected with some part of the robot
+        # for grasp_obj in self._grasp_objs:
+        # #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
+
+        #     raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(grasp_obj.prim_path + "/Contact_Sensor")
+        #     if raw_readings.shape[0]:
+        #         for reading in raw_readings:
+        #             if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body1"])):
+        #                 return True # Collision detected with some part of the robot
+        #             if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body0"])):
+        #                 return True # Collision detected with some part of the robot
         return False
-    
 
     def calculate_metrics(self) -> None:
-
-        #print(f"check_robot_collisions: {self.check_robot_collisions()}")
-        if(self.check_robot_collisions()): # TODO: Parallelize
+        # print(f"check_robot_collisions: {self.check_robot_collisions()}")
+        if self.check_robot_collisions():  # TODO: Parallelize
             # Collision detected. Give penalty and no other rewards
             self._collided[0] = 1
-            self._is_success[0] = 0 # Success isn't considered in this case
-#        data = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
-#        rgb = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
+            self._is_success[0] = 0  # Success isn't considered in this case
+        #        data = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
+        #        rgb = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
         rgb = self.get_rgb_data()
         im = Image.fromarray(rgb)
         im.save("./data/end.png")
-        #for box in data:
+        # for box in data:
         #    sem_label = box["semanticLabel"]
         #    if sem_label == "good_part":
         #        print(f"Detect {sem_label}")
@@ -822,7 +1020,7 @@ class NMTask(Task):
         # resets = torch.where(torch.abs(cart_pos) > self._reset_dist, 1, 0)
         # resets = torch.where(torch.abs(pole_pos) > np.pi / 2, 1, resets)
         # resets = torch.zeros(self._num_envs, dtype=int, device=self._device)
-        
+
         # reset if success OR collided OR if reached max episode length
         resets = self._is_success.clone()
         resets = torch.where(self._collided.bool(), 1, resets)

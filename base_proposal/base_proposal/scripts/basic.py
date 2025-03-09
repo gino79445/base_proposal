@@ -1,6 +1,3 @@
-
-
-
 # Copyright (c) 2018-2022, NVIDIA Corporation
 # All rights reserved.
 #
@@ -39,7 +36,8 @@ from base_proposal.utils.hydra_cfg.reformat import omegaconf_to_dict, print_dict
 
 from base_proposal.utils.task_util import initialize_task
 from base_proposal.envs.env import IsaacEnv
-#from base_proposal.policy.test 
+
+# from base_proposal.policy.test
 from base_proposal.policy.test import Policy
 
 from dotenv import load_dotenv
@@ -51,7 +49,6 @@ api_key = os.getenv("API_KEY")  # 獲取 API Key
 
 @hydra.main(config_name="config", config_path="../cfg")
 def parse_hydra_configs(cfg: DictConfig):
-
     cfg_dict = omegaconf_to_dict(cfg)
     print_dict(cfg_dict)
 
@@ -60,8 +57,8 @@ def parse_hydra_configs(cfg: DictConfig):
     sim_app_cfg_path = cfg.sim_app_cfg_path
 
     policy = Policy()
-    #print(policy.get_action())
-    env = IsaacEnv(headless=headless,render=render,sim_app_cfg_path=sim_app_cfg_path)
+    # print(policy.get_action())
+    env = IsaacEnv(headless=headless, render=render, sim_app_cfg_path=sim_app_cfg_path)
     task = initialize_task(cfg_dict, env)
     env.reset()
     episode_reward = 0
@@ -72,44 +69,41 @@ def parse_hydra_configs(cfg: DictConfig):
         env.wait()
         if t == 0:
             break
-        
+
         t += 1
-        
 
+    env.step(["start"])
+    env.step(["navigate", [1.4, -0.1]])
+    env.step(["rotate", [np.pi / 2]])
+    env.step(["manipulate"])
+    env.step(["return_arm"])
+    env.step(["rotate", [-np.pi / 2]])
+    env.step(["navigate", [1.5, 0]])
+    env.step(["rotate", [-np.pi / 2]])
+    env.step(["navigate", [2, 0]])
+    env.step(["rotate", [-np.pi / 2]])
+    env.step(["navigate", [1.5, 0]])
+    env.step(["rotate", [-np.pi / 2]])
+    env.step(["manipulate"])
+    env.step(["return_arm"])
 
-    env.step(['start'])
-    env.step(['navigate', [1.4, -0.1]])
-    env.step(['rotate', [np.pi/2]])
-    env.step(['manipulate'])
-    env.step(['return_arm'])
-    env.step(['rotate', [-np.pi/2]])
-    env.step(['navigate', [1.5, 0]])
-    env.step(['rotate', [ -np.pi/2]])
-    env.step(['navigate', [2, 0]])
-    env.step(['rotate', [-np.pi/2]])
-    env.step(['navigate', [1.5, 0]])
-    env.step(['rotate', [-np.pi/2]])
-    env.step(['manipulate'])
-    env.step(['return_arm'])
+    # times = 25
+    # t = 0
 
+    #  while env._simulation_app.is_running():
+    #      action = policy.get_action()
+    #      terminal= env.step(action)
 
- 
-    #times = 25
-    #t = 0
+    #      if(render):
+    #          env.render()
 
-  #  while env._simulation_app.is_running():
-  #      action = policy.get_action()
-  #      terminal= env.step(action)
-
-  #      if(render):
-  #          env.render()
-
-  #      if(terminal):
-  #          env.reset()
-  #          t += 1
-  #      if(t==times):
-  #          break
+    #      if(terminal):
+    #          env.reset()
+    #          t += 1
+    #      if(t==times):
+    #          break
     env._simulation_app.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parse_hydra_configs()
