@@ -224,7 +224,7 @@ def setup_tabular_scene(grasp_objs, device):
             )
             pose = torch.hstack(
                 (
-                    torch.tensor([1.45, 0.6, 0.8], dtype=torch.float, device=device),
+                    torch.tensor([1.45, 0.58, 0.82], dtype=torch.float, device=device),
                     euler_angles_to_quats(
                         torch.tensor(
                             # [[-torch.pi / 2, -torch.pi / 2, 0]],

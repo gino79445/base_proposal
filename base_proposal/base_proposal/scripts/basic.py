@@ -75,8 +75,8 @@ def parse_hydra_configs(cfg: DictConfig):
     env.step(["start"])
     env.step(["navigate", [1.4, -0.1]])
     env.step(["rotate", [np.pi / 2]])
-    env.step(["manipulate"])
-    env.step(["return_arm"])
+    # env.step(["manipulate"])
+    # env.step(["return_arm"])
     env.step(["rotate", [-np.pi / 2]])
     env.step(["navigate", [1.5, 0]])
     env.step(["rotate", [-np.pi / 2]])
@@ -84,8 +84,8 @@ def parse_hydra_configs(cfg: DictConfig):
     env.step(["rotate", [-np.pi / 2]])
     env.step(["navigate", [1.5, 0]])
     env.step(["rotate", [-np.pi / 2]])
-    env.step(["manipulate"])
-    env.step(["return_arm"])
+    # env.step(["manipulate"])
+    # env.step(["return_arm"])
 
     # times = 25
     # t = 0

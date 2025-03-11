@@ -247,9 +247,9 @@ class IsaacEnv:
             #    self.render()
 
         if action[0] == "return_arm":
-            # pass
-            self._task.pre_physics_step("return_arm")
-            self.render()
+            pass
+            # self._task.pre_physics_step("return_arm")
+            # self.render()
 
         self.render()
         resets = (

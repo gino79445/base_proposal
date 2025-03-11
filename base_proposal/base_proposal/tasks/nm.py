@@ -466,6 +466,12 @@ class NMTask(Task):
     def build_local_map(self, R, T, fx, fy, cx, cy):
         # 2d occupancy map
         self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        # open the occupancy_2d_map file
+        if os.path.exists("./data/occupancy_2d_map.npy"):
+            with open("./data/occupancy_2d_map.npy", "rb") as f:
+                self.occupancy_2d_map = np.fromfile(f, dtype=np.uint8)
+                self.occupancy_2d_map = self.occupancy_2d_map.reshape(200, 200)
+
         # self.occupancy_2d_map.fill(255)
         depth = self.depth_data
         map_size = (200, 200)
@@ -510,7 +516,15 @@ class NMTask(Task):
                         # else:
                         #    self.occupancy_2d_map[map_y, map_x] = 255
 
+        # save the occupancy_2d_map numpy
+        with open("./data/occupancy_2d_map.npy", "wb") as f:
+            self.occupancy_2d_map.tofile(f)
+
         im = Image.fromarray(self.occupancy_2d_map)
+        # flip up and down
+        im = im.transpose(Image.FLIP_TOP_BOTTOM)
+        # left_rotate
+        im = im.transpose(Image.ROTATE_90)
         im.save("./data/occupancy_2d_map.png")
 
     def get_observations(self):
@@ -520,16 +534,8 @@ class NMTask(Task):
             self.reset_idx(reset_env_ids)
 
         # perceptial data
-        # self.bounding_box = self.sd_helper.get_groundtruth(["boundingBox2DTight"], self.ego_viewport.get_viewport_window())["boundingBox2DTight"]
-        # self.rgb_data = self.sd_helper.get_groundtruth(["rgb"], self.ego_viewport.get_viewport_window())["rgb"]
-        # self.depth_data = self.sd_helper.get_groundtruth(["depth"], self.ego_viewport.get_viewport_window())["depth"]
-        # self.pose_data = self.sd_helper.get_groundtruth(["pose"], self.ego_viewport.get_viewport_window())["pose"]
-        # self.rgb_data = self.rgb_data[:,:,:3]
         self.depth_data = self.get_depth_data()
         self.rgb_data = self.get_rgb_data()
-        # print("rgb_data shape: ", self.rgb_data.shape)
-        # print("depth_data shape: ", self.depth_data.shape)
-        # save the depth image if shape is not empty
         if self.depth_data.shape[0] != 0:
             # normalization
             depth_data = self.depth_data / 5
@@ -539,6 +545,36 @@ class NMTask(Task):
             im.save("./data/depth.png")
         # get the camera parameters
         R, T, fx, fy, cx, cy = self.retrieve_camera_params()
+        # make R matrix + T vector 4x4 matrix
+        camera_tf = torch.zeros((4, 4), device=self._device)
+        camera_tf[:3, :3] = torch.tensor(R)
+        camera_tf[:3, 3] = torch.tensor(T).squeeze()
+        camera_rotate = torch.tensor(R)
+        camera_translate = torch.tensor(T).squeeze()
+
+        # last row
+        camera_tf[-1, :] = torch.tensor([0, 0, 0, 1], device=self._device)
+
+        # get the base position
+        base_position = self.tiago_handler.get_robot_obs()[0, :3]
+
+        base_rotate = torch.tensor(
+            [
+                [torch.cos(base_position[2]), -torch.sin(base_position[2]), 0],
+                [torch.sin(base_position[2]), torch.cos(base_position[2]), 0],
+                [0, 0, 1],
+            ]
+        )
+        base_translate = torch.tensor([base_position[0], base_position[1], 0])
+        base_invert_rotate = base_rotate.t()
+        global_R = camera_rotate.float() @ base_invert_rotate.float()
+        global_T = camera_translate.float() + base_translate.float()
+        global_T = global_T.reshape(3, 1)
+        global_R = global_R.numpy()
+        global_T = global_T.numpy()
+
+        # self.build_local_map(global_R, global_T, fx, fy, cx, cy)
+
         depth = self.depth_data
         self.rgb_data = self.rgb_data.astype("uint8")
         # save the rgb image
@@ -557,11 +593,16 @@ class NMTask(Task):
         if self._task_cfg["env"]["check_env"] == True:
             return
 
-        # self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        # open the occupancy_2d_map png
+        if os.path.exists("./data/occupancy_2d_map.npy"):
+            with open("./data/occupancy_2d_map.npy", "rb") as f:
+                self.occupancy_2d_map = np.fromfile(f, dtype=np.uint8)
+                self.occupancy_2d_map = self.occupancy_2d_map.reshape(200, 200)
 
         # self.build_local_map(R, T, fx, fy, cx, cy)
 
-        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        # self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
         return
 
     def get_render(self):
@@ -631,8 +672,6 @@ class NMTask(Task):
             pass
         # self.tiago_handler.close_gripper()
         if actions == "lift_object":
-            print("Lifting object")
-            self.flag = 1
             # self.tiago_handler.close_gripper()
             self.tiago_handler.lift()
             return
@@ -746,6 +785,8 @@ class NMTask(Task):
             self.tiago_handler.set_base_positions(
                 torch.hstack((self.new_base_xy, self.new_base_theta))
             )
+            R, T, fx, fy, cx, cy = self.retrieve_camera_params()
+
             self.x_delta = self.new_base_xy[0, 0].cpu().numpy()
             self.y_delta = self.new_base_xy[0, 1].cpu().numpy()
             self.theta_delta = self.new_base_theta[0, 0].cpu().numpy()

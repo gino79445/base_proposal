@@ -223,26 +223,47 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         self.apply_base_actions(actions=actions[:, :3])
         self.apply_upper_body_actions(actions=actions[:, 3:])
 
-    def close_gripper(self):
+    def close_gripper(self, action=torch.tensor([-0.1, -0.1])):
         # Close gripper
         self.robots.set_joint_efforts(  # set joint efforts to close gripper
-            efforts=torch.tensor([-2000.0, -2000.0], device=self._device),
+            efforts=torch.tensor([-150.0, -150.0], device=self._device),
             joint_indices=self.gripper_left_dof_idxs,
         )
 
+        jt_pos = self.robots.get_joint_positions(
+            joint_indices=self.gripper_left_dof_idxs, clone=True
+        )
+        actions = action
+        jt_pos = actions
+        # jt_pos += actions * self.dt
+        self.robots.set_joint_position_targets(
+            positions=jt_pos, joint_indices=self.gripper_left_dof_idxs
+        )
+
     def lift(self):
+        # set arm
+        arm_pos = self.robots.get_joint_positions(  # get current joint positions
+            joint_indices=self.arm_left_dof_idxs, clone=True
+        )
+        self.robots.set_joint_positions(  # set joint position targets to lift arm
+            positions=arm_pos, joint_indices=self.arm_left_dof_idxs
+        )
         # lift torso
-        # jt_pos = self.robots.get_joint_positions(
-        #     joint_indices=self.torso_dof_idx, clone=True
-        # )
-        # jt_pos += torch.tensor([0.05], device=self._device)
+        jt_pos = self.robots.get_joint_positions(
+            joint_indices=self.torso_dof_idx, clone=True
+        )
+        jt_pos += torch.tensor([0.1], device=self._device)
         # self.robots.set_joint_positions(  # set joint position targets to lift torso
         #     positions=jt_pos, joint_indices=self.torso_dof_idx
         # )
-        self.robots.set_joint_position_targets(  # set joint position targets to lift torso
-            positions=torch.tensor([3.5], device=self._device),
-            joint_indices=self.torso_dof_idx,
+        self.robots.set_joint_position_targets(
+            positions=jt_pos, joint_indices=self.torso_dof_idx
         )
+
+    # self.robots.set_joint_position_targets(  # set joint position targets to lift torso
+    #     positions=torch.tensor([3.5], device=self._device),
+    #     joint_indices=self.torso_dof_idx,
+    # )
 
     def apply_upper_body_actions(self, actions):
         # Apply actions as per the selected upper_body_dof_idxs (move_group)
@@ -299,8 +320,15 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         )
 
     def apply_base_actions(self, actions):
-        import math
         from pyquaternion import Quaternion
+
+        # set arm
+        arm_pos = self.robots.get_joint_positions(  # get current joint positions
+            joint_indices=self.arm_left_dof_idxs, clone=True
+        )
+        self.robots.set_joint_positions(  # set joint position targets to lift arm
+            positions=arm_pos, joint_indices=self.arm_left_dof_idxs
+        )
 
         base_actions = actions.clone()
 
@@ -407,9 +435,9 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         #      positions=jt_pos, joint_indices=self.base_dof_idxs
         #  )
 
-       # self.robots.set_joint_velocities(
-       #     velocities=base_actions, joint_indices=self.base_dof_idxs
-       # )
+    # self.robots.set_joint_velocities(
+    #     velocities=base_actions, joint_indices=self.base_dof_idxs
+    # )
 
     # self.robots.set_joint_position_targets(  # set joint position targets
     #    positions=jt_pos * 1000, joint_indices=self.base_dof_idxs

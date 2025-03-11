@@ -1,4 +1,3 @@
-
 # Copyright (c) 2018-2022, NVIDIA Corporation
 # All rights reserved.
 #
@@ -31,8 +30,9 @@
 from abc import abstractmethod
 import numpy as np
 import torch
+
 # from gym import spaces
-#from mushroom_rl.utils.spaces import *
+# from mushroom_rl.utils.spaces import *
 from omni.isaac.core.tasks import BaseTask
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.utils.prims import define_prim
@@ -47,20 +47,20 @@ import omni
 from pxr import UsdGeom
 from pxr import Gf
 import math
-from scipy.spatial.transform import Rotation 
+from scipy.spatial.transform import Rotation
+
 # Usd
 from pxr import Usd
 
-class Task(BaseTask):
 
-    """ This class provides a PyTorch RL-specific interface for setting up RL tasks. 
-        It includes utilities for setting up RL task related parameters,
-        cloning environments, and data collection for RL algorithms.
+class Task(BaseTask):
+    """This class provides a PyTorch RL-specific interface for setting up RL tasks.
+    It includes utilities for setting up RL task related parameters,
+    cloning environments, and data collection for RL algorithms.
     """
 
     def __init__(self, name, env, offset=None) -> None:
-
-        """ Initializes RL parameters, cloner object, and buffers.
+        """Initializes RL parameters, cloner object, and buffers.
 
         Args:
             name (str): name of the task.
@@ -78,24 +78,26 @@ class Task(BaseTask):
         self.clip_actions = self._cfg["task"]["env"].get("clipActions", np.Inf)
         self.rl_device = self._cfg.get("rl_device", "cuda:0")
 
-        self.control_frequency_inv = self._cfg["task"]["env"].get("controlFrequencyInv", 1)
+        self.control_frequency_inv = self._cfg["task"]["env"].get(
+            "controlFrequencyInv", 1
+        )
 
         print("RL device: ", self.rl_device)
 
         self._env = env
 
-    #    if not hasattr(self, "_num_agents"):
-    #        self._num_agents = 1  # used for multi-agent environments
-    #    if not hasattr(self, "_num_states"):
-    #        self._num_states = 0
+        #    if not hasattr(self, "_num_agents"):
+        #        self._num_agents = 1  # used for multi-agent environments
+        #    if not hasattr(self, "_num_states"):
+        #        self._num_states = 0
 
-    #    # initialize data spaces (defaults to gym.Box or Mushroom Box)
-    #    if not hasattr(self, "action_space"):
-    #        self.action_space = Box(np.ones(self.num_actions) * -1.0, np.ones(self.num_actions) * 1.0)
-    #    if not hasattr(self, "observation_space"):
-    #        self.observation_space = Box(np.ones(self.num_observations) * -np.Inf, np.ones(self.num_observations) * np.Inf)
-    #    if not hasattr(self, "state_space"):
-    #        self.state_space = Box(np.ones(self.num_states) * -np.Inf, np.ones(self.num_states) * np.Inf)
+        #    # initialize data spaces (defaults to gym.Box or Mushroom Box)
+        #    if not hasattr(self, "action_space"):
+        #        self.action_space = Box(np.ones(self.num_actions) * -1.0, np.ones(self.num_actions) * 1.0)
+        #    if not hasattr(self, "observation_space"):
+        #        self.observation_space = Box(np.ones(self.num_observations) * -np.Inf, np.ones(self.num_observations) * np.Inf)
+        #    if not hasattr(self, "state_space"):
+        #        self.state_space = Box(np.ones(self.num_states) * -np.Inf, np.ones(self.num_states) * np.Inf)
 
         self._cloner = GridCloner(spacing=self._env_spacing)
         self._cloner.define_base_env(self.default_base_env_path)
@@ -104,18 +106,22 @@ class Task(BaseTask):
         self.cleanup()
 
     def cleanup(self) -> None:
-        """ Prepares torch buffers for RL data collection."""
+        """Prepares torch buffers for RL data collection."""
 
         # prepare tensors
-        #self.obs_buf = torch.zeros((self._num_envs, self.num_observations), device=self._device, dtype=torch.float)
-        #self.states_buf = torch.zeros((self._num_envs, self.num_states), device=self._device, dtype=torch.float)
-        #self.rew_buf = torch.zeros(self._num_envs, device=self._device, dtype=torch.float)
-        self.reset_buf = torch.ones(self._num_envs, device=self._device, dtype=torch.long)
-        self.progress_buf = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
+        # self.obs_buf = torch.zeros((self._num_envs, self.num_observations), device=self._device, dtype=torch.float)
+        # self.states_buf = torch.zeros((self._num_envs, self.num_states), device=self._device, dtype=torch.float)
+        # self.rew_buf = torch.zeros(self._num_envs, device=self._device, dtype=torch.float)
+        self.reset_buf = torch.ones(
+            self._num_envs, device=self._device, dtype=torch.long
+        )
+        self.progress_buf = torch.zeros(
+            self._num_envs, device=self._device, dtype=torch.long
+        )
         self.extras = torch.zeros(self._num_envs, device=self._device, dtype=torch.long)
 
     def set_up_scene(self, scene) -> None:
-        """ Clones environments based on value provided in task config and applies collision filters to mask 
+        """Clones environments based on value provided in task config and applies collision filters to mask
             collisions across environments.
 
         Args:
@@ -128,110 +134,184 @@ class Task(BaseTask):
         if self._sim_config.task_config["sim"].get("add_ground_plane", True):
             self._ground_plane_path = "/World/defaultGroundPlane"
             collision_filter_global_paths.append(self._ground_plane_path)
-            scene.add_ground_plane(prim_path=self._ground_plane_path, color=np.array([0.87,0.72,0.53]))
+            scene.add_ground_plane(
+                prim_path=self._ground_plane_path, color=np.array([0.87, 0.72, 0.53])
+            )
         prim_paths = self._cloner.generate_paths("/World/envs/env", self._num_envs)
-        self._env_pos = self._cloner.clone(source_prim_path="/World/envs/env_0", prim_paths=prim_paths)
-        self._env_pos = torch.tensor(np.array(self._env_pos), device=self._device, dtype=torch.float)
+        self._env_pos = self._cloner.clone(
+            source_prim_path="/World/envs/env_0", prim_paths=prim_paths
+        )
+        self._env_pos = torch.tensor(
+            np.array(self._env_pos), device=self._device, dtype=torch.float
+        )
         self._cloner.filter_collisions(
-            self._env._world.get_physics_context().prim_path, "/World/collisions", prim_paths, collision_filter_global_paths)
-        self.set_initial_camera_params(camera_position=[-1, -1, 4], camera_target=[2, 0, 0])
+            self._env._world.get_physics_context().prim_path,
+            "/World/collisions",
+            prim_paths,
+            collision_filter_global_paths,
+        )
+        self.set_initial_camera_params(
+            camera_position=[-1, -1, 4], camera_target=[2, 0, 0]
+        )
         if self._sim_config.task_config["sim"].get("add_distant_light", True):
             create_distant_light()
-        
+
         # set the cube with the robot
-#        stage = omni.usd.get_context().get_stage()
-#        cube_path = "/World/envs/env_0/TiagoDualHolo/Cube"
-#        cube_prim = stage.DefinePrim(cube_path, "Cube")
-#        UsdGeom.XformCommonAPI(cube_prim).SetTranslate((1, 1, 1))
-#        UsdGeom.XformCommonAPI(cube_prim).SetScale((0.01, 0.01, 0.01))
 
+    #        stage = omni.usd.get_context().get_stage()
+    #        cube_path = "/World/envs/env_0/TiagoDualHolo/Cube"
+    #        cube_prim = stage.DefinePrim(cube_path, "Cube")
+    #        UsdGeom.XformCommonAPI(cube_prim).SetTranslate((1, 1, 1))
+    #        UsdGeom.XformCommonAPI(cube_prim).SetScale((0.01, 0.01, 0.01))
 
+    def get_extrinsic_params(self):
+        """Retrieves extrinsic parameters for the task.
+        Returns:
+            R(np.ndarray): Rotation matrix.
+            T(np.ndarray): Translation matrix.
+        """
+        # get the camera world position and rotation
+        camera_world_transform = UsdGeom.Xformable(
+            self.camera_prim
+        ).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        camera_world_transform.Orthonormalize()
+        self.camera_world_position = camera_world_transform.ExtractTranslation()
+        self.camera_world_rotation = camera_world_transform.ExtractRotationMatrix()
 
+        # np
+        self.camera_world_position = np.array(
+            [
+                [self.camera_world_position[0]],
+                [self.camera_world_position[1]],
+                [self.camera_world_position[2]],
+            ]
+        )
+        self.camera_world_rotation = np.array(
+            [
+                [
+                    self.camera_world_rotation[0][0],
+                    self.camera_world_rotation[0][1],
+                    self.camera_world_rotation[0][2],
+                ],
+                [
+                    self.camera_world_rotation[1][0],
+                    self.camera_world_rotation[1][1],
+                    self.camera_world_rotation[1][2],
+                ],
+                [
+                    self.camera_world_rotation[2][0],
+                    self.camera_world_rotation[2][1],
+                    self.camera_world_rotation[2][2],
+                ],
+            ]
+        )
 
+        return self.camera_world_rotation, self.camera_world_position
 
-    def set_initial_camera_params(self, camera_position=[10, 10, 3], camera_target=[0, 0, 0]):
-        #viewport = omni.kit.viewport_legacy.get_default_viewport_window()
-        #viewport = get_active_viewport()
+    def set_initial_camera_params(
+        self, camera_position=[10, 10, 3], camera_target=[0, 0, 0]
+    ):
+        # viewport = omni.kit.viewport_legacy.get_default_viewport_window()
+        # viewport = get_active_viewport()
 
-       # viewport.set_camera_position("/OmniverseKit_Persp", camera_position[0], camera_position[1], camera_position[2], True)
-       # viewport.set_camera_target("/OmniverseKit_Persp", camera_target[0], camera_target[1], camera_target[2], True)
+        # viewport.set_camera_position("/OmniverseKit_Persp", camera_position[0], camera_position[1], camera_position[2], True)
+        # viewport.set_camera_target("/OmniverseKit_Persp", camera_target[0], camera_target[1], camera_target[2], True)
 
         stage = omni.usd.get_context().get_stage()
         camera_path = "/World/envs/env_0/TiagoDualHolo/head_1_link/Camera"
         camera_prim = stage.DefinePrim(camera_path, "Camera")
+        self.camera_prim = camera_prim
         camera = UsdGeom.Camera(camera_prim)
         camera.GetFocalLengthAttr().Set(10)
-        camera.GetClippingRangeAttr().Set((0.1,30))
+        camera.GetClippingRangeAttr().Set((0.1, 30))
         UsdGeom.XformCommonAPI(camera_prim).SetTranslate((-0, 0, 0))
-        #UsdGeom.XformCommonAPI(camera_prim).SetTranslate((-0.9, 0, 0))
-        rotation = Gf.Vec3f(60, 0, 270)  
+        # UsdGeom.XformCommonAPI(camera_prim).SetTranslate((-0.9, 0, 0))
+        rotation = Gf.Vec3f(60, 0, 270)
         UsdGeom.XformCommonAPI(camera_prim).SetRotate(rotation)
-        camera_world_transform = UsdGeom.Xformable(camera_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        camera_world_transform = UsdGeom.Xformable(
+            camera_prim
+        ).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
         camera_world_transform.Orthonormalize()
         self.camera_world_position = camera_world_transform.ExtractTranslation()
         self.camera_world_rotation = camera_world_transform.ExtractRotationMatrix()
-        
-        # np
-        self.camera_world_position = np.array([[self.camera_world_position[0]], [self.camera_world_position[1]], [self.camera_world_position[2]]])
-        self.camera_world_rotation = np.array([[self.camera_world_rotation[0][0], self.camera_world_rotation[0][1], self.camera_world_rotation[0][2]],
-                                                [self.camera_world_rotation[1][0], self.camera_world_rotation[1][1], self.camera_world_rotation[1][2]],
-                                                [self.camera_world_rotation[2][0], self.camera_world_rotation[2][1], self.camera_world_rotation[2][2]]])
 
+        # np
+        self.camera_world_position = np.array(
+            [
+                [self.camera_world_position[0]],
+                [self.camera_world_position[1]],
+                [self.camera_world_position[2]],
+            ]
+        )
+        self.camera_world_rotation = np.array(
+            [
+                [
+                    self.camera_world_rotation[0][0],
+                    self.camera_world_rotation[0][1],
+                    self.camera_world_rotation[0][2],
+                ],
+                [
+                    self.camera_world_rotation[1][0],
+                    self.camera_world_rotation[1][1],
+                    self.camera_world_rotation[1][2],
+                ],
+                [
+                    self.camera_world_rotation[2][0],
+                    self.camera_world_rotation[2][1],
+                    self.camera_world_rotation[2][2],
+                ],
+            ]
+        )
 
         RESOLUTION = (1280, 720)
-# EDIT:
-        #rep_camera = rep.create.camera(camera)
+        # EDIT:
+        # rep_camera = rep.create.camera(camera)
         self.camera_path = camera_path
-        #render_product = rep.create.render_product(camera_path, RESOLUTION)
+        # render_product = rep.create.render_product(camera_path, RESOLUTION)
 
-        #rgb = rep.AnnotatorRegistry.get_annotator("rgb")
-        #distance_to_image_plane = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
+        # rgb = rep.AnnotatorRegistry.get_annotator("rgb")
+        # distance_to_image_plane = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
         #
-        #distance_to_image_plane.attach(render_product)
-        #rgb.attach(render_product)
+        # distance_to_image_plane.attach(render_product)
+        # rgb.attach(render_product)
         #
-        #rep.orchestrator.step()
+        # rep.orchestrator.step()
 
-        #self.depth_data = distance_to_image_plane
-        #self.rgb_data = rgb
-        #print("depth_data: ", self.depth_data)
+        # self.depth_data = distance_to_image_plane
+        # self.rgb_data = rgb
+        # print("depth_data: ", self.depth_data)
         #
-        self.ego_viewport  = get_active_viewport()
+        self.ego_viewport = get_active_viewport()
         self.ego_viewport.camera_path = str(camera_prim.GetPath())
         vp_window = vp_utils.create_viewport_window("viewport")
 
-
-
     def get_depth_data(self):
-        """ Retrieves observations from the environment.
-        """
-        #depth_data =np.zeros((1280, 720)).astype(np.float32)
+        """Retrieves observations from the environment."""
+        # depth_data =np.zeros((1280, 720)).astype(np.float32)
         render_product = rep.create.render_product(self.camera_path, (1280, 720))
-        distance_to_image_plane = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
+        distance_to_image_plane = rep.AnnotatorRegistry.get_annotator(
+            "distance_to_image_plane"
+        )
         distance_to_image_plane.attach(render_product)
         depth_data = distance_to_image_plane.get_data()
 
         return depth_data
 
     def get_rgb_data(self):
-        """ Retrieves observations from the environment.
-        """
-        #rep.orchestrator.step()
+        """Retrieves observations from the environment."""
+        # rep.orchestrator.step()
         render_product = rep.create.render_product(self.camera_path, (1280, 720))
         rgb = rep.AnnotatorRegistry.get_annotator("rgb")
         rgb.attach(render_product)
         rgb_data = rgb.get_data()
-       # rgb_data = np.zeros((1280, 720, 3)).astype(np.uint8)
-        
+        # rgb_data = np.zeros((1280, 720, 3)).astype(np.uint8)
+
         return rgb_data
-        
 
-
-        #self.ego_viewport.get_viewport_window().set_active_camera(str(camera_prim.GetPath()))
-        #viewport.set_camera_position("/OmniverseKit_Persp", camera_position[0], camera_position[1], camera_position[2], True)
-        #viewport.set_camera_target("/OmniverseKit_Persp", camera_target[0], camera_target[1], camera_target[2], True)
+        # self.ego_viewport.get_viewport_window().set_active_camera(str(camera_prim.GetPath()))
+        # viewport.set_camera_position("/OmniverseKit_Persp", camera_position[0], camera_position[1], camera_position[2], True)
+        # viewport.set_camera_target("/OmniverseKit_Persp", camera_target[0], camera_target[1], camera_target[2], True)
         # Near Clipping Plane
-       
 
     def retrieve_camera_params(self):
         stage = omni.usd.get_context().get_stage()
@@ -240,94 +320,86 @@ class Task(BaseTask):
         height = 720
         aspect_ratio = width / height
         # get camera prim attached to viewport
-        #viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
-        #viewport_window = get_active_viewport()
+        # viewport_window = omni.kit.viewport_legacy.get_default_viewport_window()
+        # viewport_window = get_active_viewport()
         camera = stage.GetPrimAtPath(self.ego_viewport.get_active_camera())
 
         focal_length = camera.GetAttribute("focalLength").Get()
         horiz_aperture = camera.GetAttribute("horizontalAperture").Get()
-        
-        vert_aperture = height/width * horiz_aperture
+
+        vert_aperture = height / width * horiz_aperture
         fov = 2 * math.atan(horiz_aperture / (2 * focal_length))
 
         focal_y = height * focal_length / vert_aperture
         focal_x = width * focal_length / horiz_aperture
         center_y = height * 0.5
-        center_x =  width* 0.5
+        center_x = width * 0.5
         # print the attributes of the camera
-        #print("attributes of the camera: ", camera.GetAttributes())
-        rotate_attr = camera.GetAttribute('xformOp:rotateXYZ').Get()
-        translate_attr = camera.GetAttribute('xformOp:translate').Get()
-        
+        # print("attributes of the camera: ", camera.GetAttributes())
+        rotate_attr = camera.GetAttribute("xformOp:rotateXYZ").Get()
+        translate_attr = camera.GetAttribute("xformOp:translate").Get()
+
         # make them to numpy array
         rotate = np.array([rotate_attr[0], rotate_attr[1], rotate_attr[2]])
-        #print("rotation: ", rotate)
-        #print("translate: ", translate_attr)
-        R = np.array([[1, 0, 0],
-                      [0, np.cos(np.radians(-10)), -np.sin(np.radians(-10))],
-                      [0, np.sin(np.radians(-10)), np.cos(np.radians(-10))]])
+        # print("rotation: ", rotate)
+        # print("translate: ", translate_attr)
+        R = np.array(
+            [
+                [1, 0, 0],
+                [0, np.cos(np.radians(-10)), -np.sin(np.radians(-10))],
+                [0, np.sin(np.radians(-10)), np.cos(np.radians(-10))],
+            ]
+        )
 
         # rotate y axis
-        R = np.array([[np.cos(np.radians(-30)), 0, np.sin(np.radians(-30))],
-                        [0, 1, 0],
-                        [-np.sin(np.radians(-30)), 0, np.cos(np.radians(-30))]])
-      #  R = np.array([[1, 0, 0],
-      #                  [0, 1, 0],
-      #                  [0, 0, 1]])
-#        # rotate z axis
-#        R = np.array([[np.cos(np.radians(-10)), -np.sin(np.radians(-10)), 0],
-#                        [np.sin(np.radians(-10)), np.cos(np.radians(-10)), 0],
-#                        [0, 0, 1]])
+        R = np.array(
+            [
+                [np.cos(np.radians(-30)), 0, np.sin(np.radians(-30))],
+                [0, 1, 0],
+                [-np.sin(np.radians(-30)), 0, np.cos(np.radians(-30))],
+            ]
+        )
+        #  R = np.array([[1, 0, 0],
+        #                  [0, 1, 0],
+        #                  [0, 0, 1]])
+        #        # rotate z axis
+        #        R = np.array([[np.cos(np.radians(-10)), -np.sin(np.radians(-10)), 0],
+        #                        [np.sin(np.radians(-10)), np.cos(np.radians(-10)), 0],
+        #                        [0, 0, 1]])
 
-       # R =  np.array([[1,0,0],[0,1,0],[0,0,1]])
+        # R =  np.array([[1,0,0],[0,1,0],[0,0,1]])
 
+        # rotation_x, rotation_y, rotation_z = -10,0,-90
 
+        # rotation = Rotation.from_euler('xyz', [rotation_x, rotation_y, rotation_z], degrees=True)
+        # rotation_matrix = rotation.as_matrix()
+        # R = np.array([[rotation_matrix[0][0], rotation_matrix[0][1], rotation_matrix[0][2]],
+        #                  [rotation_matrix[1][0], rotation_matrix[1][1], rotation_matrix[1][2]],
+        #                  [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2]]])
+        # T = np.array([[0], [0], [-0.9]])
+        # R = self.camera_world_rotation
 
-
-      # rotation_x, rotation_y, rotation_z = -10,0,-90
-        
-      # rotation = Rotation.from_euler('xyz', [rotation_x, rotation_y, rotation_z], degrees=True)
-      # rotation_matrix = rotation.as_matrix()
-      # R = np.array([[rotation_matrix[0][0], rotation_matrix[0][1], rotation_matrix[0][2]],
-      #                  [rotation_matrix[1][0], rotation_matrix[1][1], rotation_matrix[1][2]],
-      #                  [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2]]])
-        #T = np.array([[0], [0], [-0.9]])
-       # R = self.camera_world_rotation
-        
-
-        #R = self.camera_world_rotation
+        # R = self.camera_world_rotation
         T = self.camera_world_position
-        T = np.array([[T[0][0]], [T[1][0]], [T[2][0]+0.25]])
-        #T = np.zeros((3,1))
-        #T[0][0] = 0
-        #T[1][0] = 0
-        #T[2][0] = 0.3
+        T = np.array([[T[0][0]], [T[1][0]], [T[2][0] + 0.25]])
+        # T = np.zeros((3,1))
+        # T[0][0] = 0
+        # T[1][0] = 0
+        # T[2][0] = 0.3
         ##print("R: ", R)
-        #print("T: ", T)
-        #print("self.camera_world_position: ", self.camera_world_position)
-        #print("self.camera_world_rotation: ", self.camera_world_rotation)
+        # print("T: ", T)
+        # print("self.camera_world_position: ", self.camera_world_position)
+        # print("self.camera_world_rotation: ", self.camera_world_rotation)
         # make rotaion to angle axis
-       # rotation = Rotation.from_matrix(self.camera_world_rotation)
-       # rotation = rotation.as_euler('xyz', degrees=True)
-       # print("rotation: ", rotation)
+        # rotation = Rotation.from_matrix(self.camera_world_rotation)
+        # rotation = rotation.as_euler('xyz', degrees=True)
+        # print("rotation: ", rotation)
 
-
-
-
-
-      
-
-
-        
-
-        return R, T,  focal_x, focal_y, center_x, center_y
-
-
-
+        return R, T, focal_x, focal_y, center_x, center_y
 
     @property
     def default_base_env_path(self):
-        """ Retrieves default path to the parent of all env prims.
+        """Retrieves default path to the parent of all env prims.
 
         Returns:
             default_base_env_path(str): Defaults to "/World/envs".
@@ -336,7 +408,7 @@ class Task(BaseTask):
 
     @property
     def default_zero_env_path(self):
-        """ Retrieves default path to the first env prim (index 0).
+        """Retrieves default path to the first env prim (index 0).
 
         Returns:
             default_zero_env_path(str): Defaults to "/World/envs/env_0".
@@ -345,80 +417,81 @@ class Task(BaseTask):
 
     @property
     def num_envs(self):
-        """ Retrieves number of environments for task.
+        """Retrieves number of environments for task.
 
         Returns:
             num_envs(int): Number of environments.
         """
         return self._num_envs
-#
-#    @property
-#    def num_actions(self):
-#        """ Retrieves dimension of actions.
-#
-#        Returns:
-#            num_actions(int): Dimension of actions.
-#        """
-#        return self._num_actions
-#
-#    @property
-#    def num_observations(self):
-#        """ Retrieves dimension of observations.
-#
-#        Returns:
-#            num_observations(int): Dimension of observations.
-#        """
-#        return self._num_observations
-#
-#    @property
-#    def num_states(self):
-#        """ Retrieves dimesion of states.
-#
-#        Returns:
-#            num_states(int): Dimension of states.
-#        """
-#        return self._num_states
-#
-#    @property
-#    def num_agents(self):
-#        """ Retrieves number of agents for multi-agent environments.
-#
-#        Returns:
-#            num_agents(int): Dimension of states.
-#        """
-#        return self._num_agents
-#
-#    def get_states(self):
-#        """ API for retrieving states buffer, used for asymmetric AC training.
-#
-#        Returns:
-#            states_buf(torch.Tensor): States buffer.
-#        """
-#        return self.states_buf
-#
-#    def get_extras(self):
-#        """ API for retrieving extras data for RL.
-#
-#        Returns:
-#            extras(dict): Dictionary containing extras data.
-#        """
-#        return self.extras
-#
+
+    #
+    #    @property
+    #    def num_actions(self):
+    #        """ Retrieves dimension of actions.
+    #
+    #        Returns:
+    #            num_actions(int): Dimension of actions.
+    #        """
+    #        return self._num_actions
+    #
+    #    @property
+    #    def num_observations(self):
+    #        """ Retrieves dimension of observations.
+    #
+    #        Returns:
+    #            num_observations(int): Dimension of observations.
+    #        """
+    #        return self._num_observations
+    #
+    #    @property
+    #    def num_states(self):
+    #        """ Retrieves dimesion of states.
+    #
+    #        Returns:
+    #            num_states(int): Dimension of states.
+    #        """
+    #        return self._num_states
+    #
+    #    @property
+    #    def num_agents(self):
+    #        """ Retrieves number of agents for multi-agent environments.
+    #
+    #        Returns:
+    #            num_agents(int): Dimension of states.
+    #        """
+    #        return self._num_agents
+    #
+    #    def get_states(self):
+    #        """ API for retrieving states buffer, used for asymmetric AC training.
+    #
+    #        Returns:
+    #            states_buf(torch.Tensor): States buffer.
+    #        """
+    #        return self.states_buf
+    #
+    #    def get_extras(self):
+    #        """ API for retrieving extras data for RL.
+    #
+    #        Returns:
+    #            extras(dict): Dictionary containing extras data.
+    #        """
+    #        return self.extras
+    #
     def reset(self):
-        """ Flags all environments for reset.
-        """
+        """Flags all environments for reset."""
         self.reset_buf = torch.ones_like(self.reset_buf)
-#
-#    def pre_physics_step(self, actions):
-#        """ Optionally implemented by individual task classes to process actions.
-#
-#        Args:
-#            actions (torch.Tensor): Actions generated by RL policy.
-#        """
-#        pass
+
+    #
+    #    def pre_physics_step(self, actions):
+    #        """ Optionally implemented by individual task classes to process actions.
+    #
+    #        Args:
+    #            actions (torch.Tensor): Actions generated by RL policy.
+    #        """
+    #        pass
 
     def post_physics_step(self):
-        """ Processes RL required computations for observations, states, rewards, resets, and extras.
+        """Processes RL required computations for observations, states, rewards, resets, and extras.
             Also maintains progress buffer for tracking step count per environment.
 
         Returns:
