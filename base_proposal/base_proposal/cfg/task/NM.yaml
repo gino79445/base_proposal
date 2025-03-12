@@ -29,6 +29,7 @@ env:
   # cabinet, stove, booksfelf, light, oven, lamp, window ,oven_cluster, cabinet_cluster, cluster_table
   obstacles: ["cabinet_clutter"]
   target: ["pot", "nothing"]
+  build_global_map: False
   se3: []
 
   instruction: "Put the pot next to the glass on the table."

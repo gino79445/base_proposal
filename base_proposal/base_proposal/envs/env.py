@@ -298,7 +298,8 @@ class IsaacEnv:
     def left_rotation(self, angle, velocity=1):
         actions = np.zeros(5)
         velocity = self._task.max_rot_vel
-        angle = angle / (self._task._dt) * 3.14159265
+        # angle = angle / (self._task._dt) * 3.14159265
+        angle = angle / (self._task._dt)
         actions[:] = 2
         actions = torch.unsqueeze(
             torch.tensor(actions, dtype=torch.float, device=self._device), dim=0
@@ -315,7 +316,8 @@ class IsaacEnv:
     def right_rotation(self, angle, velocity=1):
         actions = np.zeros(5)
         velocity = self._task.max_rot_vel
-        angle = angle / (self._task._dt) * 3.14159265
+        # angle = angle / (self._task._dt) * 3.14159265
+        angle = angle / (self._task._dt)
         actions[:] = 1
         actions = torch.unsqueeze(
             torch.tensor(actions, dtype=torch.float, device=self._device), dim=0
@@ -332,7 +334,8 @@ class IsaacEnv:
     def forward(self, distance, velocity=1):
         actions = np.zeros(5)
         velocity = self._task.max_base_xy_vel
-        distance = distance / (self._task._dt) * 4
+        # distance = distance / (self._task._dt) * 4
+        distance = distance / (self._task._dt)
         actions[:] = 0
         actions = torch.unsqueeze(
             torch.tensor(actions, dtype=torch.float, device=self._device), dim=0

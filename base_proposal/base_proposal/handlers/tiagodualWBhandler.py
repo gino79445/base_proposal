@@ -319,7 +319,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
             joint_indices=self.base_dof_idxs,
         )
 
-    def apply_base_actions(self, actions):
+    def apply_base_actions1(self, actions):
         from pyquaternion import Quaternion
 
         # set arm
@@ -386,54 +386,49 @@ class TiagoDualWBHandler(TiagoBaseHandler):
             ]
         )
         self._robot_pose = quatpose
-        # def apply_base_actions(self, actions):
-        #     from pyquaternion import Quaternion
-        #     import math
 
-        #     base_actions = actions.clone()
+    def apply_base_actions(self, actions):
+        from pyquaternion import Quaternion
+        import math
 
-        #     # set velocity targets
-        #     # self.robots.set_joint_velocities(  # set joint velocity targets
-        #     #    velocities=base_actions * 1000, joint_indices=self.base_dof_idxs
-        #     # )
-        #     # return
+        base_actions = actions.clone()
 
-        #     jt_pos = self.robots.get_joint_positions(
-        #         joint_indices=self.base_dof_idxs, clone=True
-        #     )
-        #     jt_pos = jt_pos[0]
-        #     base_actions = base_actions[0]
+        jt_pos = self.robots.get_joint_positions(
+            joint_indices=self.base_dof_idxs, clone=True
+        )
+        jt_pos = jt_pos[0]
+        base_actions = base_actions[0]
 
-        #     rotated_x = base_actions[0] * math.cos(jt_pos[2]) - base_actions[1] * math.sin(
-        #         jt_pos[2]
-        #     )
-        #     rotated_y = base_actions[0] * math.sin(jt_pos[2]) + base_actions[1] * math.cos(
-        #         jt_pos[2]
-        #     )
+        rotated_x = base_actions[0] * math.cos(jt_pos[2]) - base_actions[1] * math.sin(
+            jt_pos[2]
+        )
+        rotated_y = base_actions[0] * math.sin(jt_pos[2]) + base_actions[1] * math.cos(
+            jt_pos[2]
+        )
 
-        #     jt_pos[0] += rotated_x * self.dt
-        #     jt_pos[1] += rotated_y * self.dt
-        #     jt_pos[2] += base_actions[2] * self.dt
+        jt_pos[0] += rotated_x * self.dt
+        jt_pos[1] += rotated_y * self.dt
+        jt_pos[2] += base_actions[2] * self.dt
 
-        #     current_orientation = Quaternion(axis=[0, 0, 1], radians=jt_pos[2])
-        #     rotation = Quaternion(axis=[0, 0, 1], radians=base_actions[2] * self.dt)
-        #     new_orientation = current_orientation * rotation
-        #     quatpose = np.array(
-        #         [
-        #             jt_pos[0],
-        #             jt_pos[1],
-        #             0,
-        #             new_orientation.real,
-        #             new_orientation.imaginary[0],
-        #             new_orientation.imaginary[1],
-        #             new_orientation.imaginary[2],
-        #         ]
-        #     )
-        #     self._robot_pose = quatpose
+        current_orientation = Quaternion(axis=[0, 0, 1], radians=jt_pos[2])
+        rotation = Quaternion(axis=[0, 0, 1], radians=base_actions[2] * self.dt)
+        new_orientation = current_orientation * rotation
+        quatpose = np.array(
+            [
+                jt_pos[0],
+                jt_pos[1],
+                0,
+                new_orientation.real,
+                new_orientation.imaginary[0],
+                new_orientation.imaginary[1],
+                new_orientation.imaginary[2],
+            ]
+        )
+        self._robot_pose = quatpose
 
-        #  self.robots.set_joint_positions(
-        #      positions=jt_pos, joint_indices=self.base_dof_idxs
-        #  )
+        self.robots.set_joint_positions(
+            positions=jt_pos, joint_indices=self.base_dof_idxs
+        )
 
     # self.robots.set_joint_velocities(
     #     velocities=base_actions, joint_indices=self.base_dof_idxs
