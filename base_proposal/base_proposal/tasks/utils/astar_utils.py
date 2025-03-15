@@ -30,10 +30,14 @@ def manhattan_distance(x1, y1, x2, y2):
 #    return np.all(map[x:x+10, y:y+10] == 0)
 
 
-def is_valid(x, y, map):
-    # 檢查 5x5 區域內的所有格子是否都在地圖範圍內且為可通行格子
-    for i in range(-8, 8):
-        for j in range(-8, 8):
+def is_valid(x, y, map, radius=8):
+    for i in range(-radius, radius + 1):
+        for j in range(-radius, radius + 1):
+            # ✅ 只檢查圓形內的點 (i, j)
+            if i**2 + j**2 > radius**2:
+                continue  # 忽略圓外的格子
+
+            # ✅ 檢查是否超出邊界或為障礙物
             if (
                 x + i < 0
                 or y + j < 0
@@ -230,10 +234,10 @@ def a_star_rough(map, start, end):
         # 如果到達目標附近（距離小於 0.7 公尺）
         if (
             manhattan_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
-            <= 0.75
+            <= 0.8
             and manhattan_distance(current_node.x, current_node.y, end[0], end[1])
             * 0.05
-            >= 0.65
+            >= 0.7
         ):
             path = []
             while current_node:

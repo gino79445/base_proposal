@@ -308,6 +308,8 @@ class NMTask(Task):
         rgb = self.get_rgb_data()
         im = Image.fromarray(rgb)
 
+        self.set_robot()
+
         # rgb_data = rgb.get_data()
         # im = Image.fromarray(rgb_data)
         # im.save("./data/start_rgb.png")
@@ -452,9 +454,24 @@ class NMTask(Task):
         if self._task_cfg["env"]["build_global_map"]:
             start = (100, 100)
         else:
-            start = self.curr_pos
+            robot_pos = self.tiago_handler.get_robot_obs()[0, :3]
+            x, y, theta = robot_pos
+            start = (int(y / cell_size) + 100, int(x / cell_size) + 100)
+            star_delta = (start[0] - 100, start[1] - 100)
             start = (100, 100)
-            end = (end[0] - self.curr_pos[0] + 100, end[1] - self.curr_pos[1] + 100)
+            end = (end[0] - star_delta[0], end[1] - star_delta[1])
+            cos_theta = np.cos(theta)
+            sin_theta = np.sin(theta)
+
+            # 以 start 為中心旋轉
+            cx, cy = 100, 100
+            px, py = end
+            dx, dy = px - cx, py - cy
+            new_x = cx + (dx * cos_theta - dy * sin_theta)
+            new_y = cy + (dx * sin_theta + dy * cos_theta)
+            end = (int(new_x), int(new_y))
+
+            # end = (end[0] - self.curr_pos[0] + 100, end[1] - self.curr_pos[1] + 100)
         occupancy_2d_map = self.occupancy_2d_map
         path = []
         if self._task_cfg["env"]["build_global_map"]:
@@ -753,22 +770,37 @@ class NMTask(Task):
 
         # === 🔴 旋轉地圖到機器人座標 ===
         # scipy.ndimage 直接旋轉影像，不用手動計算旋轉矩陣
-        robot_map = scipy.ndimage.rotate(
-            global_map, np.rad2deg(theta), reshape=False, order=1
-        )
 
+        robot_map = global_map.copy()
         # === 🔵 平移地圖，讓機器人居中 ===
         dx = grid_size // 2 - robot_pixel_x
         dy = grid_size // 2 - robot_pixel_y
         robot_map = np.roll(robot_map, shift=(dy, dx), axis=(0, 1))
 
+        robot_map = scipy.ndimage.rotate(
+            robot_map, np.rad2deg(theta), reshape=False, order=1
+        )
         self.occupancy_2d_map = robot_map
-        im = Image.fromarray(self.occupancy_2d_map)
+
+        map = self.occupancy_2d_map.copy()
+
+        # for i in range(-8, 8):
+        #    for j in range(-8, 8):
+        #        map[100 + j, 100 + i] = 255
+        radius = 7
+        for i in range(-radius, radius + 1):
+            for j in range(-radius, radius + 1):
+                # ✅ 只檢查圓形內的點 (i, j)
+                if i**2 + j**2 > radius**2:
+                    continue  # 忽略圓外的格子
+                map[100 + j, 100 + i] = 255
+
+        im = Image.fromarray(map)
         # flip up and down
         im = im.transpose(Image.FLIP_TOP_BOTTOM)
         # left_rotate
         im = im.transpose(Image.ROTATE_90)
-        im.save("./data/oc.png")
+        im.save("./data/curr_2d_map.png")
         return
 
     def get_render(self):
@@ -823,6 +855,9 @@ class NMTask(Task):
         reset_env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(reset_env_ids) > 0:
             self.reset_idx(reset_env_ids)
+
+        # robot_position = self.tiago_handler.get_robot_obs()[0, :3]
+        # scene_utils.set_obj_pose(self._grasp_objs[0], robot_position)
 
         R, T, fx, fy, cx, cy = self.retrieve_camera_params()
         action = np.zeros(3)
@@ -974,11 +1009,14 @@ class NMTask(Task):
             self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
         #            print(f"Goal position: {self._curr_goal_tf}")
 
-        if actions == "manipulate":
+        if actions == "turn_to_goal":
             # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
             x_scaled = torch.tensor([0], device=self._device)
             y_scaled = torch.tensor([0], device=self._device)
-            theta_scaled = torch.tensor([0], device=self._device)
+            curr_goal_pos = self._curr_goal_tf[self.se3_idx, 0:3, 3]
+            theta_scaled = torch.tensor(
+                [torch.atan2(curr_goal_pos[1], curr_goal_pos[0])], device=self._device
+            )
 
             base_tf, action_tf = self.set_new_base(x_scaled, y_scaled, theta_scaled)
             new_base_tf = torch.matmul(base_tf, action_tf)
@@ -988,6 +1026,9 @@ class NMTask(Task):
                 .unsqueeze(dim=0)
                 .unsqueeze(dim=0)
             )
+            self.x_delta = new_base_xy[0, 0].cpu().numpy()
+            self.y_delta = new_base_xy[0, 1].cpu().numpy()
+            self.theta_delta = new_base_theta[0, 0].cpu().numpy()
             self.tiago_handler.set_base_positions(
                 torch.hstack((new_base_xy, new_base_theta))
             )
@@ -995,6 +1036,36 @@ class NMTask(Task):
             # Transform goal to robot frame
             inv_base_tf = torch.linalg.inv(new_base_tf)
             self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
+            return
+
+        if actions == "manipulate":
+            self.obj_origin_pose = scene_utils.get_obj_pose(self._grasp_objs[0])
+            #   # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
+            #   x_scaled = torch.tensor([0], device=self._device)
+            #   y_scaled = torch.tensor([0], device=self._device)
+            #   theta_scaled = torch.tensor([0], device=self._device)
+            #   # theta_scaled = torch.tensor(
+            #   #    [torch.atan2(curr_goal_pos[1], curr_goal_pos[0])], device=self._device
+            #   # )
+            #   # theta_scaled = torch.tensor(
+            #   #     [torch.atan2(curr_goal_pos[1], curr_goal_pos[0])], device=self._device
+            #   # )
+
+            #   base_tf, action_tf = self.set_new_base(x_scaled, y_scaled, theta_scaled)
+            #   new_base_tf = torch.matmul(base_tf, action_tf)
+            #   new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
+            #   new_base_theta = (
+            #       torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
+            #       .unsqueeze(dim=0)
+            #       .unsqueeze(dim=0)
+            #   )
+            #   self.tiago_handler.set_base_positions(
+            #       torch.hstack((new_base_xy, new_base_theta))
+            #   )
+
+            #   # Transform goal to robot frame
+            #   inv_base_tf = torch.linalg.inv(new_base_tf)
+            #   self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
             curr_goal_pos = self._curr_goal_tf[self.se3_idx, 0:3, 3]
             curr_goal_quat = Rotation.from_matrix(
                 self._curr_goal_tf[self.se3_idx, :3, :3]
@@ -1033,7 +1104,6 @@ class NMTask(Task):
                 theta = torch.arctan2(
                     torch.tensor(base_positions[3]), torch.tensor(base_positions[2])
                 )
-                theta += theta_scaled.item()
                 theta += self.theta_delta
 
                 self.tiago_handler.set_base_positions(
@@ -1057,6 +1127,9 @@ class NMTask(Task):
                 self.tmp_theta = self.theta_delta
 
                 start_arm = self.tiago_handler.get_upper_body_positions()
+                # start_arm = np.array([0.25,1, 1.5707, 1.5707, 1, 1.5, -1.5707, 1.0])
+                # start_arm = torch.tensor(start_arm).unsqueeze(0)
+
                 start_base = self.tiago_handler.get_base_positions()
                 start_base = np.array([0, 0, 1, 0])
                 start_base = torch.tensor(start_base)
@@ -1065,7 +1138,7 @@ class NMTask(Task):
                 start_q = start_q.unsqueeze(0)
                 start_q = start_q.cpu().numpy()
                 start_q = start_q[0][0]
-                self.start_q = start_q
+                self.start_q = start_q.copy
 
                 end_base = np.array(
                     [
@@ -1096,7 +1169,11 @@ class NMTask(Task):
 
         if actions == "return_arm":
             if self.ik_success:
+                # self.attach_object(self._grasp_objs[0])
                 # self.start_q = self.end_q
+                # start_arm = np.array([0.25,1, 1.5707, 1.5707, 1, 1.5, -1.5707, 1.0])
+                # start_arm = torch.tensor(start_arm).unsqueeze(0)
+
                 self.end_q = self.start_q.copy()
                 self.tiago_handler.set_upper_body_positions(
                     jnt_positions=torch.tensor(
@@ -1106,6 +1183,7 @@ class NMTask(Task):
                     )
                 )
 
+                print("Return arm")
                 self.tiago_handler.set_base_positions(
                     jnt_positions=torch.tensor(
                         np.array([[self.tmp_x, self.tmp_y, self.tmp_theta]]),
@@ -1114,6 +1192,14 @@ class NMTask(Task):
                     )
                 )
             return
+
+        if actions == "check_success":
+            curr_pose = scene_utils.get_obj_pose(self._grasp_objs[0])
+            #
+            print(curr_pose[0][2] - self.obj_origin_pose[0][2])
+            if curr_pose[0][2] - self.obj_origin_pose[0][2] >= 0.1:
+                # self._is_success[0] = 1
+                print("check_success")
 
     def get_se3_transform(self, prim):
         # print(f"Prim: {prim}")

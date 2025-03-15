@@ -392,6 +392,12 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         import math
 
         base_actions = actions.clone()
+        arm_pos = self.robots.get_joint_positions(  # get current joint positions
+            joint_indices=self.arm_left_dof_idxs, clone=True
+        )
+        self.robots.set_joint_positions(  # set joint position targets to lift arm
+            positions=arm_pos, joint_indices=self.arm_left_dof_idxs
+        )
 
         jt_pos = self.robots.get_joint_positions(
             joint_indices=self.base_dof_idxs, clone=True

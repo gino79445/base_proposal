@@ -51,6 +51,8 @@ from scipy.spatial.transform import Rotation
 
 # Usd
 from pxr import Usd
+import omni.isaac.surface_gripper
+from pxr import UsdPhysics, Gf
 
 
 class Task(BaseTask):
@@ -104,6 +106,73 @@ class Task(BaseTask):
         define_prim(self.default_zero_env_path)
 
         self.cleanup()
+
+    def attach_object(self, obj):
+        # Attach object to the robot
+        stage = omni.usd.get_context().get_stage()
+        left_finger_link_path = (
+            "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link/fixed_joint"
+        )
+        left_finger_prim = stage.GetPrimAtPath(left_finger_link_path)
+        object_prim = obj.prim_path
+        rigid_body_api = UsdPhysics.RigidBodyAPI.Apply(obj.prim)
+        # massAPI = UsdPhysics.MassAPI.Apply(obj.prim)
+        # massAPI.GetMassAttr().Set(-1)
+        # rigid_body_api.GetRigidBodyEnabledAttr().Set(False)
+
+        anchor_pos = Gf.Vec3d([0.2, 0.0, 0.00])
+        self.fix_to_hand(
+            stage,
+            left_finger_link_path,
+            object_prim,
+            anchor_pos,
+            "pot",
+            "gripper_left_left_finger_link",
+        )
+
+    def fix_to_hand(
+        self, stage, joint_path, prim_path, anchor_pos, object_name, hand_name
+    ):
+        # D6 fixed joint
+        FixedJoint = UsdPhysics.FixedJoint.Define(stage, joint_path)
+        FixedJoint.CreateBody0Rel().SetTargets(
+            [f"/World/envs/env_0/TiagoDualHolo/{hand_name}"]
+        )
+        FixedJoint.CreateBody1Rel().SetTargets([prim_path])
+        FixedJoint.CreateLocalPos0Attr().Set(Gf.Vec3f(anchor_pos))
+        FixedJoint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, Gf.Vec3f(0, 0, 0)))
+        FixedJoint.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+        FixedJoint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, Gf.Vec3f(0, 0, 0)))
+        #
+
+    def set_robot(self):
+        import omni
+
+        stage = omni.usd.get_context().get_stage()
+        import omni.isaac.core.utils.prims as prim_utils
+
+        left_finger_link_path = (
+            "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link"
+        )
+        left_finger_prim = stage.GetPrimAtPath(left_finger_link_path)
+        # result, self.surface_gripper_prim = omni.kit.commands.execute(
+        #     "CreateSurfaceGripper",
+        #     prim_name="SurfaceGripperActionGraph",
+        #     surface_gripper_prim=left_finger_prim,
+        # )
+        # properties =
+        self.gripper = omni.isaac.surface_gripper.SurfaceGripper(
+            usd_path=left_finger_link_path
+        )
+        self.gripper.initialize(
+            "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link"
+        )
+
+    # if success:
+    #     print("Surface Gripper 初始化成功")
+    # else:
+    #     print("Surface Gripper 初始化失敗")
+    #     exit()
 
     def cleanup(self) -> None:
         """Prepares torch buffers for RL data collection."""

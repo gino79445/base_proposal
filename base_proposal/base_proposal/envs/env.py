@@ -174,6 +174,10 @@ class IsaacEnv:
             self._task.pre_physics_step("start")
             self.render()
 
+        if action[0] == "turn_to_goal":
+            self._task.pre_physics_step("turn_to_goal")
+            self.render()
+
         if action[0] == "navigate":
             position = np.array(action[1:])
             # self._task.set_path(position)
@@ -234,22 +238,26 @@ class IsaacEnv:
         if action[0] == "manipulate":
             self._task.pre_physics_step("manipulate")
             self.render()
+
+            # self._task.pre_physics_step("get_point_cloud")
+            # self.render()
+            # motion_num = self._task.get_motion_num()
+            # for i in range(motion_num):
+            #    self._task.pre_physics_step("move_arm")
+            #    self.render()
             self.close_gripper()
             self.render()
             self.lift_object()
             self.render()
 
-            # self._task.pre_physics_step('get_point_cloud')
-            # self.render()
-            # motion_num = self._task.get_motion_num()
-            # for i in range(motion_num):
-            #    self._task.pre_physics_step('move_arm')
-            #    self.render()
-
         if action[0] == "return_arm":
-            pass
-            # self._task.pre_physics_step("return_arm")
-            # self.render()
+            # pass
+            self._task.pre_physics_step("return_arm")
+            self.render()
+
+        if action[0] == "check_success":
+            self._task.pre_physics_step("check_success")
+            self.render()
 
         self.render()
         resets = (

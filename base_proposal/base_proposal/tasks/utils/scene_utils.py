@@ -17,6 +17,7 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats
 from omni.isaac.core.utils.semantics import add_update_semantics
 from pxr import UsdGeom
+import omni.isaac.core.utils.physics as physics_utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 goal_center = torch.tensor([0.0, 0.0, 0.0], device=device)
@@ -186,6 +187,28 @@ def spawn_grasp_object(name, prim_path, device):
     transform = get_se3_transform(prim)
     # print("Transform: ", transform)
     return obj
+
+
+def get_obj_pose(obj):
+    pose = obj.get_world_pose()
+    print(pose)
+    return pose
+
+
+def set_obj_pose(obj, pose):
+    # pose = obj.get_world_pose()
+    # print(pose)
+
+    pose[0] = pose[0] + 0.5
+    pose[2] = 0.5
+    obj.set_world_pose(
+        position=torch.tensor(pose[0:3], device=device),
+        orientation=euler_angles_to_quats(torch.tensor([[0, 0, 0]], device=device))[0],
+    )
+    # make object not rigid
+
+    # prim = get_prim_at_path(obj.prim_path)
+    # physics_utils.set_rigid_body_enabled(False, prim)
 
 
 def setup_tabular_scene(grasp_objs, device):
