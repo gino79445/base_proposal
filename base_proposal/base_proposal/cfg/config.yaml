@@ -31,7 +31,7 @@ physics_engine: "physx"
 # whether to use cpu or gpu pipeline
 pipeline: "cpu" # 'gpu'
 # whether to use cpu or gpu physx
-sim_device: "cpu" # 'gpu'
+sim_device: "gpu" # 'gpu'
 # used for gpu pipeline only - device id for running sim and task
 device_id: 0
 # device to run RL

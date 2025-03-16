@@ -29,7 +29,7 @@ env:
   # cabinet, stove, booksfelf, light, oven, lamp, window ,oven_cluster, cabinet_cluster, cluster_table
   obstacles: ["dining_room"]
   target: ["mug", "chocolate_pudding"]
-  build_global_map: True
+  build_global_map: False
   targets_position:
     [
       [[2.5, -1, 0.72], [0, 0, 1.57079632]],
@@ -65,7 +65,7 @@ env:
 
   times: 5
   check_env:
-    True
+    False
     #goal_pos_thresh: 0.01 # metres
   goal_pos_thresh: 0.005 # metres
   goal_ang_thresh: 0.08726646259 # 5*np.pi/180

@@ -191,7 +191,6 @@ def spawn_grasp_object(name, prim_path, device):
 
 def get_obj_pose(obj):
     pose = obj.get_world_pose()
-    print(pose)
     return pose
 
 
@@ -223,7 +222,7 @@ def setup_tabular_scene(grasp_objs, targets_position, targets_se3, device):
             position=torch.tensor(targets_position[idx][0], device=device),
             orientation=euler_angles_to_quats(
                 torch.tensor(targets_position[idx][1], device=device)
-            ),
+            ).to(device),
         )
 
         se3_list = targets_se3[idx]
@@ -233,7 +232,7 @@ def setup_tabular_scene(grasp_objs, targets_position, targets_se3, device):
                     torch.tensor(se3[0], dtype=torch.float, device=device),
                     euler_angles_to_quats(
                         torch.tensor(se3[1], dtype=torch.float, device=device)
-                    ),
+                    ).to(device),
                 )
             )
             goal_pose.append(pose)

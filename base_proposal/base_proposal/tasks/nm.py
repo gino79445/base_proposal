@@ -478,7 +478,12 @@ class NMTask(Task):
             # end = (end[0] - self.curr_pos[0] + 100, end[1] - self.curr_pos[1] + 100)
         occupancy_2d_map = self.occupancy_2d_map
         path = []
-        if self._task_cfg["env"]["build_global_map"]:
+        if self._task_cfg["env"]["check_env"] == True:
+            occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
+            path = [(100, 100), end]
+
+        elif self._task_cfg["env"]["build_global_map"]:
             occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
             path = astar_utils.a_star2(occupancy_2d_map, start, end)
         else:
@@ -691,49 +696,11 @@ class NMTask(Task):
         # get the camera parameters
         R, T, fx, fy, cx, cy = self.retrieve_camera_params()
         if self._task_cfg["env"]["check_env"] == True:
+            time.sleep(1)
             self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
             return
         if self._task_cfg["env"]["build_global_map"]:
             self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-            # make R matrix + T vector 4x4 matrix
-            # camera_tf = torch.zeros((4, 4), device=self._device)
-            # camera_tf[:3, :3] = torch.tensor(R)
-            # camera_tf[:3, 3] = torch.tensor(T).squeeze()
-            # camera_rotate = torch.tensor(R)
-            # camera_translate = torch.tensor(T).squeeze()
-
-            ## last row
-            # camera_tf[-1, :] = torch.tensor([0, 0, 0, 1], device=self._device)
-
-            ## get the base position
-            # base_position = self.tiago_handler.get_robot_obs()[0, :3]
-
-            # base_rotate = torch.tensor(
-            #    [
-            #        [torch.cos(base_position[2]), -torch.sin(base_position[2]), 0],
-            #        [torch.sin(base_position[2]), torch.cos(base_position[2]), 0],
-            #        [0, 0, 1],
-            #    ],
-            #    dtype=torch.float64,
-            # )
-            # base_translate = torch.tensor([base_position[0], base_position[1], 0])
-            # base_invert_rotate = base_rotate.t()
-            # global_R = camera_rotate.float() @ base_invert_rotate.float()
-            ## global_T = camera_translate.float() + base_translate.float()
-            # global_T = (
-            #    #   base_translate.float()
-            #    camera_translate.float() @ base_invert_rotate.float()
-            #    + base_translate.float()
-            # )
-
-            ##   global_T = (
-            ##       base_invert_rotate.float() @ camera_translate.float()
-            ##       + base_translate.float()
-            ##   )
-
-            # global_T = global_T.reshape(3, 1)
-            # global_R = global_R.numpy().astype(np.float64)
-            # global_T = global_T.numpy().astype(np.float64)
             global_R, global_T = self.get_global_RT()
             self.build_map(global_R, global_T, fx, fy, cx, cy)
 
@@ -1216,7 +1183,7 @@ class NMTask(Task):
         )
         goal_num = self._goal.shape[0]
         self._goal_tf = torch.zeros((goal_num, 4, 4), device=self._device)
-        goal_rots = Rotation.from_quat(self._goal[:, 3:])  # 使用所有 goal 的四元數
+        goal_rots = Rotation.from_quat(self._goal[:, 3:].cpu().numpy())
         self._goal_tf[:, :3, :3] = torch.tensor(
             goal_rots.as_matrix(), dtype=float, device=self._device
         )

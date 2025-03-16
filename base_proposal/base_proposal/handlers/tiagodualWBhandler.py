@@ -419,17 +419,16 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         current_orientation = Quaternion(axis=[0, 0, 1], radians=jt_pos[2])
         rotation = Quaternion(axis=[0, 0, 1], radians=base_actions[2] * self.dt)
         new_orientation = current_orientation * rotation
-        quatpose = np.array(
-            [
-                jt_pos[0],
-                jt_pos[1],
-                0,
-                new_orientation.real,
-                new_orientation.imaginary[0],
-                new_orientation.imaginary[1],
-                new_orientation.imaginary[2],
-            ]
-        )
+        quatpose = [
+            jt_pos[0],
+            jt_pos[1],
+            0,
+            new_orientation.real,
+            new_orientation.imaginary[0],
+            new_orientation.imaginary[1],
+            new_orientation.imaginary[2],
+        ]
+
         self._robot_pose = quatpose
 
         self.robots.set_joint_positions(
