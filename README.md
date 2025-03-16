@@ -61,8 +61,8 @@ Download the following 3d model packs
 - Save the built rooms in the Shapenet folder using the following format.
    ```
     └── base_proposal/base_proposal/base_proposal/usd/Props/Shapenet/ 
-        ├── <your_room_name>/   
-            ├── models/                   
+        └── <your_room_name>/   
+            └── models/                   
                 └── model_normalized.usd                      
     ```
 
