@@ -44,20 +44,27 @@ Download the following 3d model packs
     source <PATH_TO_ISAAC_SIM>/isaac_sim.sh
     ```
 - import 3d model (*.usd)
-    - You can pull the USDs from the following folder to build the rooms.
-```
-└── base_proposal/base_proposal/base_proposal/usd/Props/
-    ├── Base_Materials_NVD@10013/   
-    ├── building/                   
-    ├── Commercial_NVD@10013/       
-    ├── Residential_NVD@10012/      
-    ├── Shapenet/                  
-    └── YCB/                        
-```
+    - You can pull the *.usd from the following folders ( Commercial_NVD@10013 , Residential_NVD@10012 ...) to build the rooms.
+    ```
+    └── base_proposal/base_proposal/base_proposal/usd/Props/
+        ├── Base_Materials_NVD@10013/   
+        ├── building/                   
+        ├── Commercial_NVD@10013/       
+        ├── Residential_NVD@10012/      
+        ├── Shapenet/                  
+        └── YCB/                        
+    ```
+    
+- Example : 
+  ``` base_proposal/base_proposal/base_proposal/usd/Props/Shapenet/living_room/models/model_normalized.usd```
 
-
-
-
+- Save the built rooms in the Shapenet folder using the following format.
+   ```
+    └── base_proposal/base_proposal/base_proposal/usd/Props/Shapenet/ 
+        ├── <your_room_name>/   
+            ├── models/                   
+                └── model_normalized.usd                      
+    ```
 
 
 ## Experiments
