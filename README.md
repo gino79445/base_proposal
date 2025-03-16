@@ -57,7 +57,7 @@ Download the following 3d model packs
     
 - You can build by referring to this *living_room* example.
 
-  Example : ``` base_proposal/base_proposal/base_proposal/usd/Props/Shapenet/living_room/models/model_normalized.usd```
+  Example :``` base_proposal/base_proposal/base_proposal/usd/Props/Shapenet/living_room/models/model_normalized.usd```
 
 - Save the built room in the Shapenet folder using the following format.
    ```
