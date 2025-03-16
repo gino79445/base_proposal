@@ -38,6 +38,23 @@ Download the following 3d model packs
     ├── Shapenet/                  
     └── YCB/                        
 ```
+# build the enviroments
+- open the GUI:
+    ```
+    source <PATH_TO_ISAAC_SIM>/isaac_sim.sh
+    ```
+- import 3d model (*.usd)
+    - You can pull the USDs from the following folder to build the rooms.
+```
+└── base_proposal/base_proposal/base_proposal/usd/Props/
+    ├── Base_Materials_NVD@10013/   
+    ├── building/                   
+    ├── Commercial_NVD@10013/       
+    ├── Residential_NVD@10012/      
+    ├── Shapenet/                  
+    └── YCB/                        
+```
+
 
 
 
