@@ -211,55 +211,76 @@ def set_obj_pose(obj, pose):
     # physics_utils.set_rigid_body_enabled(False, prim)
 
 
-def setup_tabular_scene(grasp_objs, device):
+def setup_tabular_scene(grasp_objs, targets_position, targets_se3, device):
     # Randomly arrange the objects in the environment. Ensure no overlaps, collisions!
     # Grasp objects will be placed on a random tabular obstacle.
     # Returns: target grasp object, target grasp/goal, all object's oriented bboxes
     # TODO: Add support for circular tables
 
     goal_pose = []
-    for obj in grasp_objs:
-        if obj.name == "nothing":
-            obj.set_world_pose(
-                position=torch.tensor([1.5000000, -2, 0.3], device=device),
-                orientation=euler_angles_to_quats(
-                    torch.tensor([[-torch.pi / 2, 0, torch.pi]], device=device)
-                )[0],
-            )
-            pose = torch.hstack(
-                (
-                    torch.tensor([1.3, -1.3, 0.6], dtype=torch.float, device=device),
-                    euler_angles_to_quats(
-                        torch.tensor(
-                            [[-torch.pi / 2, -torch.pi / 2, 0]],
-                            dtype=torch.float,
-                            device=device,
-                        )
-                    )[0],
-                )
-            )
-        else:
-            obj.set_world_pose(
-                position=torch.tensor([1.5, 0.8, 0.75], device=device),
-                orientation=euler_angles_to_quats(
-                    torch.tensor([[-torch.pi / 2, 0, torch.pi]], device=device)
-                )[0],
-            )
-            pose = torch.hstack(
-                (
-                    torch.tensor([1.45, 0.58, 0.82], dtype=torch.float, device=device),
-                    euler_angles_to_quats(
-                        torch.tensor(
-                            # [[-torch.pi / 2, -torch.pi / 2, 0]],
-                            [[0, 0, torch.pi / 2]],
-                            dtype=torch.float,
-                            device=device,
-                        )
-                    )[0],
-                )
-            )
+    for idx, obj in enumerate(grasp_objs):
+        obj.set_world_pose(
+            position=torch.tensor(targets_position[idx][0], device=device),
+            orientation=euler_angles_to_quats(
+                torch.tensor(targets_position[idx][1], device=device)
+            ),
+        )
 
-        goal_pose.append(pose)
+        se3_list = targets_se3[idx]
+        for se3 in se3_list:
+            pose = torch.hstack(
+                (
+                    torch.tensor(se3[0], dtype=torch.float, device=device),
+                    euler_angles_to_quats(
+                        torch.tensor(se3[1], dtype=torch.float, device=device)
+                    ),
+                )
+            )
+            goal_pose.append(pose)
+
+        #    goal_pose = []
+    #   for obj in grasp_objs:
+    #       if obj.name == "nothing":
+    #           # obj.set_world_pose(
+    #           #     position=torch.tensor([1.5000000, -2, 0.3], device=device),
+    #           #     orientation=euler_angles_to_quats(
+    #           #         torch.tensor([[-torch.pi / 2, 0, torch.pi]], device=device)
+    #           #     )[0],
+    #           # )
+    #           pose = torch.hstack(
+    #               (
+    #                   torch.tensor([1.3, -1.3, 0.6], dtype=torch.float, device=device),
+    #                   euler_angles_to_quats(
+    #                       torch.tensor(
+    #                           [[-torch.pi / 2, -torch.pi / 2, 0]],
+    #                           dtype=torch.float,
+    #                           device=device,
+    #                       )
+    #                   )[0],
+    #               )
+    #           )
+    #       else:
+    #           #  obj.set_world_pose(
+    #           #      position=torch.tensor([1.5, 0.8, 0.75], device=device),
+    #           #      orientation=euler_angles_to_quats(
+    #           #          torch.tensor([[-torch.pi / 2, 0, torch.pi]], device=device)
+    #           #      )[0],
+    #           #  )
+    #           pose = torch.hstack(
+    #               (
+    #                   torch.tensor([1.45, 0.58, 0.82], dtype=torch.float, device=device),
+    #                   euler_angles_to_quats(
+    #                       torch.tensor(
+    #                           # [[-torch.pi / 2, -torch.pi / 2, 0]],
+    #                           [[0, 0, torch.pi / 2]],
+    #                           dtype=torch.float,
+    #                           device=device,
+    #                       )
+    #                   )[0],
+    #               )
+    #           )
+
+    # goal_pose.append(pose)
     # tranlate list to tensor
     goal_pose = torch.stack(goal_pose)
     # print type

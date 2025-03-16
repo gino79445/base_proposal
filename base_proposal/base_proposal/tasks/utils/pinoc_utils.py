@@ -127,6 +127,7 @@ class PinTiagoIKSolver(object):
             ]
         )
         if self._include_torso:
+            # self.joint_pos_min = np.hstack((np.array([0.0]), self.joint_pos_min))
             self.joint_pos_min = np.hstack((np.array([0.0]), self.joint_pos_min))
             # self.joint_pos_max = np.hstack((np.array([0.35]),self.joint_pos_max))
             self.joint_pos_max = np.hstack((np.array([0.25]), self.joint_pos_max))

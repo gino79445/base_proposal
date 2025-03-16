@@ -143,6 +143,10 @@ class NMTask(Task):
         self.instruction = self._task_cfg["env"]["instruction"]
         self.arm = self._task_cfg["env"]["move_group"]
         self.step_count = 0
+
+        self.targets_position = self._task_cfg["env"]["targets_position"]
+        self.targets_se3 = self._task_cfg["env"]["targets_se3"]
+        self.num_se3 = self._task_cfg["env"]["num_se3"]
         # IK solver
         self._ik_solver = PinTiagoIKSolver(
             move_group=self._move_group,
@@ -686,6 +690,9 @@ class NMTask(Task):
             im.save("./data/depth.png")
         # get the camera parameters
         R, T, fx, fy, cx, cy = self.retrieve_camera_params()
+        if self._task_cfg["env"]["check_env"] == True:
+            self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+            return
         if self._task_cfg["env"]["build_global_map"]:
             self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
             # make R matrix + T vector 4x4 matrix
@@ -744,9 +751,6 @@ class NMTask(Task):
         #        # save the rgb image
         #        im = Image.fromarray(rgb)
         #        im.save("./data/original.png")
-
-        if self._task_cfg["env"]["check_env"] == True:
-            return
 
         self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
         # open the occupancy_2d_map png
@@ -1040,60 +1044,41 @@ class NMTask(Task):
 
         if actions == "manipulate":
             self.obj_origin_pose = scene_utils.get_obj_pose(self._grasp_objs[0])
-            #   # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
-            #   x_scaled = torch.tensor([0], device=self._device)
-            #   y_scaled = torch.tensor([0], device=self._device)
-            #   theta_scaled = torch.tensor([0], device=self._device)
-            #   # theta_scaled = torch.tensor(
-            #   #    [torch.atan2(curr_goal_pos[1], curr_goal_pos[0])], device=self._device
-            #   # )
-            #   # theta_scaled = torch.tensor(
-            #   #     [torch.atan2(curr_goal_pos[1], curr_goal_pos[0])], device=self._device
-            #   # )
 
-            #   base_tf, action_tf = self.set_new_base(x_scaled, y_scaled, theta_scaled)
-            #   new_base_tf = torch.matmul(base_tf, action_tf)
-            #   new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
-            #   new_base_theta = (
-            #       torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
-            #       .unsqueeze(dim=0)
-            #       .unsqueeze(dim=0)
-            #   )
-            #   self.tiago_handler.set_base_positions(
-            #       torch.hstack((new_base_xy, new_base_theta))
-            #   )
-
-            #   # Transform goal to robot frame
-            #   inv_base_tf = torch.linalg.inv(new_base_tf)
-            #   self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
-            curr_goal_pos = self._curr_goal_tf[self.se3_idx, 0:3, 3]
-            curr_goal_quat = Rotation.from_matrix(
-                self._curr_goal_tf[self.se3_idx, :3, :3]
-            ).as_quat()[[3, 0, 1, 2]]
-            self.se3_idx += 1
-
-            success_list, base_positions_list = self._ik_solver.solve_ik_pos_tiago(
-                des_pos=curr_goal_pos.cpu().numpy(),
-                des_quat=curr_goal_quat,
-                # pos_threshold=self._goal_pos_threshold, angle_threshold=self._goal_ang_threshold, verbose=False, Rmin=[-0.0, -0.0, 0.965,-0.259],Rmax=[0.0, 0.0, 1, 0.259])
-                pos_threshold=self._goal_pos_threshold,
-                angle_threshold=self._goal_ang_threshold,
-                verbose=False,
-                Rmin=[-0.0, -0.0, 0.866, -0.5],
-                Rmax=[0.0, 0.0, 1, 0.5],
-            )
             success = False
-            for i in range(len(success_list)):
-                if success_list[i]:
-                    x = int((base_positions_list[i][0]) / 0.05 + 100)
-                    y = int((base_positions_list[i][1]) / 0.05 + 100)
-                    success = success_list[i]
-                    base_positions = base_positions_list[i]
+            num = self.num_se3[self.se3_idx]
+            for i in range(num):
+                idx = self.se3_idx + i
+                curr_goal_pos = self._curr_goal_tf[idx, 0:3, 3]
+                curr_goal_quat = Rotation.from_matrix(
+                    self._curr_goal_tf[idx, :3, :3]
+                ).as_quat()[[3, 0, 1, 2]]
 
-                    if astar_utils.is_valid(y, x, self.occupancy_2d_map):
+                success_list, base_positions_list = self._ik_solver.solve_ik_pos_tiago(
+                    des_pos=curr_goal_pos.cpu().numpy(),
+                    des_quat=curr_goal_quat,
+                    # pos_threshold=self._goal_pos_threshold, angle_threshold=self._goal_ang_threshold, verbose=False, Rmin=[-0.0, -0.0, 0.965,-0.259],Rmax=[0.0, 0.0, 1, 0.259])
+                    pos_threshold=self._goal_pos_threshold,
+                    angle_threshold=self._goal_ang_threshold,
+                    verbose=False,
+                    Rmin=[-0.0, -0.0, 0.866, -0.5],
+                    Rmax=[0.0, 0.0, 1, 0.5],
+                )
+                success = False
+                for i in range(len(success_list)):
+                    if success_list[i]:
+                        x = int((base_positions_list[i][0]) / 0.05 + 100)
+                        y = int((base_positions_list[i][1]) / 0.05 + 100)
                         success = success_list[i]
                         base_positions = base_positions_list[i]
+
+                        if astar_utils.is_valid(y, x, self.occupancy_2d_map):
+                            success = success_list[i]
+                            base_positions = base_positions_list[i]
+                            break
+                    if success:
                         break
+            self.se3_idx += 1
             self.ik_success = False
             self.path_num = 0
             self.motion_path = []
@@ -1138,7 +1123,7 @@ class NMTask(Task):
                 start_q = start_q.unsqueeze(0)
                 start_q = start_q.cpu().numpy()
                 start_q = start_q[0][0]
-                self.start_q = start_q.copy
+                self.start_q = start_q
 
                 end_base = np.array(
                     [
@@ -1226,7 +1211,9 @@ class NMTask(Task):
         self.tiago_handler.reset(indices, randomize=self._randomize_robot_on_reset)
 
         # reset the scene objects (randomize), get target end-effector goal/grasp as well as oriented bounding boxes of all other objects
-        self._goal = scene_utils.setup_tabular_scene(self._grasp_objs, self._device)
+        self._goal = scene_utils.setup_tabular_scene(
+            self._grasp_objs, self.targets_position, self.targets_se3, self._device
+        )
         goal_num = self._goal.shape[0]
         self._goal_tf = torch.zeros((goal_num, 4, 4), device=self._device)
         goal_rots = Rotation.from_quat(self._goal[:, 3:])  # 使用所有 goal 的四元數
@@ -1243,13 +1230,22 @@ class NMTask(Task):
         )  # 計算每個 goal 到原點的 x, y 距離
         self.curr_pos = (100, 100)
         # Pitch visualizer by 90 degrees for aesthetics
-        # for i in range(goal_num):
-        #    goal_viz_rot = goal_rots[i] * Rotation.from_euler("xyz", [0, np.pi / 2.0, 0])
-        #    print(f"self._goal[i, :3]: {self._goal[i, :3]}")
-        #    if i == 0:
-        #        self._goal_vizs1.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
-        #    if i == 1:
-        #        self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
+
+        for i in range(goal_num):
+            goal_viz_rot = goal_rots[i] * Rotation.from_euler(
+                "xyz", [0, np.pi / 2.0, 0]
+            )
+            print(f"self._goal[i, :3]: {self._goal[i, :3]}")
+            if i == 0:
+                self._goal_vizs1.set_world_poses(
+                    indices=indices,
+                    positions=self._goal[i, :3].unsqueeze(dim=0),
+                    orientations=torch.tensor(
+                        goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
+                    ).unsqueeze(dim=0),
+                )
+            # if i == 1:
+            #    self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
 
         # bookkeeping
         self.step_count = 0
@@ -1290,16 +1286,26 @@ class NMTask(Task):
                         )
                     ):
                         return True  # Collision detected with some part of the robot
-        # for grasp_obj in self._grasp_objs:
-        # #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
+        for grasp_obj in self._grasp_objs:
+            #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
 
-        #     raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(grasp_obj.prim_path + "/Contact_Sensor")
-        #     if raw_readings.shape[0]:
-        #         for reading in raw_readings:
-        #             if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body1"])):
-        #                 return True # Collision detected with some part of the robot
-        #             if "Tiago" in str(self._contact_sensor_interface.decode_body_name(reading["body0"])):
-        #                 return True # Collision detected with some part of the robot
+            raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(
+                grasp_obj.prim_path + "/Contact_Sensor"
+            )
+            if raw_readings.shape[0]:
+                for reading in raw_readings:
+                    if "Tiago" in str(
+                        self._contact_sensor_interface.decode_body_name(
+                            reading["body1"]
+                        )
+                    ):
+                        return True  # Collision detected with some part of the robot
+                    if "Tiago" in str(
+                        self._contact_sensor_interface.decode_body_name(
+                            reading["body0"]
+                        )
+                    ):
+                        return True  # Collision detected with some part of the robot
         return False
 
     def calculate_metrics(self) -> None:
