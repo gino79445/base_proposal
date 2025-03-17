@@ -450,32 +450,29 @@ class NMTask(Task):
         self.final_place = position
         cell_size = 0.05
 
-        w = self.rgb_data.shape[1]
-        h = self.rgb_data.shape[0]
         goal = position
 
+        start = (100, 100)
         end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
-        if self._task_cfg["env"]["build_global_map"]:
-            start = (100, 100)
-        else:
-            robot_pos = self.tiago_handler.get_robot_obs()[0, :3]
-            x, y, theta = robot_pos
-            start = (int(y / cell_size) + 100, int(x / cell_size) + 100)
-            star_delta = (start[0] - 100, start[1] - 100)
-            start = (100, 100)
-            end = (end[0] - star_delta[0], end[1] - star_delta[1])
-            cos_theta = np.cos(theta)
-            sin_theta = np.sin(theta)
+        #  if self._task_cfg["env"]["global_navigation"] == True:
+        #      robot_pos = self.tiago_handler.get_robot_obs()[0, :3]
+        #      x, y, theta = robot_pos
+        #      start = (int(y / cell_size) + 100, int(x / cell_size) + 100)
+        #      star_delta = (start[0] - 100, start[1] - 100)
+        #      start = (100, 100)
+        #      end = (end[0] - star_delta[0], end[1] - star_delta[1])
+        #      cos_theta = np.cos(theta)
+        #      sin_theta = np.sin(theta)
 
-            # 以 start 為中心旋轉
-            cx, cy = 100, 100
-            px, py = end
-            dx, dy = px - cx, py - cy
-            new_x = cx + (dx * cos_theta - dy * sin_theta)
-            new_y = cy + (dx * sin_theta + dy * cos_theta)
-            end = (int(new_x), int(new_y))
+        #      # 以 start 為中心旋轉
+        #      cx, cy = 100, 100
+        #      px, py = end
+        #      dx, dy = px - cx, py - cy
+        #      new_x = cx + (dx * cos_theta - dy * sin_theta)
+        #      new_y = cy + (dx * sin_theta + dy * cos_theta)
+        #      end = (int(new_x), int(new_y))
 
-            # end = (end[0] - self.curr_pos[0] + 100, end[1] - self.curr_pos[1] + 100)
+        #      # end = (end[0] - self.curr_pos[0] + 100, end[1] - self.curr_pos[1] + 100)
         occupancy_2d_map = self.occupancy_2d_map
         path = []
         if self._task_cfg["env"]["check_env"] == True:
@@ -486,7 +483,11 @@ class NMTask(Task):
         elif self._task_cfg["env"]["build_global_map"]:
             occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
             path = astar_utils.a_star2(occupancy_2d_map, start, end)
+
         else:
+            im = Image.fromarray(occupancy_2d_map)
+            # save
+            im.save("./data/occupancy_222d_map.png")
             path = astar_utils.a_star_rough(occupancy_2d_map, start, end)
             map = self.occupancy_2d_map.copy()
             for p in path:
@@ -686,6 +687,7 @@ class NMTask(Task):
         # perceptial data
         self.depth_data = self.get_depth_data()
         self.rgb_data = self.get_rgb_data()
+        self.robot_obs = self.tiago_handler.get_robot_obs()[0, :3]
         if self.depth_data.shape[0] != 0:
             # normalization
             depth_data = self.depth_data / 5
@@ -698,13 +700,14 @@ class NMTask(Task):
         if self._task_cfg["env"]["check_env"] == True:
             time.sleep(1)
             self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-            return
+            return self.rgb_data, self.depth_data, self.occupancy_2d_map, self.robot_obs
+
         if self._task_cfg["env"]["build_global_map"]:
             self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
             global_R, global_T = self.get_global_RT()
             self.build_map(global_R, global_T, fx, fy, cx, cy)
 
-            return
+            return self.rgb_data, self.depth_data, self.occupancy_2d_map, self.robot_obs
 
         self.rgb_data = self.rgb_data.astype("uint8")
         # save the rgb image
@@ -772,7 +775,7 @@ class NMTask(Task):
         # left_rotate
         im = im.transpose(Image.ROTATE_90)
         im.save("./data/curr_2d_map.png")
-        return
+        return self.rgb_data, self.depth_data, self.occupancy_2d_map, self.robot_obs
 
     def get_render(self):
         # Get ground truth viewport rgb image
@@ -1090,7 +1093,8 @@ class NMTask(Task):
                 start_q = start_q.unsqueeze(0)
                 start_q = start_q.cpu().numpy()
                 start_q = start_q[0][0]
-                self.start_q = start_q
+                self.start_q = start_q.copy()
+                print(self.start_q)
 
                 end_base = np.array(
                     [
@@ -1127,6 +1131,7 @@ class NMTask(Task):
                 # start_arm = torch.tensor(start_arm).unsqueeze(0)
 
                 self.end_q = self.start_q.copy()
+                print(self.end_q)
                 self.tiago_handler.set_upper_body_positions(
                     jnt_positions=torch.tensor(
                         np.array([self.end_q[4:]]),
@@ -1149,7 +1154,7 @@ class NMTask(Task):
             curr_pose = scene_utils.get_obj_pose(self._grasp_objs[0])
             #
             print(curr_pose[0][2] - self.obj_origin_pose[0][2])
-            if curr_pose[0][2] - self.obj_origin_pose[0][2] >= 0.1:
+            if curr_pose[0][2] - self.obj_origin_pose[0][2] >= 0.9:
                 # self._is_success[0] = 1
                 print("check_success")
 
@@ -1202,7 +1207,7 @@ class NMTask(Task):
             goal_viz_rot = goal_rots[i] * Rotation.from_euler(
                 "xyz", [0, np.pi / 2.0, 0]
             )
-            print(f"self._goal[i, :3]: {self._goal[i, :3]}")
+            # print(f"self._goal[i, :3]: {self._goal[i, :3]}")
             if i == 0:
                 self._goal_vizs1.set_world_poses(
                     indices=indices,
@@ -1211,8 +1216,14 @@ class NMTask(Task):
                         goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
                     ).unsqueeze(dim=0),
                 )
-            # if i == 1:
-            #    self._goal_vizs2.set_world_poses(indices=indices, positions=self._goal[i, :3].unsqueeze(dim=0), orientations=torch.tensor(goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device).unsqueeze(dim=0))
+            if i == 1:
+                self._goal_vizs2.set_world_poses(
+                    indices=indices,
+                    positions=self._goal[i, :3].unsqueeze(dim=0),
+                    orientations=torch.tensor(
+                        goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
+                    ).unsqueeze(dim=0),
+                )
 
         # bookkeeping
         self.step_count = 0
@@ -1253,27 +1264,28 @@ class NMTask(Task):
                         )
                     ):
                         return True  # Collision detected with some part of the robot
-        for grasp_obj in self._grasp_objs:
-            #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
 
-            raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(
-                grasp_obj.prim_path + "/Contact_Sensor"
-            )
-            if raw_readings.shape[0]:
-                for reading in raw_readings:
-                    if "Tiago" in str(
-                        self._contact_sensor_interface.decode_body_name(
-                            reading["body1"]
-                        )
-                    ):
-                        return True  # Collision detected with some part of the robot
-                    if "Tiago" in str(
-                        self._contact_sensor_interface.decode_body_name(
-                            reading["body0"]
-                        )
-                    ):
-                        return True  # Collision detected with some part of the robot
-        return False
+    #   for grasp_obj in self._grasp_objs:
+    #       #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
+
+    #       raw_readings = self._contact_sensor_interface.get_contact_sensor_raw_data(
+    #           grasp_obj.prim_path + "/Contact_Sensor"
+    #       )
+    #       if raw_readings.shape[0]:
+    #           for reading in raw_readings:
+    #               if "Tiago" in str(
+    #                   self._contact_sensor_interface.decode_body_name(
+    #                       reading["body1"]
+    #                   )
+    #               ):
+    #                   return True  # Collision detected with some part of the robot
+    #               if "Tiago" in str(
+    #                   self._contact_sensor_interface.decode_body_name(
+    #                       reading["body0"]
+    #                   )
+    #               ):
+    #                   return True  # Collision detected with some part of the robot
+    #   return False
 
     def calculate_metrics(self) -> None:
         # print(f"check_robot_collisions: {self.check_robot_collisions()}")

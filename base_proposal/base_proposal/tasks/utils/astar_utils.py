@@ -30,7 +30,7 @@ def manhattan_distance(x1, y1, x2, y2):
 #    return np.all(map[x:x+10, y:y+10] == 0)
 
 
-def is_valid(x, y, map, radius=8):
+def is_valid(x, y, map, radius=7):
     for i in range(-radius, radius + 1):
         for j in range(-radius, radius + 1):
             # ✅ 只檢查圓形內的點 (i, j)

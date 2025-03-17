@@ -27,37 +27,41 @@ env:
     #max_rot_vel: 2.0944 # in radians (default is 60 degrees per second)
   max_base_xy_vel: 2 # metres per second
   # cabinet, stove, booksfelf, light, oven, lamp, window ,oven_cluster, cabinet_cluster, cluster_table
-  obstacles: ["dining_room"]
-  target: ["mug", "chocolate_pudding"]
+  obstacles: ["living_room"]
+  target: ["pot", "chocolate_pudding1"]
   build_global_map: False
-  targets_position:
-    [
-      [[2.5, -1, 0.72], [0, 0, 1.57079632]],
-      [[1.2, 1, 0.72], [0, 0, -1.57079632]],
-    ]
-  # angle : z y x
-  targets_se3:
-    [
-      [[[1, -1, 0.72], [0, 0, 1.57079632]]],
-      [[[1.3, -1.3, 0.6], [-1.57079632, -1.57079632, 0]]],
-    ]
-  num_se3: [1, 1]
+  global_navigation: False
+
   #targets_position:
   #  [
-  #    [[1.5, 1, 0.72], [0, 0, 0]],
+  ##[[2.6, -1, 0.8], [0, 0, 1.57079632]],
+  #    [[2.5, -0.8, 0.8], [0, 0, 1.97079632]],
   #    [[1.2, 1, 0.72], [0, 0, -1.57079632]],
-  #    [[1.5000000, -2, 0.3], [-1.57079632, 0, 3.14159265]],
   #  ]
   ## angle : z y x
   #targets_se3:
   #  [
-  #    [
-  #      [[1.450, 0.78, 0.82], [0, 0, 1.57079632]],
-  #      [[1.45, 0.78, 0.82], [0, 0, 1.57079632]],
-  #    ],
+  ##[[[2.6, -1.128, 0.93], [1.57079632, -0.5, 0]]],
+  #    [[[2.54, -0.918, 0.93], [1.97079632, -0.5, 0]]],
   #    [[[1.3, -1.3, 0.6], [-1.57079632, -1.57079632, 0]]],
   #  ]
-  #num_se3: [2, 1]
+  #num_se3: [1, 1]
+  targets_position:
+    [
+      [[1.5, 1, 0.72], [0, 0, 0]],
+  #[[1.2, 1, 0.72], [0, 0, -1.57079632]],
+      [[1.5000000, -1.3, 0.8], [-1.57079632, 0, 3.14159265]],
+    ]
+  # angle : z y x
+  targets_se3:
+    [
+      [
+        [[1.450, 0.78, 0.82], [0, 0, 1.57079632]],
+  #  [[1.45, 0.78, 0.82], [0, 0, 1.57079632]],
+      ],
+      [[[1.5000000, -1.3, 0.8], [-1.57079632, -1.57079632, 0]]],
+    ]
+  num_se3: [1, 1]
 
   instruction: "Put the pot next to the glass on the table."
   house: True

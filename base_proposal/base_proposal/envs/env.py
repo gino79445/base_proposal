@@ -155,6 +155,9 @@ class IsaacEnv:
             self._world.step(render=self._run_sim_rendering)
             self.sim_frame_count += 1
 
+    def retrieve_camera_params(self):
+        return self._task.retrieve_camera_params()
+
     def step(self, action):
         """Basic implementation for stepping simulation.
             Can be overriden by inherited Env classes
@@ -181,7 +184,10 @@ class IsaacEnv:
         if action[0] == "navigate":
             position = np.array(action[1:])
             # self._task.set_path(position)
-            positions = self._task.set_path(position[0][0:2])
+            goal = position[0][0:2]
+            cell_size = 0.05
+            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
+            positions = self._task.set_path(goal)
 
             for position in positions:
                 task_actions = "get_base"
@@ -260,14 +266,14 @@ class IsaacEnv:
             self.render()
 
         self.render()
-        resets = (
+        rgb, depth, occupancy_2d_map, robot_pos, resets = (
             self._task.post_physics_step()
         )  # buffers of obs, reward, dones and infos. Need to be squeezed
         # print("Resets: ",resets)
 
         done = resets[0].cpu().item()
 
-        return done
+        return rgb, depth, occupancy_2d_map, robot_pos, done
 
     def reset(self, state=None):
         """Resets the task and updates observations."""

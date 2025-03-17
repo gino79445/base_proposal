@@ -573,8 +573,8 @@ class Task(BaseTask):
         self.progress_buf[:] += 1
 
         if self._env._world.is_playing():
-            self.get_observations()
+            rgb, depth, occupancy_2d_map, robot_pos = self.get_observations()
             self.calculate_metrics()
             self.is_done()
 
-        return self.reset_buf
+        return rgb, depth, occupancy_2d_map, robot_pos, self.reset_buf

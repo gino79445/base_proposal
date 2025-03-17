@@ -57,6 +57,7 @@ def parse_hydra_configs(cfg: DictConfig):
     sim_app_cfg_path = cfg.sim_app_cfg_path
 
     policy = Policy()
+    policy.set_destination([[1.5, 1.2], [1.5, -1.3]])
     # print(policy.get_action())
     env = IsaacEnv(headless=headless, render=render, sim_app_cfg_path=sim_app_cfg_path)
     task = initialize_task(cfg_dict, env)
@@ -73,15 +74,38 @@ def parse_hydra_configs(cfg: DictConfig):
 
         t += 1
 
-    env.step(["start"])
-    env.step(["navigate", [2.5, -1]])
-    env.step(["turn_to_goal"])
-    env.step(["manipulate"])
-    env.step(["check_success"])
-    env.step(["return_arm"])
-    env.step(["navigate", [1.5, -2]])
-    env.step(["turn_to_goal"])
-    env.step(["manipulate"])
+    R, T, fx, fy, cx, cy = env.retrieve_camera_params()
+    policy.get_camera_params(R, T, fx, fy, cx, cy)
+    rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
+
+    for i in range(10):
+        policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+        action = policy.get_action()
+        if action[0] == "manipulate":
+            env.step(["turn_to_goal"])
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+
+        if action[0] == "manipulate":
+            env.step(["check_success"])
+            env.step(["return_arm"])
+
+        if render:
+            env.render()
+        if terminal:
+            env.reset()
+            t += 1
+        if t == 10:
+            break
+
+    # policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["navigate", [2.5, -0.8]])
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["turn_to_goal"])
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["manipulate"])
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["check_success"])
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["return_arm"])
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["navigate", [1.5, -2]])
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["turn_to_goal"])
+    # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["manipulate"])
 
     # living room
     #    env.step(["navigate", [1.4, -0.1]])
