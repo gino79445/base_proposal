@@ -108,33 +108,34 @@ def spawn_obstacle(name, prim_path, device):
         name=name,
         position=torch.tensor([0.0, 0.0, 0.0], device=device),
         orientation=torch.tensor(
-            [0.707106, 0.707106, 0.0, 0.0], device=device
+            [1, 0, 0.0, 0.0], device=device
         ),  # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
         scale=[
-            0.01,
-            0.01,
-            0.01,
+            1.2,
+            1.2,
+            1.2,
         ],  # Has to be scaled down to metres. Default usd units for these objects is cms
-        collision=True,
+        # collision=True,
     )
     # Enable tight collision approximation
-    # obj.set_collision_approximation("convexDecomposition")
 
+    obj.set_collision_approximation("convexDecomposition")
+    #
     RigidPrim.__init__(
         obj,
         prim_path=prim_path + "/obstacle/" + name,
         name=obj.name,
         position=torch.tensor([0.0, 0.0, 0.0], device=device),
         orientation=torch.tensor(
-            [0.707106, 0.707106, 0.0, 0.0], device=device
+            [1, 0, 0.0, 0.0], device=device
         ),  # Shapenet model may be downward facing. Rotate in X direction by 90 degrees,
         scale=[
-            0.01,
-            0.01,
-            0.01,
+            1.2,
+            1.2,
+            1.2,
         ],  # Has to be scaled down to metres. Default usd units for these objects is cms
         # visible=visible,
-        mass=99999999,
+        # mass=99999999,
         # linear_velocity=linear_velocity,
         # angular_velocity=angular_velocity,
     )

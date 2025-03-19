@@ -57,7 +57,7 @@ def parse_hydra_configs(cfg: DictConfig):
     sim_app_cfg_path = cfg.sim_app_cfg_path
 
     policy = Policy()
-    policy.set_destination([[1.5, 1.2], [1.5, -1.3]])
+    policy.set_destination([[1.7, -2.5], [1.5, -1.3]])
     # print(policy.get_action())
     env = IsaacEnv(headless=headless, render=render, sim_app_cfg_path=sim_app_cfg_path)
     task = initialize_task(cfg_dict, env)
@@ -78,16 +78,49 @@ def parse_hydra_configs(cfg: DictConfig):
     policy.get_camera_params(R, T, fx, fy, cx, cy)
     rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
 
+    #  env.step(["navigate", [0.46, 0]])
+
+    #  env.step(["rotate", [-np.pi / 2]])
+    #  env.step(["navigate", [1.4, 0]])
+
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["navigate", [1.5, 0]])
+
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+
+    #  env.step(["rotate", [-np.pi]])
+    #  env.step(["navigate", [3.5, 0]])
+    #  env.step(["rotate", [-np.pi / 5]])
+    #  env.step(["navigate", [1.1, 0]])
+    #  env.step(["rotate", [np.pi / 5]])
+    #  env.step(["navigate", [1, 0]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["navigate", [1.5, 0]])
+
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+
     for i in range(10):
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
         action = policy.get_action()
-        if action[0] == "manipulate":
-            env.step(["turn_to_goal"])
+        # print(action)
         rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
 
-        if action[0] == "manipulate":
-            env.step(["check_success"])
-            env.step(["return_arm"])
+        # if action[0] == "manipulate":
+        #    env.step(["turn_to_goal"])
+        # rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+
+        # if action[0] == "manipulate":
+        #    env.step(["check_success"])
+        #    env.step(["return_arm"])
 
         if render:
             env.render()

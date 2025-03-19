@@ -34,6 +34,7 @@ class Policy:
         self.destination = None
         self.des_idx = 0
         self.des_finish_idx = 0
+        self.curr_action = "navigate"
 
     def get_camera_params(self, R, T, fx, fy, cx, cy):
         self.R = R
@@ -87,14 +88,34 @@ class Policy:
 
     def get_action(self):
         if self.des_idx >= len(self.destination):
-            return ["finish", []]
-        if self.des_idx == self.des_finish_idx:
-            self.des_finish_idx += 1
+            return ["finish"]
+
+        #   if self.des_idx == self.des_finish_idx:
+        #       self.des_finish_idx += 1
+        #       destination = self.global2local(self.destination[self.des_idx])
+        #       return ["navigate", [destination[0], destination[1]]]
+
+        if self.curr_action == "navigate":
+            self.curr_action = "turn_to_goal"
             destination = self.global2local(self.destination[self.des_idx])
-            return ["navigate", [destination[0], destination[1]]]
-        if self.visibility() and self.manipulate():
-            self.des_idx += 1
+            return ["navigate", destination]
+
+        if self.curr_action == "turn_to_goal":
+            self.curr_action = "manipulate"
+            return ["turn_to_goal"]
+
+        if self.curr_action == "manipulate":
+            self.curr_action = "return_arm"
             return ["manipulate"]
+
+        if self.curr_action == "return_arm":
+            self.curr_action = "navigate"
+            self.des_idx += 1
+            return ["return_arm"]
+
+    # if self.visibility() and self.manipulate():
+    #     self.des_idx += 1
+    #     return ["manipulate"]
 
     # im = Image.fromarray(rgb)
     # im.save("./data/rgb1.png")

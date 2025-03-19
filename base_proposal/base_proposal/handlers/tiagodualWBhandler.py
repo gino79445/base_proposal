@@ -445,7 +445,6 @@ class TiagoDualWBHandler(TiagoBaseHandler):
 
     def set_upper_body_positions(self, jnt_positions):
         # Set upper body joints to specific positions
-
         self.robots.set_joint_positions(
             positions=jnt_positions, joint_indices=self.upper_body_dof_idxs
         )

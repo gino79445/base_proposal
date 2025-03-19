@@ -312,7 +312,7 @@ class NMTask(Task):
         rgb = self.get_rgb_data()
         im = Image.fromarray(rgb)
 
-        self.set_robot()
+        # self.set_robot()
 
         # rgb_data = rgb.get_data()
         # im = Image.fromarray(rgb_data)
@@ -482,7 +482,9 @@ class NMTask(Task):
 
         elif self._task_cfg["env"]["build_global_map"]:
             occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-            path = astar_utils.a_star2(occupancy_2d_map, start, end)
+            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
+            path = [(100, 100), end]
+            # path = astar_utils.a_star2(occupancy_2d_map, start, end)
 
         else:
             im = Image.fromarray(occupancy_2d_map)
@@ -1017,8 +1019,15 @@ class NMTask(Task):
 
             success = False
             num = self.num_se3[self.se3_idx]
+            total = 0
+            t = 0
+            for i in self.num_se3:
+                if t == self.se3_idx:
+                    break
+                t += 1
+                total += i
             for i in range(num):
-                idx = self.se3_idx + i
+                idx = total + i
                 curr_goal_pos = self._curr_goal_tf[idx, 0:3, 3]
                 curr_goal_quat = Rotation.from_matrix(
                     self._curr_goal_tf[idx, :3, :3]
@@ -1094,7 +1103,7 @@ class NMTask(Task):
                 start_q = start_q.cpu().numpy()
                 start_q = start_q[0][0]
                 self.start_q = start_q.copy()
-                print(self.start_q)
+                # print(self.start_q)
 
                 end_base = np.array(
                     [
@@ -1131,7 +1140,6 @@ class NMTask(Task):
                 # start_arm = torch.tensor(start_arm).unsqueeze(0)
 
                 self.end_q = self.start_q.copy()
-                print(self.end_q)
                 self.tiago_handler.set_upper_body_positions(
                     jnt_positions=torch.tensor(
                         np.array([self.end_q[4:]]),
@@ -1252,16 +1260,36 @@ class NMTask(Task):
             if raw_readings.shape[0]:
                 for reading in raw_readings:
                     # str
+                    print(
+                        self._contact_sensor_interface.decode_body_name(
+                            reading["body1"]
+                        )
+                    )
+                    print(
+                        self._contact_sensor_interface.decode_body_name(
+                            reading["body0"]
+                        )
+                    )
                     if "Tiago" in str(
                         self._contact_sensor_interface.decode_body_name(
                             reading["body1"]
+                        ) or "collisionPlane" in str(
+                            self._contact_sensor_interface.decode_body_name(    
+                                reading["body1"]
+                                                            )
                         )
                     ):
                         return True  # Collision detected with some part of the robot
                     if "Tiago" in str(
                         self._contact_sensor_interface.decode_body_name(
-                            reading["body0"]
-                        )
+                            reading["body0"] or "collisionPlane" in str(
+                                    
+                                self._contact_sensor_interface.decode_body_name(
+                                    reading["body0"]
+                                                                    )
+                                    
+
+                        ))
                     ):
                         return True  # Collision detected with some part of the robot
 
