@@ -54,6 +54,84 @@ class Policy:
         self.occupancy = occupancy_2d_map
         self.robot_pos = robot_pos
 
+        num_points = 15
+        cell_size = 0.05
+        destination = self.global2local(self.destination[0])
+        # target_x = int(destination[1] / cell_size) + 100
+        # target_y = int(destination[0] / cell_size) + 100
+        #    target_y = 100
+        count = 0
+        counts = []
+        candidate_points = []
+        points = []
+        cell_size = 0.05
+        occupancy_map = occupancy_2d_map.copy()
+        # flip up down
+        occupancy_map = np.flipud(occupancy_map)
+        # left rotate 90 degree
+        occupancy_map = np.rot90(occupancy_map)
+
+        #
+        # make occupancy map rgb
+        occupancy_map = cv2.cvtColor(occupancy_map, cv2.COLOR_GRAY2BGR)
+        # size 200 x 200 to 1000 x 1000
+        occupancy_map = cv2.resize(occupancy_map, (2000, 2000))
+        occupancy_map = cv2.circle(
+            occupancy_map,
+            (
+                (int(destination[0] / cell_size) + 100) * 10,
+                (int(destination[1] / cell_size) + 100) * 10,
+            ),
+            5,
+            (0, 255, 0),
+            -1,
+        )
+        for i in range(num_points):
+            angle = 2 * np.pi / num_points * i
+            x = destination[1] + 0.7 * np.cos(angle)
+            y = destination[0] + 0.7 * np.sin(angle)
+            x = int(x / cell_size) + 100
+            y = int(y / cell_size) + 100
+            count += 1
+
+            if not astar_utils.is_valid(x, y, occupancy_2d_map):
+                continue
+            x, y = 200 - y, 200 - x
+            cv2.circle(occupancy_map, (y * 10, x * 10), 10, (255, 255, 255), -1)
+            cv2.circle(occupancy_map, (y * 10, x * 10), 10, (0, 0, 255), 1)
+            text_width, text_height = cv2.getTextSize(
+                f"{count}", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+            )[0]
+            cv2.putText(
+                occupancy_map,
+                f"{count}",
+                (y * 10 - text_width // 2, x * 10 + text_height // 2),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (255, 0, 0),
+                1,
+            )
+            #    occupancy_map = cv2.circle(
+            #        occupancy_map,
+            #        (y * 10, x * 10),
+            #        3,
+            #        (0, 135, 255),
+            #        -1,
+            #    )
+            #    occupancy_map = cv2.putText(
+            #        occupancy_map,
+            #        str(count),
+            #        (y * 10, x * 10),
+            #        cv2.FONT_HERSHEY_SIMPLEX,
+            #        0.7,
+            #        (100, 100, 200),
+            #        2,
+            #    )
+            counts.append(count)
+        im = Image.fromarray(occupancy_map)
+        im.save("./data/occupancy_2d_map1.png")
+        # save the 2d occupancy map
+
     def global2local(self, global_point):
         cell_size = 0.05
         end = (

@@ -181,12 +181,12 @@ class IsaacEnv:
             self._task.pre_physics_step("turn_to_goal")
             self.render()
 
-        if action[0] == "navigate":
+        if "navigate" in action[0]:
+            print("Navigating")
             position = np.array(action[1:])
             # self._task.set_path(position)
             goal = position[0][0:2]
-            cell_size = 0.05
-            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
+            print(goal)
             positions = self._task.set_path(goal)
 
             for position in positions:

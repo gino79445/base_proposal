@@ -57,8 +57,8 @@ def parse_hydra_configs(cfg: DictConfig):
     sim_app_cfg_path = cfg.sim_app_cfg_path
 
     policy = Policy()
-    policy.set_destination([[1.7, -2.5], [1.5, -1.3]])
-    # print(policy.get_action())
+    # policy.set_destination([[1.5, 1.2], [1.5, -1.3]])
+    # global_position = [[1.5, 1.2], [1.5, -1.3]]
     env = IsaacEnv(headless=headless, render=render, sim_app_cfg_path=sim_app_cfg_path)
     task = initialize_task(cfg_dict, env)
     env.reset()
@@ -74,9 +74,18 @@ def parse_hydra_configs(cfg: DictConfig):
 
         t += 1
 
+    global_position = [[1.7, -2.5], [0, 0]]
+    policy.set_destination(global_position)
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
     policy.get_camera_params(R, T, fx, fy, cx, cy)
     rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
+
+    # for global_pos in global_position:
+    #    policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+    #    pos = policy.global2local(global_pos)
+    #    rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+    #        ["navigateNear_astar", pos]
+    #    )
 
     #  env.step(["navigate", [0.46, 0]])
 

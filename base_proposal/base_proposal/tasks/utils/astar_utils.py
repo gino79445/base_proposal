@@ -30,6 +30,11 @@ def manhattan_distance(x1, y1, x2, y2):
 #    return np.all(map[x:x+10, y:y+10] == 0)
 
 
+def euclidean_distance(x1, y1, x2, y2):
+    distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    return distance
+
+
 def is_valid(x, y, map, radius=8):
     for i in range(-radius, radius + 1):
         for j in range(-radius, radius + 1):
@@ -43,7 +48,7 @@ def is_valid(x, y, map, radius=8):
                 or y + j < 0
                 or x + i >= len(map)
                 or y + j >= len(map[0])
-                or map[x + i][y + j] != 0
+                or map[x + i][y + j] == 255
             ):
                 return False
     return True
@@ -233,9 +238,9 @@ def a_star_rough(map, start, end):
 
         # 如果到達目標附近（距離小於 0.7 公尺）
         if (
-            manhattan_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
+            euclidean_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
             <= 0.8
-            and manhattan_distance(current_node.x, current_node.y, end[0], end[1])
+            and euclidean_distance(current_node.x, current_node.y, end[0], end[1])
             * 0.05
             >= 0.7
         ):

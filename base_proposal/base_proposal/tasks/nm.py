@@ -454,25 +454,7 @@ class NMTask(Task):
 
         start = (100, 100)
         end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
-        #  if self._task_cfg["env"]["global_navigation"] == True:
-        #      robot_pos = self.tiago_handler.get_robot_obs()[0, :3]
-        #      x, y, theta = robot_pos
-        #      start = (int(y / cell_size) + 100, int(x / cell_size) + 100)
-        #      star_delta = (start[0] - 100, start[1] - 100)
-        #      start = (100, 100)
-        #      end = (end[0] - star_delta[0], end[1] - star_delta[1])
-        #      cos_theta = np.cos(theta)
-        #      sin_theta = np.sin(theta)
 
-        #      # 以 start 為中心旋轉
-        #      cx, cy = 100, 100
-        #      px, py = end
-        #      dx, dy = px - cx, py - cy
-        #      new_x = cx + (dx * cos_theta - dy * sin_theta)
-        #      new_y = cy + (dx * sin_theta + dy * cos_theta)
-        #      end = (int(new_x), int(new_y))
-
-        #      # end = (end[0] - self.curr_pos[0] + 100, end[1] - self.curr_pos[1] + 100)
         occupancy_2d_map = self.occupancy_2d_map
         path = []
         if self._task_cfg["env"]["check_env"] == True:
@@ -484,12 +466,20 @@ class NMTask(Task):
             occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
             end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
             path = [(100, 100), end]
-            # path = astar_utils.a_star2(occupancy_2d_map, start, end)
 
         else:
-            im = Image.fromarray(occupancy_2d_map)
-            # save
-            im.save("./data/occupancy_222d_map.png")
+            radius = 7
+            des = np.stack([occupancy_2d_map.copy()] * 3, axis=-1)  # 轉換成 RGB 影像
+
+            for i in range(-radius, radius + 1):
+                for j in range(-radius, radius + 1):
+                    if i**2 + j**2 <= radius**2:
+                        des[i + 100, j + 100] = [255, 0, 0]  # 紅色標記
+                        des[end[0] + i, end[1] + j] = [0, 255, 0]  # 綠色標記
+
+            im = Image.fromarray(des.astype(np.uint8))  # 確保資料類型正確
+            im.save("./data/destination.png")
+
             path = astar_utils.a_star_rough(occupancy_2d_map, start, end)
             map = self.occupancy_2d_map.copy()
             for p in path:
@@ -499,9 +489,6 @@ class NMTask(Task):
                 im.save("./data/path.png")
             # minus every element x , y by start x, y
             # path = [[p[0] - start[0] + 100, p[1] - start[1] + 100] for p in path]
-        self.curr_pos = end
-
-        # draw the path
 
         self.path = []
         for p in path:
@@ -1208,7 +1195,6 @@ class NMTask(Task):
         self._goals_xy_dist = torch.linalg.norm(
             self._goal[:, 0:2], dim=1
         )  # 計算每個 goal 到原點的 x, y 距離
-        self.curr_pos = (100, 100)
         # Pitch visualizer by 90 degrees for aesthetics
 
         for i in range(goal_num):
@@ -1260,36 +1246,38 @@ class NMTask(Task):
             if raw_readings.shape[0]:
                 for reading in raw_readings:
                     # str
-                    print(
-                        self._contact_sensor_interface.decode_body_name(
-                            reading["body1"]
-                        )
-                    )
-                    print(
-                        self._contact_sensor_interface.decode_body_name(
-                            reading["body0"]
-                        )
-                    )
+                    #   print(
+                    #       self._contact_sensor_interface.decode_body_name(
+                    #           reading["body1"]
+                    #       )
+                    #   )
+                    #   print(
+                    #       self._contact_sensor_interface.decode_body_name(
+                    #           reading["body0"]
+                    #       )
+                    #   )
                     if "Tiago" in str(
                         self._contact_sensor_interface.decode_body_name(
                             reading["body1"]
-                        ) or "collisionPlane" in str(
-                            self._contact_sensor_interface.decode_body_name(    
+                        )
+                        or "collisionPlane"
+                        in str(
+                            self._contact_sensor_interface.decode_body_name(
                                 reading["body1"]
-                                                            )
+                            )
                         )
                     ):
                         return True  # Collision detected with some part of the robot
                     if "Tiago" in str(
                         self._contact_sensor_interface.decode_body_name(
-                            reading["body0"] or "collisionPlane" in str(
-                                    
+                            reading["body0"]
+                            or "collisionPlane"
+                            in str(
                                 self._contact_sensor_interface.decode_body_name(
                                     reading["body0"]
-                                                                    )
-                                    
-
-                        ))
+                                )
+                            )
+                        )
                     ):
                         return True  # Collision detected with some part of the robot
 
