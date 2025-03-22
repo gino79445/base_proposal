@@ -79,43 +79,29 @@ def parse_hydra_configs(cfg: DictConfig):
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
     policy.get_camera_params(R, T, fx, fy, cx, cy)
     rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
+    rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(
+        ["set_initial_base", [1.6, -3.233]]
+    )
+    rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
+    env.step(["manipulate"])
+    env.step(["return_arm"])
 
-    # for global_pos in global_position:
-    #    policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
-    #    pos = policy.global2local(global_pos)
-    #    rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
-    #        ["navigateNear_astar", pos]
-    #    )
+    for global_pos in global_position:
+        policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+        pos = policy.global2local(global_pos)
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+            ["navigateNear_astar", pos]
+        )
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
 
-    #  env.step(["navigate", [0.46, 0]])
+        policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+        action = policy.get_action()
+        env.step(action)
 
-    #  env.step(["rotate", [-np.pi / 2]])
-    #  env.step(["navigate", [1.4, 0]])
-
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["navigate", [1.5, 0]])
-
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-
-    #  env.step(["rotate", [-np.pi]])
-    #  env.step(["navigate", [3.5, 0]])
-    #  env.step(["rotate", [-np.pi / 5]])
-    #  env.step(["navigate", [1.1, 0]])
-    #  env.step(["rotate", [np.pi / 5]])
-    #  env.step(["navigate", [1, 0]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["navigate", [1.5, 0]])
-
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
-    #  env.step(["rotate", [np.pi / 2]])
+        env.step(["turn_to_goal"])
+        env.step(["manipulate"])
+        env.step(["check_success"])
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["return_arm"])
 
     for i in range(10):
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
@@ -138,6 +124,31 @@ def parse_hydra_configs(cfg: DictConfig):
             t += 1
         if t == 10:
             break
+
+    #  env.step(["navigate", [0.46, 0]])
+    #  env.step(["rotate", [-np.pi / 2]])
+    #  env.step(["navigate", [1.4, 0]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["navigate", [1.5, 0]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [-np.pi]])
+    #  env.step(["navigate", [3.5, 0]])
+    #  env.step(["rotate", [-np.pi / 5]])
+    #  env.step(["navigate", [1.1, 0]])
+    #  env.step(["rotate", [np.pi / 5]])
+    #  env.step(["navigate", [1, 0]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["navigate", [1.5, 0]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
+    #  env.step(["rotate", [np.pi / 2]])
 
     # policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
     # rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["navigate", [2.5, -0.8]])

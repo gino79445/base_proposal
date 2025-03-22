@@ -48,7 +48,7 @@ def is_valid(x, y, map, radius=8):
                 or y + j < 0
                 or x + i >= len(map)
                 or y + j >= len(map[0])
-                or map[x + i][y + j] == 255
+                or map[x + i][y + j] != 0
             ):
                 return False
     return True
@@ -142,7 +142,7 @@ def a_star2(map, start, end):
 
         # 如果到達終點（檢查左上角是否對應終點左上角）
         if (
-            manhattan_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
+            euclidean_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
             <= 0.05
         ):
             path = []
@@ -159,7 +159,7 @@ def a_star2(map, start, end):
             new_x, new_y = current_node.x + move[0], current_node.y + move[1]
 
             # 檢查機器人 2x2 區域是否可以移動到新位置
-            if is_valid_nav(new_x, new_y, map) and (new_x, new_y) not in closed_list:
+            if is_valid(new_x, new_y, map) and (new_x, new_y) not in closed_list:
                 new_g = current_node.g + 1
                 new_h = manhattan_distance(new_x, new_y, end[0], end[1])
                 new_node = Node(new_x, new_y, new_g, new_h, current_node)
@@ -239,10 +239,10 @@ def a_star_rough(map, start, end):
         # 如果到達目標附近（距離小於 0.7 公尺）
         if (
             euclidean_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
-            <= 0.8
+            <= 1
             and euclidean_distance(current_node.x, current_node.y, end[0], end[1])
             * 0.05
-            >= 0.7
+            >= 0.8
         ):
             path = []
             while current_node:

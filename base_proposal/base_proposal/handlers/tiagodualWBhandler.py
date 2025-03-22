@@ -37,8 +37,17 @@ class TiagoDualWBHandler(TiagoBaseHandler):
 
         # self.joint_pos_min = np.array([-1.1780972451, -1.1780972451, -0.785398163397, -0.392699081699, -2.09439510239, -1.41371669412, -2.09439510239])
         # self.joint_pos_max = np.array([+1.57079632679, +1.57079632679, +3.92699081699, +2.35619449019, +2.09439510239, +1.41371669412, +2.09439510239])
-        self.arm_left_start = torch.tensor(
-            [0.25, 1.5707, 1.5707, 0.55, 1, -1.5707, 1.0], device=self._device
+               self.arm_left_start = torch.tensor(
+            [
+                0.8,  #  arm 向前
+                -0.8,  # 抬高 shoulder
+                0.6,  
+                1.3,  # elbow 
+                0.0,  
+                -0.5,   
+                0.0,  #No wrist roll
+            ],
+            device=self._device,
         )
         self.arm_right_start = torch.tensor(
             [0.25, 1.5707, 1.5707, 0.55, 1, -1.5707, 1.0], device=self._device
@@ -226,7 +235,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
     def close_gripper(self, action=torch.tensor([-0.1, -0.1])):
         # Close gripper
         self.robots.set_joint_efforts(  # set joint efforts to close gripper
-            efforts=torch.tensor([-150.0, -150.0], device=self._device),
+            efforts=torch.tensor([-180.0, -180.0], device=self._device),
             joint_indices=self.gripper_left_dof_idxs,
         )
 

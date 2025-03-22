@@ -110,15 +110,15 @@ class IsaacEnv:
         if init_sim:
             self._world.reset()
 
-    def render(self) -> None:
-        """Step the simulation renderer and display task render in ImageViewer."""
+    # def render(self) -> None:
+    #     """Step the simulation renderer and display task render in ImageViewer."""
 
-        self._world.render()
-        # Get render from task
-        task_render = self._task.get_render()
-        # Display
-        self._viewer.display(task_render)
-        return
+    #     self._world.render()
+    #     # Get render from task
+    #     task_render = self._task.get_render()
+    #     # Display
+    #     self._viewer.display(task_render)
+    #     return
 
     def get_render(self):
         """Step the simulation renderer and return the render as per the task."""
@@ -177,6 +177,12 @@ class IsaacEnv:
             self._task.pre_physics_step("start")
             self.render()
 
+        if action[0] == "set_initial_base":
+            position = np.array(action[1:])
+            self._task.set_initial_base(position)
+            self._task.pre_physics_step("set_initial_base")
+            self.render()
+
         if action[0] == "turn_to_goal":
             self._task.pre_physics_step("turn_to_goal")
             self.render()
@@ -186,8 +192,10 @@ class IsaacEnv:
             position = np.array(action[1:])
             # self._task.set_path(position)
             goal = position[0][0:2]
-            print(goal)
-            positions = self._task.set_path(goal)
+            if action[0] == "navigateReach_astar":
+                positions = self._task.set_path(goal, reached=True)
+            else:
+                positions = self._task.set_path(goal)
 
             for position in positions:
                 task_actions = "get_base"

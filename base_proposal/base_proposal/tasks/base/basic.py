@@ -120,7 +120,7 @@ class Task(BaseTask):
         # massAPI.GetMassAttr().Set(-1)
         # rigid_body_api.GetRigidBodyEnabledAttr().Set(False)
 
-        anchor_pos = Gf.Vec3d([0.2, 0.0, 0.00])
+        anchor_pos = Gf.Vec3d([0.15, 0.0, -0.20])
         self.fix_to_hand(
             stage,
             left_finger_link_path,
@@ -142,7 +142,7 @@ class Task(BaseTask):
         FixedJoint.CreateLocalPos0Attr().Set(Gf.Vec3f(anchor_pos))
         FixedJoint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, Gf.Vec3f(0, 0, 0)))
         FixedJoint.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
-        FixedJoint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, Gf.Vec3f(0, 0, 0)))
+        FixedJoint.CreateLocalRot1Attr().Set(Gf.Quatf(-0.707, Gf.Vec3f(1, 0, 0)))
         #
 
     def set_robot(self):

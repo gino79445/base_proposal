@@ -446,7 +446,7 @@ class NMTask(Task):
 
         return merged
 
-    def set_path(self, position):
+    def set_path(self, position, reached=False):
         self.final_place = position
         cell_size = 0.05
 
@@ -480,7 +480,10 @@ class NMTask(Task):
             im = Image.fromarray(des.astype(np.uint8))  # 確保資料類型正確
             im.save("./data/destination.png")
 
-            path = astar_utils.a_star_rough(occupancy_2d_map, start, end)
+            if reached:
+                path = astar_utils.a_star2(occupancy_2d_map, start, end)
+            else:
+                path = astar_utils.a_star_rough(occupancy_2d_map, start, end)
             map = self.occupancy_2d_map.copy()
             for p in path:
                 map[p[0], p[1]] = 200
@@ -684,7 +687,8 @@ class NMTask(Task):
             depth_data = depth_data.astype("uint8")
             im = Image.fromarray(depth_data)
             im.save("./data/depth.png")
-        # get the camera parameters
+
+        # # get the camera parameters
         R, T, fx, fy, cx, cy = self.retrieve_camera_params()
         if self._task_cfg["env"]["check_env"] == True:
             time.sleep(1)
@@ -713,9 +717,17 @@ class NMTask(Task):
 
         self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
         # open the occupancy_2d_map png
-        if os.path.exists("./data/occupancy_2d_map.npy"):
-            self.occupancy_2d_map = np.load("./data/occupancy_2d_map.npy")
-            self.occupancy_2d_map = self.occupancy_2d_map.reshape(200, 200)
+        #   if os.path.exists("./data/occupancy_2d_map.npy"):
+        #       self.occupancy_2d_map = np.load("./data/occupancy_2d_map.npy")
+        #       self.occupancy_2d_map = self.occupancy_2d_map.reshape(200, 200)
+        # open occupancy_2d_map png
+        if os.path.exists("./data/test1.png"):
+            self.occupancy_2d_map = cv2.imread("./data/test1.png", 0)
+            self.occupancy_2d_map = np.array(self.occupancy_2d_map, dtype=np.uint8)
+            self.occupancy_2d_map = cv2.resize(self.occupancy_2d_map, (200, 200))
+        # left rotate
+        # np left to right
+        self.occupancy_2d_map = np.flip(self.occupancy_2d_map, 1)
 
         global_map = self.occupancy_2d_map
         robot_position = self.tiago_handler.get_robot_obs()[0, :3]
@@ -750,7 +762,7 @@ class NMTask(Task):
         # for i in range(-8, 8):
         #    for j in range(-8, 8):
         #        map[100 + j, 100 + i] = 255
-        radius = 7
+        radius = 8
         for i in range(-radius, radius + 1):
             for j in range(-radius, radius + 1):
                 # ✅ 只檢查圓形內的點 (i, j)
@@ -812,6 +824,9 @@ class NMTask(Task):
     def set_angle(self, theta):
         self.rot = theta
 
+    def set_initial_base(self, position):
+        self.initial_base = np.array(position)
+
     def pre_physics_step(self, actions) -> None:
         # actions (num_envs, num_action)
         # Handle resets
@@ -838,13 +853,33 @@ class NMTask(Task):
             robot_base = self.tiago_handler.get_robot_obs()[0, :3]
             print(f"Robot base: {robot_base}")
             return
+
+        if actions == "set_initial_base":
+            x = torch.tensor([self.initial_base[0][0]], device=self._device)
+            y = torch.tensor([self.initial_base[0][1]], device=self._device)
+            theta = torch.tensor([0], device=self._device)
+            base_tf, action_tf = self.set_new_base(x, y, theta)
+            new_base_tf = torch.matmul(base_tf, action_tf)
+            new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
+            new_base_theta = (
+                torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
+                .unsqueeze(dim=0)
+                .unsqueeze(dim=0)
+            )
+            self.tiago_handler.set_base_positions(
+                torch.hstack((new_base_xy, new_base_theta))
+            )
+            inv_base_tf = torch.linalg.inv(new_base_tf)
+            self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
+            return
+
+        if actions == "open_gripper":
+            pass
+            # self.tiago_handler.open_gripper()
         if actions == "close_gripper":
             self.tiago_handler.close_gripper()
             return
 
-        if self.flag == 1 and actions != "lift_object":
-            pass
-        # self.tiago_handler.close_gripper()
         if actions == "lift_object":
             # self.tiago_handler.close_gripper()
             self.tiago_handler.lift()
@@ -1102,6 +1137,7 @@ class NMTask(Task):
                 )
                 end_base = np.array([0, 0, 1, 0])
                 end_arm = np.array([base_positions[4:]])
+                print(end_arm)
                 end_base = torch.tensor(end_base)
                 end_arm = torch.tensor(end_arm).squeeze(0)
                 end_q = torch.hstack((end_base, end_arm))
@@ -1121,7 +1157,6 @@ class NMTask(Task):
 
         if actions == "return_arm":
             if self.ik_success:
-                # self.attach_object(self._grasp_objs[0])
                 # self.start_q = self.end_q
                 # start_arm = np.array([0.25,1, 1.5707, 1.5707, 1, 1.5, -1.5707, 1.0])
                 # start_arm = torch.tensor(start_arm).unsqueeze(0)
@@ -1136,6 +1171,8 @@ class NMTask(Task):
                 )
 
                 print("Return arm")
+                self.attach_object(self._grasp_objs[0])
+                print("Attach object")
                 self.tiago_handler.set_base_positions(
                     jnt_positions=torch.tensor(
                         np.array([[self.tmp_x, self.tmp_y, self.tmp_theta]]),
@@ -1197,27 +1234,27 @@ class NMTask(Task):
         )  # 計算每個 goal 到原點的 x, y 距離
         # Pitch visualizer by 90 degrees for aesthetics
 
-        for i in range(goal_num):
-            goal_viz_rot = goal_rots[i] * Rotation.from_euler(
-                "xyz", [0, np.pi / 2.0, 0]
-            )
-            # print(f"self._goal[i, :3]: {self._goal[i, :3]}")
-            if i == 0:
-                self._goal_vizs1.set_world_poses(
-                    indices=indices,
-                    positions=self._goal[i, :3].unsqueeze(dim=0),
-                    orientations=torch.tensor(
-                        goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
-                    ).unsqueeze(dim=0),
-                )
-            if i == 1:
-                self._goal_vizs2.set_world_poses(
-                    indices=indices,
-                    positions=self._goal[i, :3].unsqueeze(dim=0),
-                    orientations=torch.tensor(
-                        goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
-                    ).unsqueeze(dim=0),
-                )
+        # for i in range(goal_num):
+        #     goal_viz_rot = goal_rots[i] * Rotation.from_euler(
+        #         "xyz", [0, np.pi / 2.0, 0]
+        #     )
+        #     # print(f"self._goal[i, :3]: {self._goal[i, :3]}")
+        #     if i == 0:
+        #         self._goal_vizs1.set_world_poses(
+        #             indices=indices,
+        #             positions=self._goal[i, :3].unsqueeze(dim=0),
+        #             orientations=torch.tensor(
+        #                 goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
+        #             ).unsqueeze(dim=0),
+        #         )
+        #     if i == 1:
+        #         self._goal_vizs2.set_world_poses(
+        #             indices=indices,
+        #             positions=self._goal[i, :3].unsqueeze(dim=0),
+        #             orientations=torch.tensor(
+        #                 goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
+        #             ).unsqueeze(dim=0),
+        #         )
 
         # bookkeeping
         self.step_count = 0
