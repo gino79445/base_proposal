@@ -249,8 +249,8 @@ class IsaacEnv:
             self._task.pre_physics_step("set_base")
             self.render()
 
-        if action[0] == "manipulate":
-            self._task.pre_physics_step("manipulate")
+        if action[0] == "move_ee":
+            self._task.pre_physics_step("move_ee")
             self.render()
 
             # self._task.pre_physics_step("get_point_cloud")
@@ -259,9 +259,22 @@ class IsaacEnv:
             # for i in range(motion_num):
             #    self._task.pre_physics_step("move_arm")
             #    self.render()
+        if action[0] == "close_gripper":
             self.close_gripper()
             self.render()
+
+        if action[0] == "lift":
             self.lift_object()
+            self.render()
+
+        if action[0] == "open_gripper":
+            self._task.pre_physics_step("detach_object")
+            self.render()
+            self._task.pre_physics_step("open_gripper")
+            self.render()
+
+        if action[0] == "attach_object":
+            self._task.pre_physics_step("attach_object")
             self.render()
 
         if action[0] == "return_arm":

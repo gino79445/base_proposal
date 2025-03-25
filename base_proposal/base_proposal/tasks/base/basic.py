@@ -107,72 +107,49 @@ class Task(BaseTask):
 
         self.cleanup()
 
+    def detach_object(self, obj):
+        stage = omni.usd.get_context().get_stage()
+        gripper_path = "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link"
+        gripper_prim = stage.GetPrimAtPath(gripper_path)
+        obj_prim = obj.prim
+        joint_path = gripper_path + "/fixed_joint"
+        if stage.GetPrimAtPath(joint_path):
+            stage.RemovePrim(joint_path)
+
     def attach_object(self, obj):
-        # Attach object to the robot
         stage = omni.usd.get_context().get_stage()
-        left_finger_link_path = (
-            "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link/fixed_joint"
-        )
-        left_finger_prim = stage.GetPrimAtPath(left_finger_link_path)
-        object_prim = obj.prim_path
-        rigid_body_api = UsdPhysics.RigidBodyAPI.Apply(obj.prim)
-        # massAPI = UsdPhysics.MassAPI.Apply(obj.prim)
-        # massAPI.GetMassAttr().Set(-1)
-        # rigid_body_api.GetRigidBodyEnabledAttr().Set(False)
 
-        anchor_pos = Gf.Vec3d([0.15, 0.0, -0.20])
-        self.fix_to_hand(
-            stage,
-            left_finger_link_path,
-            object_prim,
-            anchor_pos,
-            "pot",
-            "gripper_left_left_finger_link",
-        )
+        gripper_path = "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link"
+        gripper_prim = stage.GetPrimAtPath(gripper_path)
+        obj_prim = obj.prim
 
-    def fix_to_hand(
-        self, stage, joint_path, prim_path, anchor_pos, object_name, hand_name
-    ):
-        # D6 fixed joint
-        FixedJoint = UsdPhysics.FixedJoint.Define(stage, joint_path)
-        FixedJoint.CreateBody0Rel().SetTargets(
-            [f"/World/envs/env_0/TiagoDualHolo/{hand_name}"]
+        # Transform
+        gripper_xf = UsdGeom.Xformable(gripper_prim).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default()
         )
-        FixedJoint.CreateBody1Rel().SetTargets([prim_path])
-        FixedJoint.CreateLocalPos0Attr().Set(Gf.Vec3f(anchor_pos))
-        FixedJoint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, Gf.Vec3f(0, 0, 0)))
-        FixedJoint.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
-        FixedJoint.CreateLocalRot1Attr().Set(Gf.Quatf(-0.707, Gf.Vec3f(1, 0, 0)))
-        #
-
-    def set_robot(self):
-        import omni
-
-        stage = omni.usd.get_context().get_stage()
-        import omni.isaac.core.utils.prims as prim_utils
-
-        left_finger_link_path = (
-            "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link"
+        obj_xf = UsdGeom.Xformable(obj_prim).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default()
         )
-        left_finger_prim = stage.GetPrimAtPath(left_finger_link_path)
-        # result, self.surface_gripper_prim = omni.kit.commands.execute(
-        #     "CreateSurfaceGripper",
-        #     prim_name="SurfaceGripperActionGraph",
-        #     surface_gripper_prim=left_finger_prim,
-        # )
-        # properties =
-        self.gripper = omni.isaac.surface_gripper.SurfaceGripper(
-            usd_path=left_finger_link_path
-        )
-        self.gripper.initialize(
-            "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link"
-        )
+        gripper_xf.Orthonormalize()
+        obj_xf.Orthonormalize()
+        relative_xf = obj_xf * gripper_xf.GetInverse()
 
-    # if success:
-    #     print("Surface Gripper 初始化成功")
-    # else:
-    #     print("Surface Gripper 初始化失敗")
-    #     exit()
+        local_pos = relative_xf.ExtractTranslation()
+        quat_d = relative_xf.ExtractRotationQuat()
+        local_rot = Gf.Quatf(quat_d.GetReal(), Gf.Vec3f(quat_d.GetImaginary()))
+        local_rot.Normalize()
+
+        # Create joint
+        joint_path = gripper_path + "/fixed_joint"
+        if not stage.GetPrimAtPath(joint_path):
+            fixed_joint = UsdPhysics.FixedJoint.Define(stage, joint_path)
+            fixed_joint.CreateBody0Rel().SetTargets([gripper_path])
+            fixed_joint.CreateBody1Rel().SetTargets([obj_prim.GetPath()])
+
+            fixed_joint.CreateLocalPos0Attr().Set(local_pos)
+            fixed_joint.CreateLocalRot0Attr().Set(local_rot)
+            fixed_joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+            fixed_joint.CreateLocalRot1Attr().Set(Gf.Quatf(1, 0, 0, 0))
 
     def cleanup(self) -> None:
         """Prepares torch buffers for RL data collection."""
@@ -233,50 +210,6 @@ class Task(BaseTask):
     #        UsdGeom.XformCommonAPI(cube_prim).SetTranslate((1, 1, 1))
     #        UsdGeom.XformCommonAPI(cube_prim).SetScale((0.01, 0.01, 0.01))
 
-    def get_extrinsic_params(self):
-        """Retrieves extrinsic parameters for the task.
-        Returns:
-            R(np.ndarray): Rotation matrix.
-            T(np.ndarray): Translation matrix.
-        """
-        # get the camera world position and rotation
-        camera_world_transform = UsdGeom.Xformable(
-            self.camera_prim
-        ).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-        camera_world_transform.Orthonormalize()
-        self.camera_world_position = camera_world_transform.ExtractTranslation()
-        self.camera_world_rotation = camera_world_transform.ExtractRotationMatrix()
-
-        # np
-        self.camera_world_position = np.array(
-            [
-                [self.camera_world_position[0]],
-                [self.camera_world_position[1]],
-                [self.camera_world_position[2]],
-            ]
-        )
-        self.camera_world_rotation = np.array(
-            [
-                [
-                    self.camera_world_rotation[0][0],
-                    self.camera_world_rotation[0][1],
-                    self.camera_world_rotation[0][2],
-                ],
-                [
-                    self.camera_world_rotation[1][0],
-                    self.camera_world_rotation[1][1],
-                    self.camera_world_rotation[1][2],
-                ],
-                [
-                    self.camera_world_rotation[2][0],
-                    self.camera_world_rotation[2][1],
-                    self.camera_world_rotation[2][2],
-                ],
-            ]
-        )
-
-        return self.camera_world_rotation, self.camera_world_position
-
     def set_initial_camera_params(
         self, camera_position=[10, 10, 3], camera_target=[0, 0, 0]
     ):
@@ -293,9 +226,9 @@ class Task(BaseTask):
         camera = UsdGeom.Camera(camera_prim)
         camera.GetFocalLengthAttr().Set(10)
         camera.GetClippingRangeAttr().Set((0.1, 30))
-        UsdGeom.XformCommonAPI(camera_prim).SetTranslate((-0, 0, 0))
+        UsdGeom.XformCommonAPI(camera_prim).SetTranslate((0.2, 0, 0.2))
         # UsdGeom.XformCommonAPI(camera_prim).SetTranslate((-0.9, 0, 0))
-        rotation = Gf.Vec3f(60, 0, 270)
+        rotation = Gf.Vec3f(70, 0, 270)
         UsdGeom.XformCommonAPI(camera_prim).SetRotate(rotation)
         camera_world_transform = UsdGeom.Xformable(
             camera_prim
@@ -310,25 +243,6 @@ class Task(BaseTask):
                 [self.camera_world_position[0]],
                 [self.camera_world_position[1]],
                 [self.camera_world_position[2]],
-            ]
-        )
-        self.camera_world_rotation = np.array(
-            [
-                [
-                    self.camera_world_rotation[0][0],
-                    self.camera_world_rotation[0][1],
-                    self.camera_world_rotation[0][2],
-                ],
-                [
-                    self.camera_world_rotation[1][0],
-                    self.camera_world_rotation[1][1],
-                    self.camera_world_rotation[1][2],
-                ],
-                [
-                    self.camera_world_rotation[2][0],
-                    self.camera_world_rotation[2][1],
-                    self.camera_world_rotation[2][2],
-                ],
             ]
         )
 

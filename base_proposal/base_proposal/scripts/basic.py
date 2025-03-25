@@ -74,18 +74,22 @@ def parse_hydra_configs(cfg: DictConfig):
 
         t += 1
 
-    global_position = [[1.7, -2.5], [0, 0]]
+    global_position = [[1.69, -2.5], [1.3, -4.4]]
+    # global_position = [[1.69, -2.5], [-1, 3.6]]
     policy.set_destination(global_position)
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
     policy.get_camera_params(R, T, fx, fy, cx, cy)
     rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
     rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(
-        ["set_initial_base", [1.6, -3.233]]
+        ["set_initial_base", [0.5, -1.5]]
     )
-    rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
-    env.step(["manipulate"])
-    env.step(["return_arm"])
+    # rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
+    # env.step(["manipulate"])
+    # env.step(["return_arm"])
 
+    # while True:
+    #     env.step(["rotate", [-np.pi / 2]])
+    picked = False
     for global_pos in global_position:
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
         pos = policy.global2local(global_pos)
@@ -97,10 +101,21 @@ def parse_hydra_configs(cfg: DictConfig):
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
         action = policy.get_action()
         env.step(action)
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
 
-        env.step(["turn_to_goal"])
-        env.step(["manipulate"])
-        env.step(["check_success"])
+        if picked == False:
+            env.step(["move_ee"])
+            env.step(["close_gripper"])
+            env.step(["lift"])
+            env.step(["attach_object"])
+
+            env.step(["check_success"])
+            picked = True
+
+        else:
+            env.step(["move_ee"])
+            env.step(["open_gripper"])
+
         rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["return_arm"])
 
     for i in range(10):

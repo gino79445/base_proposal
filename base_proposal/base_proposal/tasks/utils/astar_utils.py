@@ -35,6 +35,25 @@ def euclidean_distance(x1, y1, x2, y2):
     return distance
 
 
+def is_valid_des(x, y, map, radius=9):
+    for i in range(-radius, radius + 1):
+        for j in range(-radius, radius + 1):
+            # ✅ 只檢查圓形內的點 (i, j)
+            if i**2 + j**2 > radius**2:
+                continue  # 忽略圓外的格子
+
+            # ✅ 檢查是否超出邊界或為障礙物
+            if (
+                x + i < 0
+                or y + j < 0
+                or x + i >= len(map)
+                or y + j >= len(map[0])
+                or map[x + i][y + j] != 0
+            ):
+                return False
+    return True
+
+
 def is_valid(x, y, map, radius=8):
     for i in range(-radius, radius + 1):
         for j in range(-radius, radius + 1):
@@ -239,10 +258,11 @@ def a_star_rough(map, start, end):
         # 如果到達目標附近（距離小於 0.7 公尺）
         if (
             euclidean_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
-            <= 1
+            <= 0.8
             and euclidean_distance(current_node.x, current_node.y, end[0], end[1])
             * 0.05
-            >= 0.8
+            >= 0.7
+            and is_valid_des(current_node.x, current_node.y, map)
         ):
             path = []
             while current_node:

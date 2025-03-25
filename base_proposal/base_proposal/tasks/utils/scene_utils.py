@@ -228,6 +228,11 @@ def setup_tabular_scene(grasp_objs, targets_position, targets_se3, device):
 
         se3_list = targets_se3[idx]
         for se3 in se3_list:
+            print(
+                euler_angles_to_quats(
+                    torch.tensor(se3[1], dtype=torch.float, device=device)
+                ).to(device)
+            )
             pose = torch.hstack(
                 (
                     torch.tensor(se3[0], dtype=torch.float, device=device),

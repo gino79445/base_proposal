@@ -57,7 +57,8 @@ def determine_base(image_path1, image_path2, part, number_list):
                         The viewing direction from the blue position is the same as in the first image.
                         Given this information, which of the numbered candidate points should you move to in order to see the {part} 
                         and perform the operation on it ?
-                        You need to move to a candidate position where are able to reach and manipulate the {part}.
+                        You need to move to a candidate position where are able to see the whole {part} and
+                        manipulate the {part}.
 
                         In the image, candidate points are labeled with IDs {number_list}. 
                         Once the best candidate point is identified, must only output the result in the following format: {{"id": id}}.
