@@ -879,9 +879,15 @@ class NMTask(Task):
             self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
             return
 
+        if self.gripper_closed == 1:
+            pass
+           # self.tiago_handler.set_gripper_positions(
+           #     torch.tensor([-0.5, -0.5], device=self._device)
+           # )
         if actions == "open_gripper":
             self.detach_object(self._grasp_objs[0])
             self.tiago_handler.open_gripper()
+            self.gripper_closed = 0
             return
         if actions == "close_gripper":
             self.tiago_handler.close_gripper()
@@ -893,6 +899,7 @@ class NMTask(Task):
             return
         if actions == "attach_object":
             self.attach_object(self._grasp_objs[0])
+            self.gripper_closed = 1
             return
         if actions == "set_angle":
             x = torch.tensor([0], device=self._device)
@@ -1170,7 +1177,7 @@ class NMTask(Task):
                 # start_arm = np.array([0.25,1, 1.5707, 1.5707, 1, 1.5, -1.5707, 1.0])
                 # start_arm = torch.tensor(start_arm).unsqueeze(0)
 
-                print(self.end_q[4:])
+                # print(self.end_q[4:])
                 start = np.array(
                     [
                         0.25,
@@ -1257,27 +1264,27 @@ class NMTask(Task):
         )  # 計算每個 goal 到原點的 x, y 距離
         # Pitch visualizer by 90 degrees for aesthetics
 
-     #   for i in range(goal_num):
-     #       goal_viz_rot = goal_rots[i] * Rotation.from_euler(
-     #           "xyz", [0, np.pi / 2.0, 0]
-     #       )
-     #       # print(f"self._goal[i, :3]: {self._goal[i, :3]}")
-     #       if i == 0:
-     #           self._goal_vizs1.set_world_poses(
-     #               indices=indices,
-     #               positions=self._goal[i, :3].unsqueeze(dim=0),
-     #               orientations=torch.tensor(
-     #                   goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
-     #               ).unsqueeze(dim=0),
-     #           )
-     #       if i == 1:
-     #           self._goal_vizs2.set_world_poses(
-     #               indices=indices,
-     #               positions=self._goal[i, :3].unsqueeze(dim=0),
-     #               orientations=torch.tensor(
-     #                   goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
-     #               ).unsqueeze(dim=0),
-     #           )
+        for i in range(goal_num):
+            goal_viz_rot = goal_rots[i] * Rotation.from_euler(
+                "xyz", [0, np.pi / 2.0, 0]
+            )
+            # print(f"self._goal[i, :3]: {self._goal[i, :3]}")
+            if i == 0:
+                self._goal_vizs1.set_world_poses(
+                    indices=indices,
+                    positions=self._goal[i, :3].unsqueeze(dim=0),
+                    orientations=torch.tensor(
+                        goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
+                    ).unsqueeze(dim=0),
+                )
+            if i == 1:
+                self._goal_vizs2.set_world_poses(
+                    indices=indices,
+                    positions=self._goal[i, :3].unsqueeze(dim=0),
+                    orientations=torch.tensor(
+                        goal_viz_rot.as_quat()[[3, 0, 1, 2]], device=self._device
+                    ).unsqueeze(dim=0),
+                )
 
         # bookkeeping
         self.step_count = 0
@@ -1293,7 +1300,7 @@ class NMTask(Task):
         self.path_num = 0
         self.rot = 0
         self.se3_idx = 0
-
+        self.gripper_closed = 0
         self.flag = 0
 
     def check_robot_collisions(self):

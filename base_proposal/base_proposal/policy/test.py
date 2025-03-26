@@ -87,7 +87,7 @@ class Policy:
             y = int(y / cell_size) + 100
             count += 1
 
-            if not astar_utils.is_valid(x, y, occupancy_2d_map):
+            if not astar_utils.is_valid_des(x, y, occupancy_2d_map):
                 candidate_points.append(None)
                 continue
             x, y = 199 - y, 199 - x

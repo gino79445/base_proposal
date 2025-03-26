@@ -228,7 +228,7 @@ class Task(BaseTask):
         camera.GetClippingRangeAttr().Set((0.1, 30))
         UsdGeom.XformCommonAPI(camera_prim).SetTranslate((0.2, 0, 0.2))
         # UsdGeom.XformCommonAPI(camera_prim).SetTranslate((-0.9, 0, 0))
-        rotation = Gf.Vec3f(70, 0, 270)
+        rotation = Gf.Vec3f(60, 0, 270)
         UsdGeom.XformCommonAPI(camera_prim).SetRotate(rotation)
         camera_world_transform = UsdGeom.Xformable(
             camera_prim

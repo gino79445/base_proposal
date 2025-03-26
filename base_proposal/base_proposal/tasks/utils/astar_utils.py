@@ -1,5 +1,6 @@
 import heapq
 import numpy as np
+import math
 
 
 # 定義節點
@@ -36,8 +37,9 @@ def euclidean_distance(x1, y1, x2, y2):
 
 
 def is_valid_des(x, y, map, radius=9):
-    for i in range(-radius, radius + 1):
-        for j in range(-radius, radius + 1):
+    r_int = math.ceil(radius)
+    for i in range(-r_int, r_int + 1):
+        for j in range(-r_int, r_int + 1):
             # ✅ 只檢查圓形內的點 (i, j)
             if i**2 + j**2 > radius**2:
                 continue  # 忽略圓外的格子
@@ -55,8 +57,9 @@ def is_valid_des(x, y, map, radius=9):
 
 
 def is_valid(x, y, map, radius=8):
-    for i in range(-radius, radius + 1):
-        for j in range(-radius, radius + 1):
+    r_int = math.ceil(radius)
+    for i in range(-r_int, r_int + 1):
+        for j in range(-r_int, r_int + 1):
             # ✅ 只檢查圓形內的點 (i, j)
             if i**2 + j**2 > radius**2:
                 continue  # 忽略圓外的格子
@@ -258,7 +261,7 @@ def a_star_rough(map, start, end):
         # 如果到達目標附近（距離小於 0.7 公尺）
         if (
             euclidean_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
-            <= 0.8
+            <= 0.9
             and euclidean_distance(current_node.x, current_node.y, end[0], end[1])
             * 0.05
             >= 0.7

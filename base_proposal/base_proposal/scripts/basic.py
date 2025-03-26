@@ -74,7 +74,7 @@ def parse_hydra_configs(cfg: DictConfig):
 
         t += 1
 
-    global_position = [[1.69, -2.5], [1.3, -4.4]]
+    global_position = [[1.3, 0.85], [1.8, -4.5]]
     # global_position = [[1.69, -2.5], [-1, 3.6]]
     policy.set_destination(global_position)
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
@@ -88,7 +88,7 @@ def parse_hydra_configs(cfg: DictConfig):
     # env.step(["return_arm"])
 
     # while True:
-    #     env.step(["rotate", [-np.pi / 2]])
+    #    env.step(["rotate", [-np.pi / 2]])
     picked = False
     for global_pos in global_position:
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
@@ -99,9 +99,9 @@ def parse_hydra_configs(cfg: DictConfig):
         rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
 
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
-        action = policy.get_action()
-        env.step(action)
-        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
+        #  action = policy.get_action()
+        #  env.step(action)
+        #  rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
 
         if picked == False:
             env.step(["move_ee"])
