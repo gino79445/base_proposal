@@ -267,6 +267,9 @@ class IsaacEnv:
             self.lift_object()
             self.render()
 
+        if action[0] == "pull":
+            self.pull()
+            self.render()
         if action[0] == "open_gripper":
             self._task.pre_physics_step("detach_object")
             self.render()
@@ -277,13 +280,20 @@ class IsaacEnv:
             self._task.pre_physics_step("attach_object")
             self.render()
 
-        if action[0] == "return_arm":
+        if action[0] == "lift_arm":
             # pass
-            self._task.pre_physics_step("return_arm")
+            self._task.pre_physics_step("lift_arm")
             self.render()
 
-        if action[0] == "check_success":
-            self._task.pre_physics_step("check_success")
+        if action[0] == "reset_arm":
+            self._task.pre_physics_step("reset_arm")
+            self.render()
+
+        if action[0] == "check_lift_success":
+            self._task.pre_physics_step("check_lift_success")
+            self.render()
+        if action[0] == "check_place_success":
+            self._task.pre_physics_step("check_place_success")
             self.render()
 
         self.render()
@@ -397,6 +407,16 @@ class IsaacEnv:
 
     def lift_object(self):
         actions = "lift_object"
+        v = 0
+        while self._simulation_app.is_running():
+            if v >= 1:
+                break
+            v += 0.005
+            self._task.pre_physics_step(actions)
+            self.render()
+
+    def pull(self):
+        actions = "pull"
         v = 0
         while self._simulation_app.is_running():
             if v >= 1:

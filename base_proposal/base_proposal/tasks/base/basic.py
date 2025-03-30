@@ -151,6 +151,23 @@ class Task(BaseTask):
             fixed_joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
             fixed_joint.CreateLocalRot1Attr().Set(Gf.Quatf(1, 0, 0, 0))
 
+    def distance_gripper_object(self, obj):
+        gripper_path = "/World/envs/env_0/TiagoDualHolo/gripper_left_left_finger_link"
+        gripper_prim = omni.usd.get_context().get_stage().GetPrimAtPath(gripper_path)
+        obj_prim = obj.prim
+        gripper_xf = UsdGeom.Xformable(gripper_prim).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default()
+        )
+        obj_xf = UsdGeom.Xformable(obj_prim).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default()
+        )
+        gripper_xf.Orthonormalize()
+        obj_xf.Orthonormalize()
+        relative_xf = obj_xf * gripper_xf.GetInverse()
+        local_pos = relative_xf.ExtractTranslation()
+        dis = np.linalg.norm(local_pos)
+        return dis
+
     def cleanup(self) -> None:
         """Prepares torch buffers for RL data collection."""
 

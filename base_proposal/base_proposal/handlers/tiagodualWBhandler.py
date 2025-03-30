@@ -258,7 +258,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
     def close_gripper(self, action=torch.tensor([-0.1, -0.1])):
         # Close gripper
         self.robots.set_joint_efforts(  # set joint efforts to close gripper
-            efforts=torch.tensor([-1000.0, -1000.0], device=self._device),
+            efforts=torch.tensor([-10.0, -10.0], device=self._device),
             joint_indices=self.gripper_left_dof_idxs,
         )
 
@@ -348,7 +348,34 @@ class TiagoDualWBHandler(TiagoBaseHandler):
 
     def base_forward(self):
         self.set_joint_velocities(  # set joint velocity targets
-            velocities=torch.tensor([1, 0, 0], device=self._device),
+            velocities=torch.tensor([1.0, 0.0, 0.0], device=self._device),
+            joint_indices=self.base_dof_idxs,
+        )
+
+    def base_backward(self):
+        arm_pos = self.robots.get_joint_positions(  # get current joint positions
+            joint_indices=self.arm_left_dof_idxs, clone=True
+        )
+
+        self.robots.set_joint_position_targets(  # set joint position targets to lift arm)
+            positions=arm_pos, joint_indices=self.arm_left_dof_idxs
+        )
+        self.close_gripper()
+
+        # gripper_pos = self.robots.get_joint_positions(
+        #     joint_indices=self.gripper_left_dof_idxs, clone=True
+        # )
+        # self.robots.set_joint_position_targets(
+        #     positions=gripper_pos, joint_indices=self.gripper_left_dof_idxs
+        # )
+
+        self.robots.set_joint_velocities(  # set joint velocity targets
+            velocities=torch.tensor([0.0, 0.1, 0.0], device=self._device),
+            joint_indices=self.base_dof_idxs,
+        )
+
+        self.robots.set_joint_efforts(
+            efforts=torch.tensor([0, 1000.0, 0.0], device=self._device),
             joint_indices=self.base_dof_idxs,
         )
 

@@ -69,7 +69,6 @@ def add_plane(name, prim_path, device):
 def sence(name, prim_path, device):
     # Spawn Shapenet obstacle model from usd path
     object_usd_path = os.path.join(get_usd_path(), "Props", name, "house.usd")
-    print(object_usd_path)
     if not os.path.exists(object_usd_path):
         print("Could not find object at path: ", object_usd_path)
         return None
@@ -119,7 +118,7 @@ def spawn_obstacle(name, prim_path, device):
     )
     # Enable tight collision approximation
 
-    obj.set_collision_approximation("convexDecomposition")
+    # obj.set_collision_approximation("convexDecomposition")
     #
     RigidPrim.__init__(
         obj,
@@ -135,7 +134,7 @@ def spawn_obstacle(name, prim_path, device):
             1.2,
         ],  # Has to be scaled down to metres. Default usd units for these objects is cms
         # visible=visible,
-        # mass=99999999,
+        mass=99999999,
         # linear_velocity=linear_velocity,
         # angular_velocity=angular_velocity,
     )
@@ -168,11 +167,13 @@ def spawn_grasp_object(name, prim_path, device):
     # Enable tight collision approximation
     obj.set_collision_approximation("convexDecomposition")
 
+    if name == "PLACE":
+        return obj
     RigidPrim.__init__(
         obj,  # Add Rigid prim attributes since it can move
         prim_path=prim_path + "/grasp_obj/ycb_" + name,
         name=name,
-        position=torch.tensor([0.0, 0.0, 0.0], device=device),
+        position=torch.tensor([100.0, 100.0, 100.0], device=device),
         orientation=torch.tensor(
             [0.707106, -0.707106, 0.0, 0.0], device=device
         ),  # YCB model may be downward facing. Rotate in X direction by -90 degrees,
@@ -181,11 +182,10 @@ def spawn_grasp_object(name, prim_path, device):
             0.01,
             0.01,
         ],  # Has to be scaled down to metres. Default usd units for these objects is cms
+        # density=0.01,
     )
-    # Add collider to rigid body with tight collision approximation (Redundant if collider already set)
     # utils.setRigidBody(obj.prim, "convexDecomposition", False)
     # print(prim)
-    transform = get_se3_transform(prim)
     # print("Transform: ", transform)
     return obj
 
@@ -211,11 +211,20 @@ def set_obj_pose(obj, pose):
     # physics_utils.set_rigid_body_enabled(False, prim)
 
 
-def setup_tabular_scene(grasp_objs, targets_position, targets_se3, device):
+def setup_tabular_scene(grasp_objs, targets_position, targets_se3, obstacles, device):
     # Randomly arrange the objects in the environment. Ensure no overlaps, collisions!
     # Grasp objects will be placed on a random tabular obstacle.
     # Returns: target grasp object, target grasp/goal, all object's oriented bboxes
     # TODO: Add support for circular tables
+
+    # set obstacles in (0,0,0)
+    for idx, obj in enumerate(obstacles):
+        obj.set_world_pose(
+            position=torch.tensor([0.0, 0.0, 0.0], device=device),
+            orientation=euler_angles_to_quats(torch.tensor([[0, 0, 0]], device=device))[
+                0
+            ],
+        )
 
     goal_pose = []
     for idx, obj in enumerate(grasp_objs):
@@ -228,11 +237,6 @@ def setup_tabular_scene(grasp_objs, targets_position, targets_se3, device):
 
         se3_list = targets_se3[idx]
         for se3 in se3_list:
-            print(
-                euler_angles_to_quats(
-                    torch.tensor(se3[1], dtype=torch.float, device=device)
-                ).to(device)
-            )
             pose = torch.hstack(
                 (
                     torch.tensor(se3[0], dtype=torch.float, device=device),
