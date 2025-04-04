@@ -23,14 +23,6 @@ def manhattan_distance(x1, y1, x2, y2):
     return abs(x1 - x2) + abs(y1 - y2)
 
 
-# 檢查機器人占用的 2x2 區域是否都在邊界內並且可通行
-# def is_valid(x, y, map):
-#    if x < 0 or y < 0 or x + 1 >= map.shape[0] or y + 1 >= map.shape[1]:
-#        return False
-#    # 檢查 2x2 區域內的四個格子是否都是 0（可通行）
-#    return np.all(map[x:x+10, y:y+10] == 0)
-
-
 def euclidean_distance(x1, y1, x2, y2):
     distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
     return distance
@@ -76,81 +68,7 @@ def is_valid(x, y, map, radius=8):
     return True
 
 
-def is_valid_20(x, y, map):
-    # 檢查 5x5 區域內的所有格子是否都在地圖範圍內且為可通行格子
-    for i in range(-4, 4):
-        for j in range(-4, 4):
-            if (
-                x + i < 0
-                or y + j < 0
-                or x + i >= len(map)
-                or y + j >= len(map[0])
-                or map[x + i][y + j] != 0
-            ):
-                return False
-    return True
-
-
-def is_valid_nav(x, y, map):
-    # 檢查 5x5 區域內的所有格子是否都在地圖範圍內且為可通行格子
-    for i in range(-6, 6):
-        for j in range(-6, 6):
-            if (
-                x + i < 0
-                or y + j < 0
-                or x + i >= len(map)
-                or y + j >= len(map[0])
-                or map[x + i][y + j] != 0
-            ):
-                return False
-    return True
-
-
-# A* 算法實現
 def a_star(map, start, end):
-    open_list = []
-    closed_list = set()
-
-    start_node = Node(
-        start[0], start[1], 0, manhattan_distance(start[0], start[1], end[0], end[1])
-    )
-    heapq.heappush(open_list, start_node)
-
-    while open_list:
-        current_node = heapq.heappop(open_list)
-
-        # 如果到達終點（檢查左上角是否對應終點左上角）
-        if (current_node.x, current_node.y) == (end[0], end[1]):
-            path = []
-            while current_node:
-                path.append((current_node.x, current_node.y))
-                current_node = current_node.parent
-            return path[::-1]  # 返回從起點到終點的路徑
-
-        closed_list.add((current_node.x, current_node.y))
-
-        # 定義上下左右的鄰居移動
-        neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-        for move in neighbors:
-            new_x, new_y = current_node.x + move[0], current_node.y + move[1]
-
-            # 檢查機器人 2x2 區域是否可以移動到新位置
-            if is_valid(new_x, new_y, map) and (new_x, new_y) not in closed_list:
-                new_g = current_node.g + 1  # 距離增加1
-                new_h = manhattan_distance(new_x, new_y, end[0], end[1])
-                new_node = Node(new_x, new_y, new_g, new_h, current_node)
-
-                # 檢查是否在開放列表中，且找到更短的路徑
-                if not any(
-                    node.x == new_x and node.y == new_y and node.g <= new_g
-                    for node in open_list
-                ):
-                    heapq.heappush(open_list, new_node)
-
-    return None  # 如果無法找到路徑
-
-
-def a_star2(map, start, end):
     open_list = []
     closed_list = set()
 
@@ -197,56 +115,7 @@ def a_star2(map, start, end):
     return None
 
 
-def a_star_target(map, start, end):
-    open_list = []
-    closed_list = set()
-
-    start_node = Node(
-        start[0], start[1], 0, manhattan_distance(start[0], start[1], end[0], end[1])
-    )
-    heapq.heappush(open_list, start_node)
-
-    while open_list:
-        current_node = heapq.heappop(open_list)
-
-        # 如果到達目標附近（距離小於 0.7 公尺）
-        if (
-            manhattan_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
-            <= 0.9
-            and manhattan_distance(current_node.x, current_node.y, end[0], end[1])
-            * 0.05
-            >= 0.8
-        ):
-            path = []
-            while current_node:
-                path.append((current_node.x, current_node.y))
-                current_node = current_node.parent
-            return path[::-1]  # 返回從起點到終點的路徑
-
-        closed_list.add((current_node.x, current_node.y))
-
-        # 定義上下左右的鄰居移動
-        neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-        for move in neighbors:
-            new_x, new_y = current_node.x + move[0], current_node.y + move[1]
-
-            # 檢查機器人 5x5 區域是否可以移動到新位置
-            if is_valid(new_x, new_y, map) and (new_x, new_y) not in closed_list:
-                new_g = current_node.g + 1  # 距離增加1
-                new_h = manhattan_distance(new_x, new_y, end[0], end[1])
-                new_node = Node(new_x, new_y, new_g, new_h, current_node)
-
-                # 檢查是否在開放列表中，且找到更短的路徑
-                if not any(
-                    node.x == new_x and node.y == new_y and node.g <= new_g
-                    for node in open_list
-                ):
-                    heapq.heappush(open_list, new_node)
-
-    return None  # 如果無法找到路徑
-
-
-def a_star_rough(map, start, end):
+def a_star_rough(map, start, end, R=0.8):
     open_list = []
     closed_list = set()
 
@@ -261,10 +130,10 @@ def a_star_rough(map, start, end):
         # 如果到達目標附近（距離小於 0.7 公尺）
         if (
             euclidean_distance(current_node.x, current_node.y, end[0], end[1]) * 0.05
-            <= 0.9
+            <= R + 0.1
             and euclidean_distance(current_node.x, current_node.y, end[0], end[1])
             * 0.05
-            >= 0.7
+            >= R - 0.1
             and is_valid_des(current_node.x, current_node.y, map)
         ):
             path = []

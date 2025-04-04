@@ -158,6 +158,12 @@ class IsaacEnv:
     def retrieve_camera_params(self):
         return self._task.retrieve_camera_params()
 
+    def get_instruction(self):
+        return self._task.get_instruction()
+
+    def get_success_num(self):
+        return self._task.get_success_num()
+
     def step(self, action):
         """Basic implementation for stepping simulation.
             Can be overriden by inherited Env classes
@@ -178,12 +184,12 @@ class IsaacEnv:
             self.render()
 
         if action[0] == "set_initial_base":
-            position = np.array(action[1:])
-            self._task.set_initial_base(position)
             self._task.pre_physics_step("set_initial_base")
             self.render()
 
         if action[0] == "turn_to_goal":
+            self._task.set_goal(action[1])
+            self.render()
             self._task.pre_physics_step("turn_to_goal")
             self.render()
 
@@ -193,9 +199,15 @@ class IsaacEnv:
             # self._task.set_path(position)
             goal = position[0][0:2]
             if action[0] == "navigateReach_astar":
-                positions = self._task.set_path(goal, reached=True)
-            else:
-                positions = self._task.set_path(goal)
+                positions = self._task.set_path(goal, algo="astar", reached=True)
+            elif action[0] == "navigateNear_rrt":
+                positions = self._task.set_path(goal, algo="rrt", reached=False)
+            elif action[0] == "navigateNear_astar":
+                positions = self._task.set_path(goal, algo="astar", reached=False)
+            elif action[0] == "navigateNear_astar_rough":
+                positions = self._task.set_path(goal, algo="astar_rough", reached=False)
+            elif action[0] == "navigateNear_rrt_rough":
+                positions = self._task.set_path(goal, algo="rrt_rough", reached=False)
 
             for position in positions:
                 task_actions = "get_base"
@@ -251,7 +263,9 @@ class IsaacEnv:
 
         if action[0] == "move_ee":
             self._task.pre_physics_step("move_ee")
-            self.render()
+            for i in range(100):
+                self._task.pre_physics_step("wait")
+                self.render()
 
             # self._task.pre_physics_step("get_point_cloud")
             # self.render()
@@ -267,8 +281,11 @@ class IsaacEnv:
             self.lift_object()
             self.render()
 
-        if action[0] == "pull":
-            self.pull()
+        if action[0] == "backward":
+            print("Moving backward")
+            self.backward()
+            self.render()
+            self._task.pre_physics_step("base_stop")
             self.render()
         if action[0] == "open_gripper":
             self._task.pre_physics_step("detach_object")
@@ -294,6 +311,9 @@ class IsaacEnv:
             self.render()
         if action[0] == "check_place_success":
             self._task.pre_physics_step("check_place_success")
+            self.render()
+        if action[0] == "check_pull_success":
+            self._task.pre_physics_step("check_pull_success")
             self.render()
 
         self.render()
@@ -415,8 +435,8 @@ class IsaacEnv:
             self._task.pre_physics_step(actions)
             self.render()
 
-    def pull(self):
-        actions = "pull"
+    def backward(self):
+        actions = "backward"
         v = 0
         while self._simulation_app.is_running():
             if v >= 1:

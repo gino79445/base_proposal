@@ -15,59 +15,17 @@ env:
   move_group: "arm_left" # String. Can be arm_left or arm_right
   #move_group: "arm_right"
   use_torso: True # Use torso joint too
-  randomize_robot_on_reset:
-    False
-    #world_xy_radius: 2 # metres
+  randomize_robot_on_reset: False
   num_obstacles: 2 # table
   num_grasp_objects: 2 # YCB objects
   action_xy_radius: 1.0 # position control
   action_ang_lim: 1.57079632
-  max_rot_vel:
-    3.14159265
-    #max_rot_vel: 2.0944 # in radians (default is 60 degrees per second)
+  max_rot_vel: 3.14159265
   max_base_xy_vel: 2 # metres per second
-  # cabinet, stove, booksfelf, light, oven, lamp, window ,oven_cluster, cabinet_cluster, cluster_table
-  obstacles: ["rs_int"]
-  target: ["mug", "cabinet"]
   build_global_map: False
-  global_navigation: False
+  se3_vis: False
 
-  ## angle : z y x
-  ### pick fail ###
-  #targets_position:
-  #  [[[1.85, -2.4, 1], [0, 0, 1.97079632]], [[1.8, -4.5, 1.18], [0, 0, 0]]]
-  #targets_se3:
-  #  [[[[1.82, -2.55, 0.97], [0.4, -0.0, 0]]], [[[1.8, -4.5, 1.18], [0, 0, 0]]]]
-  #num_se3: [1, 1]
-
-  ### place fail ###
-  targets_position:
-    [[[1.47, 0.85, 1.1], [0, 0, 0]], [[1.8, -4.5, 1.18], [0, 0, 0]]]
-  targets_se3:
-    [[[[1.3, 0.85, 1.0], [0.0, -0.0, 0]]], [[[1.8, -4.5, 1.18], [0, 0, 0]]]]
-  num_se3: [1, 1]
-
-  ## success
-  # targets_position:
-  #   [[[1.47, 0.85, 1.1], [0, 0, 0]], [[1.8, -2.3, 0.95], [0, 0, 0]]]
-  # targets_se3:
-  #   [
-  #     [[[1.32, 0.85, 0.99], [0.0, -0.0, 0]]],
-  #     [[[1.8, -2.3, 0.95], [-1.5707, 0, 0]], [[1.8, -2.3, 0.95], [0, 0, 0]]],
-  #   ]
-  # num_se3: [1, 2]
-
-  # targets_position:
-  #   [[[-0.5855, -4.43, 0.58], [0, 0, 0]], [[1.47, 0.85, 1.1], [0, 0, 0]]]
-  # targets_se3:
-  #   [
-  #     [[[-0.57, -4.1, 0.682], [-1.57, -1.4, 1.57]]],
-
-  #     [[[1.8, -4.5, 1.18], [0, 0, 1.570]]],
-  #   ]
-  # num_se3: [1, 1]
-
-  instruction: "Put the pot next to the glass on the table."
+  object_config: "base_proposal/cfg/env/pickplace_crackerbox_1.yaml"
   house: True
   plane: True
 

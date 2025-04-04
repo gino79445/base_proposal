@@ -38,7 +38,7 @@ from base_proposal.utils.task_util import initialize_task
 from base_proposal.envs.env import IsaacEnv
 
 # from base_proposal.policy.test
-from base_proposal.policy.test import Policy
+from base_proposal.policy.pivot import Policy
 
 from dotenv import load_dotenv
 import os
@@ -56,7 +56,6 @@ def parse_hydra_configs(cfg: DictConfig):
     render = cfg.render
     sim_app_cfg_path = cfg.sim_app_cfg_path
 
-    policy = Policy()
     env = IsaacEnv(headless=headless, render=render, sim_app_cfg_path=sim_app_cfg_path)
     task = initialize_task(cfg_dict, env)
     env.reset()
@@ -71,62 +70,113 @@ def parse_hydra_configs(cfg: DictConfig):
 
         t += 1
 
-    while True:
+    instruction = env.get_instruction()
+    policy = Policy(instruction)
+    # env.step(["start"])
+    # env.step(["set_initial_base", [0.7, -1]])
+    # env.step(["rotate", [np.pi / 2]])
+    # env.step(["rotate", [np.pi / 2]])
+    # env.step(["rotate", [np.pi / 2]])
+    # env.step(["rotate", [np.pi / 2]])
+
+    time = 5
+    current_time = 0
+    while current_time < time:
+        current_time += 1
         global_position = [[1.47, 0.85], [1.8, -4.5]]
-        # global_position = [[-0.58, -4], [1.8, -4.5]]
+        global_position = [[-0.58, -4], [1.8, -4.5]]
         # env.step(["rotate", [np.pi]])
         # continue
-        pick_and_place(env, policy, global_position)
-    #      policy.set_destination(global_position)
-    #      R, T, fx, fy, cx, cy = env.retrieve_camera_params()
-    #      policy.get_camera_params(R, T, fx, fy, cx, cy)
-    #      rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
-    #      rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(
-    #          ["set_initial_base", [-0.7, -3.4]]
-    #      )
-    #      for global_pos in global_position:
-    #          policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
-    #          pos = policy.global2local(global_pos)
-    #          rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
-    #              ["navigateNear_astar", pos]
-    #          )
-    #          rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
-    #              ["turn_to_goal"]
-    #          )
-    #          env.step(["move_ee"])
-    #          env.step(["close_gripper"])
-    #          #env.step(["attach_object"])
-    #          env.step(["pull"])
+        pick_and_place(
+            env, policy, global_position, local_nav="pivot", algo="rrt_rough"
+        )
+        # pick_and_place(env, policy, global_position, local_nav="None", algo="rrt")
+
+        # pull(env, policy, global_position, local_nav="None", algo="astar")
+        # pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
+
+        success_num = env.get_success_num()
+        # success_num success rate
+        print(f"Success rate: {success_num}/{current_time}")
 
     env._simulation_app.close()
 
 
-def pick_and_place(env, policy, global_position):
+def pull(env, policy, global_position, local_nav="none", algo="astar"):
+    global_position = [[-0.58, -4]]
     policy.set_destination(global_position)
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
     policy.get_camera_params(R, T, fx, fy, cx, cy)
     rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
-    rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(
-        # ["set_initial_base", [0.5, -1.5]]
-        ["set_initial_base", [0, 0]]
-    )
-    action_step = 0
-    # rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
-    # env.step(["manipulate"])
-    # env.step(["return_arm"])
-    # while True:
-    #     env.step(["rotate", [-np.pi / 2]]
+    rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["set_initial_base"])
     for global_pos in global_position:
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
         pos = policy.global2local(global_pos)
         rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
-            ["navigateNear_astar", pos]
+            [f"navigateNear_{algo}", pos]
         )
-        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
-        #  action = policy.get_action()
-        #  env.step(action)
-        #  rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(["turn_to_goal"])
+        pos = policy.global2local(global_pos)
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+            ["turn_to_goal", pos]
+        )
+
+        ###   local navigate ###
+        if local_nav == "pivot":
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            action = policy.get_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+
+        ###   local navigate ###
+        env.step(["move_ee"])
+        env.step(["close_gripper"])
+        env.step(["backward"])
+        env.step(["check_pull_success"])
+    env.step(["open_gripper"])
+    env.reset()
+
+
+def pick_and_place(env, policy, global_position, local_nav="none", algo="astar"):
+    global_position = [[1.47, 0.85], [1.8, -4.5]]
+    global_position = [[-0.2, -1.3], [0.15, 1.54]]
+    # global_position = [[1.85, -2.4], [1.62, -1]]
+    # global_position = [[-0.2, -1.3], [0.15, 1.43]]
+    policy.set_destination(global_position)
+    R, T, fx, fy, cx, cy = env.retrieve_camera_params()
+    policy.get_camera_params(R, T, fx, fy, cx, cy)
+    rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["start"])
+    rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["set_initial_base"])
+    action_step = 0
+    for global_pos in global_position:
+        policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+        pos = policy.global2local(global_pos)
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+            [f"navigateNear_{algo}", pos]
+        )
+        policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+        pos = policy.global2local(global_pos)
+        rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+            ["turn_to_goal", pos]
+        )
+
+        ###   local navigate ###
+        if local_nav == "pivot":
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            action = policy.get_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+
+        ###   local navigate ###
+
         if action_step == 0:
             env.step(["move_ee"])
             env.step(["close_gripper"])

@@ -214,7 +214,7 @@ class Task(BaseTask):
             collision_filter_global_paths,
         )
         self.set_initial_camera_params(
-            camera_position=[-1, -1, 4], camera_target=[2, 0, 0]
+            camera_position=[-1, -1, 2], camera_target=[2, 0, 0]
         )
         if self._sim_config.task_config["sim"].get("add_distant_light", True):
             create_distant_light()

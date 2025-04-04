@@ -19,3 +19,4 @@ base_proposal/maps/
 .env
 base_proposal/semantic_map/
 *omni*
+semantic_map/
