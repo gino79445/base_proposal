@@ -169,6 +169,7 @@ def spawn_grasp_object(name, prim_path, device):
 
     if name == "PLACE":
         return obj
+    density = 0.01 if "heavy" in name else -1
     RigidPrim.__init__(
         obj,  # Add Rigid prim attributes since it can move
         prim_path=prim_path + "/grasp_obj/ycb_" + name,
@@ -182,7 +183,7 @@ def spawn_grasp_object(name, prim_path, device):
             0.01,
             0.01,
         ],  # Has to be scaled down to metres. Default usd units for these objects is cms
-        # density=0.01,
+        density=density,
     )
     # utils.setRigidBody(obj.prim, "convexDecomposition", False)
     # print(prim)

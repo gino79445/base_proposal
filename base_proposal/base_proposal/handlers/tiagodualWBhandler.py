@@ -56,6 +56,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         self.arm_left_start = torch.tensor(
             [0.25, 1.5707, 1.5707, 0.55, 1, -1.5707, 1.0], device=self._device
         )
+        self.left_arm_pos = self.arm_left_start
         #  self.arm_left_start = torch.tensor([0.0, 1.5708, 1.5708,
         #                                      1.5708, 1.5708, -1.5708, 1.5708], device=self._device)
         #  self.arm_right_start = torch.tensor([0.0, 1.5708, 1.5708,
@@ -63,6 +64,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         self.gripper_left_start = torch.tensor(
             [0.045, 0.045], device=self._device
         )  # Opened gripper by default
+        self.gripper_left_pos = self.gripper_left_start
         self.gripper_right_start = torch.tensor(
             [0.045, 0.045], device=self._device
         )  # Opened gripper by default
@@ -258,7 +260,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
     def close_gripper(self, action=torch.tensor([-0.1, -0.1])):
         # Close gripper
         self.robots.set_joint_efforts(  # set joint efforts to close gripper
-            efforts=torch.tensor([-10.0, -10.0], device=self._device),
+            efforts=torch.tensor([-15.0, -15.0], device=self._device),
             joint_indices=self.gripper_left_dof_idxs,
         )
 
@@ -349,6 +351,12 @@ class TiagoDualWBHandler(TiagoBaseHandler):
     def base_forward(self):
         self.set_joint_velocities(  # set joint velocity targets
             velocities=torch.tensor([1.0, 0.0, 0.0], device=self._device),
+            joint_indices=self.base_dof_idxs,
+        )
+
+    def base_stop(self):
+        self.robots.set_joint_velocities(  # set joint velocity targets
+            velocities=torch.tensor([0.0, 0.0, 0.0], device=self._device),
             joint_indices=self.base_dof_idxs,
         )
 
@@ -447,21 +455,33 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         )
         self._robot_pose = quatpose
 
+    def set_left_arm_dof_pos(self):
+        dof_pos = self.robots.get_joint_positions(  # get joint positions
+            joint_indices=self.arm_left_dof_idxs, clone=True
+        )
+        self.left_arm_pos = dof_pos
+        dof_pos = self.robots.get_joint_positions(  # get joint positions
+            joint_indices=self.gripper_left_dof_idxs, clone=True
+        )
+        self.gripper_left_pos = dof_pos
+
     def apply_base_actions(self, actions):
         from pyquaternion import Quaternion
         import math
 
         base_actions = actions.clone()
-        arm_pos = self.robots.get_joint_positions(  # get current joint positions
-            joint_indices=self.arm_left_dof_idxs, clone=True
-        )
-        self.robots.set_joint_positions(  # set joint position targets to lift arm
-            positions=arm_pos, joint_indices=self.arm_left_dof_idxs
-        )
 
-        gripper_pos = self.robots.get_joint_positions(
-            joint_indices=self.gripper_left_dof_idxs, clone=True
+        #  arm_pos = self.robots.get_joint_positions(  # get current joint positions
+        #      joint_indices=self.arm_left_dof_idxs, clone=True
+        #  )
+
+        self.robots.set_joint_positions(  # set joint position targets to lift arm)
+            positions=self.left_arm_pos, joint_indices=self.arm_left_dof_idxs
         )
+        # gripper_pos = self.robots.get_joint_positions(
+        #     joint_indices=self.gripper_left_dof_idxs, clone=True
+        # )
+        gripper_pos = self.gripper_left_pos
         self.robots.set_joint_positions(
             positions=gripper_pos, joint_indices=self.gripper_left_dof_idxs
         )

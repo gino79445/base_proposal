@@ -2,6 +2,7 @@ import numpy as np
 import math
 import random
 
+
 class Node:
     def __init__(self, x, y):
         self.x = x
@@ -9,16 +10,59 @@ class Node:
         self.parent = None
         self.cost = 0
 
+
 def distance(node1, node2):
     return math.sqrt((node1.x - node2.x) ** 2 + (node1.y - node2.y) ** 2)
 
-def is_valid(x, y, Map):
-    # 檢查點是否在地圖內，並且是可通行的
-    for i in range(-6, 6):
-        for j in range(-6, 6):
-            if x + i < 0 or y + j < 0 or x + i >= len(Map) or y + j >= len(Map[0]) or Map[x + i][y + j] != 0:
+
+# def is_valid(x, y, Map):
+#    # 檢查點是否在地圖內，並且是可通行的
+#    for i in range(-6, 6):
+#        for j in range(-6, 6):
+#            if x + i < 0 or y + j < 0 or x + i >= len(Map) or y + j >= len(Map[0]) or Map[x + i][y + j] != 0:
+#                return False
+#    return True
+
+
+def is_valid_des(x, y, map, radius=9):
+    r_int = math.ceil(radius)
+    for i in range(-r_int, r_int + 1):
+        for j in range(-r_int, r_int + 1):
+            # ✅ 只檢查圓形內的點 (i, j)
+            if i**2 + j**2 > radius**2:
+                continue  # 忽略圓外的格子
+
+            # ✅ 檢查是否超出邊界或為障礙物
+            if (
+                x + i < 0
+                or y + j < 0
+                or x + i >= len(map)
+                or y + j >= len(map[0])
+                or map[x + i][y + j] != 0
+            ):
                 return False
     return True
+
+
+def is_valid(x, y, map, radius=8):
+    r_int = math.ceil(radius)
+    for i in range(-r_int, r_int + 1):
+        for j in range(-r_int, r_int + 1):
+            # ✅ 只檢查圓形內的點 (i, j)
+            if i**2 + j**2 > radius**2:
+                continue  # 忽略圓外的格子
+
+            # ✅ 檢查是否超出邊界或為障礙物
+            if (
+                x + i < 0
+                or y + j < 0
+                or x + i >= len(map)
+                or y + j >= len(map[0])
+                or map[x + i][y + j] != 0
+            ):
+                return False
+    return True
+
 
 def get_nearest_node(node_list, random_node):
     nearest_node = node_list[0]
@@ -30,6 +74,7 @@ def get_nearest_node(node_list, random_node):
             min_dist = dist
     return nearest_node
 
+
 def steer(from_node, to_node, step_size):
     angle = math.atan2(to_node.y - from_node.y, to_node.x - from_node.x)
     new_x = from_node.x + step_size * math.cos(angle)
@@ -38,12 +83,14 @@ def steer(from_node, to_node, step_size):
     new_node.parent = from_node
     return new_node
 
+
 def get_nearby_nodes(node_list, new_node, radius):
     nearby_nodes = []
     for node in node_list:
         if distance(node, new_node) <= radius:
             nearby_nodes.append(node)
     return nearby_nodes
+
 
 def choose_parent(nearby_nodes, new_node, Map):
     if not nearby_nodes:
@@ -58,12 +105,14 @@ def choose_parent(nearby_nodes, new_node, Map):
     new_node.cost = min_cost
     return best_parent
 
+
 def rewire(nearby_nodes, new_node, Map):
     for node in nearby_nodes:
         new_cost = new_node.cost + distance(new_node, node)
         if new_cost < node.cost and is_valid(node.x, node.y, Map):
             node.parent = new_node
             node.cost = new_cost
+
 
 def extract_path(end_node):
     path = []
@@ -73,7 +122,17 @@ def extract_path(end_node):
         current = current.parent
     return path[::-1]
 
-def rrt_star(Map, start, goal, max_iter=1000, step_size=2, goal_sample_rate=0.2, radius=15):
+
+def rrt_star_rough(
+    Map,
+    start,
+    goal,
+    max_iter=3000,
+    step_size=2,
+    goal_sample_rate=0.15,
+    radius=15,
+    R=0.8,
+):
     start_node = Node(start[0], start[1])
     goal_node = Node(goal[0], goal[1])
     node_list = [start_node]
@@ -98,7 +157,10 @@ def rrt_star(Map, start, goal, max_iter=1000, step_size=2, goal_sample_rate=0.2,
                 node_list.append(new_node)
                 rewire(nearby_nodes, new_node, Map)
 
-            if distance(new_node, goal_node) * 0.05 <= 0.75 and distance(new_node, goal_node) * 0.05 >= 0.65:
+            if (
+                distance(new_node, goal_node) * 0.05 <= R + 0.1
+                and distance(new_node, goal_node) * 0.05 >= R - 0.1
+            ):
                 goal_node.parent = new_node
                 goal_node.cost = new_node.cost + distance(new_node, goal_node)
                 node_list.append(goal_node)
@@ -106,7 +168,10 @@ def rrt_star(Map, start, goal, max_iter=1000, step_size=2, goal_sample_rate=0.2,
 
     return None
 
-def rrt_star_target(Map, start, goal, max_iter=1000, step_size=2, goal_sample_rate=0.2, radius=15):
+
+def rrt_star_target(
+    Map, start, goal, max_iter=1000, step_size=2, goal_sample_rate=0.2, radius=15, R=0.8
+):
     start_node = Node(start[0], start[1])
     goal_node = Node(goal[0], goal[1])
     node_list = [start_node]
@@ -131,23 +196,27 @@ def rrt_star_target(Map, start, goal, max_iter=1000, step_size=2, goal_sample_ra
                 node_list.append(new_node)
                 rewire(nearby_nodes, new_node, Map)
 
-            if distance(new_node, goal_node) * 0.05 <= 0.9 and distance(new_node, goal_node) * 0.05 >= 0.8:
+            if (
+                distance(new_node, goal_node) * 0.05 <= R + 0.1
+                and distance(new_node, goal_node) * 0.05 >= R - 0.1
+            ):
                 goal_node.parent = new_node
                 goal_node.cost = new_node.cost + distance(new_node, goal_node)
                 node_list.append(goal_node)
                 return extract_path(goal_node)
 
     return None
+
+
 ## 測試地圖
-#Map = np.zeros((100, 100))
-#Map[30:70, 40:60] = 1  # 障礙物
+# Map = np.zeros((100, 100))
+# Map[30:70, 40:60] = 1  # 障礙物
 #
-#start = (10, 10)
-#goal = (90, 90)
+# start = (10, 10)
+# goal = (90, 90)
 #
-#path = rrt_star(Map, start, goal)
-#if path:
+# path = rrt_star(Map, start, goal)
+# if path:
 #    print("找到的路徑:", path)
-#else:
+# else:
 #    print("無法找到路徑")
-

@@ -34,7 +34,6 @@ class Policy:
         self.destination = None
         self.des_idx = 0
         self.des_finish_idx = 0
-        self.curr_action = "navigate"
 
     def get_camera_params(self, R, T, fx, fy, cx, cy):
         self.R = R
@@ -185,35 +184,3 @@ class Policy:
 
         print(des_idx)
         return ["navigateReach_astar", self.candidate_points[des_idx - 1]]
-
-    #  if self.curr_action == "navigate":
-    #      self.curr_action = "turn_to_goal"
-    #      destination = self.global2local(self.destination[self.des_idx])
-    #      return ["navigate", destination]
-
-    #  if self.curr_action == "turn_to_goal":
-    #      self.curr_action = "manipulate"
-    #      return ["turn_to_goal"]
-
-    #  if self.curr_action == "manipulate":
-    #      self.curr_action = "return_arm"
-    #      return ["manipulate"]
-
-    #  if self.curr_action == "return_arm":
-    #      self.curr_action = "navigate"
-    #      self.des_idx += 1
-    #      return ["return_arm"]
-
-    # if self.visibility() and self.manipulate():
-    #     self.des_idx += 1
-    #     return ["manipulate"]
-
-    # im = Image.fromarray(rgb)
-    # im.save("./data/rgb1.png")
-
-    # im = Image.fromarray(occupancy_2d_map)
-    # im.save("./data/occupancy_2d_map1.png")
-
-
-# def get_action(self):
-#     return ["navigate", [1.3, -0.1, 0]]
