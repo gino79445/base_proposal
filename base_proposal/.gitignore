@@ -17,4 +17,5 @@ filt_reach_map*
 base_proposal/maps/
 *txt
 .env
+base_proposal/semantic_map/
 *omni*
