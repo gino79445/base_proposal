@@ -22,7 +22,9 @@ import math
 # from segment_anything import SamPredictor, sam_model_registry
 from scipy.spatial.transform import Rotation
 from PIL import Image
-from base_proposal.annotation.pivot import get_base
+
+# from base_proposal.annotation.pivot import get_base
+from base_proposal.annotation.spaceAware_pivot import get_base
 
 
 class Policy:
@@ -62,6 +64,20 @@ class Policy:
 
     def set_destination(self, destination):
         self.destination = destination
+
+    def process_2d_map(self, occupancy_2d_map, destination):
+        destination = self.global2local(destination)
+        occupancy_2d_map = occupancy_2d_map.copy()
+        occupancy_2d_map = np.flipud(occupancy_2d_map)
+        occupancy_2d_map = np.rot90(occupancy_2d_map)
+        occupancy_2d_map = cv2.cvtColor(occupancy_2d_map, cv2.COLOR_GRAY2BGR)
+        scacle = 10
+        occupancy_2d_map = cv2.resize(occupancy_2d_map, (200 * scacle, 200 * scacle))
+        destination = (
+            (199 - (int(destination[1] / 0.05) + 100)) * scacle,
+            (199 - (int(destination[0] / 0.05) + 100)) * scacle,
+        )
+        return occupancy_2d_map, destination
 
     def process_image(self, occupancy_2d_map):
         num_points = 18
@@ -191,17 +207,11 @@ class Policy:
     def get_action(self):
         # make rgb as bgr
         rgb = cv2.cvtColor(self.rgb, cv2.COLOR_RGB2BGR)
+
         base_point = get_base(
-            rgb,
-            self.instruction[self.des_idx],
-            self.depth,
             self.occupancy,
-            self.R,
-            self.T,
-            self.fx,
-            self.fy,
-            self.cx,
-            self.cy,
+            self.global2local(self.destination[self.des_idx]),
+            self.instruction[self.des_idx],
         )
         print(f"Base point: {base_point}")
         self.des_idx += 1

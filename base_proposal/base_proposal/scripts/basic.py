@@ -38,7 +38,7 @@ from base_proposal.utils.task_util import initialize_task
 from base_proposal.envs.env import IsaacEnv
 
 # from base_proposal.policy.test
-from base_proposal.policy.pivot import Policy
+from base_proposal.policy.spaceAware_pivot import Policy
 
 from dotenv import load_dotenv
 import os
