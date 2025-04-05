@@ -144,7 +144,7 @@ def pull(env, policy, global_position, local_nav="none", algo="astar"):
 def pick_and_place(env, policy, global_position, local_nav="none", algo="astar"):
     global_position = [[1.47, 0.85], [1.8, -4.5]]
     global_position = [[-0.2, -1.3], [0.15, 1.54]]
-    # global_position = [[1.85, -2.4], [1.62, -1]]
+    global_position = [[1.85, -2.4], [1.62, -1]]
     # global_position = [[-0.2, -1.3], [0.15, 1.43]]
     policy.set_destination(global_position)
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
