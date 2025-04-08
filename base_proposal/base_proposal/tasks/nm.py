@@ -745,6 +745,8 @@ class NMTask(Task):
         # save the rgb image
         im = Image.fromarray(self.rgb_data)
         im.save("./data/rgb.png")
+        # save the depth np
+        np.save("./data/depth.npy", self.depth_data)
 
         # for box in self.bounding_box:
         #    if box['semanticLabel'] == 'target':
@@ -1118,13 +1120,18 @@ class NMTask(Task):
                 success_list, base_positions_list = self._ik_solver.solve_ik_pos_tiago(
                     des_pos=curr_goal_pos.cpu().numpy(),
                     des_quat=curr_goal_quat,
-                    # pos_threshold=self._goal_pos_threshold, angle_threshold=self._goal_ang_threshold, verbose=False, Rmin=[-0.0, -0.0, 0.965,-0.259],Rmax=[0.0, 0.0, 1, 0.259])
                     pos_threshold=self._goal_pos_threshold,
                     angle_threshold=self._goal_ang_threshold,
                     verbose=False,
-                    Rmin=[-0.0, -0.0, 0.866, -0.5],
-                    Rmax=[0.0, 0.0, 1, 0.5],
+                    Rmin=[-0.0, -0.0, 0.965, -0.259],
+                    Rmax=[0.0, 0.0, 1, 0.259],
                 )
+                # pos_threshold=self._goal_pos_threshold,
+                # angle_threshold=self._goal_ang_threshold,
+                # verbose=False,
+                # Rmin=[-0.0, -0.0, 0.866, -0.5],
+                # Rmax=[0.0, 0.0, 1, 0.5],
+                # )
                 success = False
                 for i in range(len(success_list)):
                     if success_list[i]:

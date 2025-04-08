@@ -1,0 +1,6 @@
+names:
+- cabinet
+- handle
+nc: 2
+train: /home/zrl/Desktop/research/base_proposal/base_proposal/context_images_labeled/train/images
+val: /home/zrl/Desktop/research/base_proposal/base_proposal/context_images_labeled/valid/images

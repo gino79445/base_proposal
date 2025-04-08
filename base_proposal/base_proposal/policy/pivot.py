@@ -188,6 +188,16 @@ class Policy:
     def manipulate(self):
         return True
 
+    def reset(self):
+        self.rgb = None
+        self.depth = None
+        self.occupancy = None
+        self.destination = None
+        self.des_idx = 0
+        self.position = []
+        self.instruction = []
+        return
+
     def get_action(self):
         # make rgb as bgr
         if self.des_idx >= len(self.destination):
@@ -213,7 +223,8 @@ class Policy:
             des = self.global2local(self.destination[self.des_idx])
             self.des_idx += 1
             print(f"Base point: {des}")
-            return ["navigateNear_astar", des]
+            return ["rotate", [np.pi / 2]]
+            # return ["navigateNear_astar", des]
 
         print(f"Base point: {base_point}")
         self.des_idx += 1

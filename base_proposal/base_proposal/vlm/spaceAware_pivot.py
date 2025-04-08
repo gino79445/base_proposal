@@ -50,19 +50,31 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                     {
                         "type": "text",
                         "text": f"""
-                        You are now a wheeled robot. 
-                        The first image I’m seeing right now.
-                        The second image is a bird’s eye view, where several candidate base positions are marked with numbered labels. 
-                        The red area represents your current base position.The green area indicates the location of your target object.
-                        You have annotated it with numbered circles.  Each number represent a general
-                                            direction you can follow.  Now you are a five-time world-champion navigation agent and
-                                            your task is to tell me which circle I should pick for the task of:  {INSTRUCTION}?
-                                            Please analyze the semantics meaning with the rgb image and the instruction and understand the spatial relationship between the object and the candidate points with the bird's eye view image.
-                                            Choose {K} best candidate numbers.
-                                            Skip analysis and provide your answer at the end in a json file of this form:
-                                            {{"points":  [] }}
+                                You are a professional mobile robot agent.
 
-                        """,
+                                You are given two images:
+                                1. The first image is an RGB image showing the current scene from your onboard camera.
+                                2. The second image is a top-down 2D local obstacle map. This map contains:
+                                - A blue circle: your current base position.
+                                - yellow part of the map: the target object.
+                                - black part of the map: the free space.
+                                - white part of the map: the occupied space.
+
+                                - Several numbered white circles: candidate base positions for you to move to.
+
+                                Your task is:
+                                Given the instruction: "{INSTRUCTION}", choose {K} candidate base positions that would allow you to both:
+                                - Clearly observe the **key part of the object needed to complete the task** (e.g. the handle of a mug if the task is to pick it up).
+                                - Be in a good position to **manipulate** that part of the object.
+
+                                Use the RGB image to understand the object and its affordance.
+                                Use the top-down map to reason about spatial layout and visibility.
+
+                                At the end, directly return your answer as a JSON in the following format:
+                                {{ "points": [] }}
+
+                                Only return the JSON. Do not include explanation or reasoning.
+                                """,
                     },
                     {
                         "type": "image_url",
@@ -77,10 +89,8 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
         ],
     )
     response_text = response.choices[0].message.content
-    print(response_text)
     cleaned_text = re.sub(r"```json\n?|```", "", response_text).strip()
     target_object = json.loads(cleaned_text)["points"]
-    print(target_object)
     return target_object
 
 

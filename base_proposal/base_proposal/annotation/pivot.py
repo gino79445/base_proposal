@@ -47,18 +47,16 @@ def sample_gaussian_actions(
         y = int(np.clip(np.random.normal(mean[1], std_dev), 0, image_size[1] - 1))
 
         point_3d = get_3d_point(w - x, h - y, depth_image[y, x], R, T, fx, fy, cx, cy)
-        x_map = int(point_3d[0] / 0.05 + 100)
-        y_map = int(point_3d[1] / 0.05 + 100)
+        # x_map = int(point_3d[0] / 0.05 + 100)
+        # y_map = int(point_3d[1] / 0.05 + 100)
         time += 1
         if time > 100:
             break
 
         if (
-            astar_utils.is_valid_des(y_map, x_map, obstacle_map)
-            and x >= 20
-            and x < w - 20
-            and y >= 20
-            and y < h - 20
+            # astar_utils.is_valid_des(y_map, x_map, obstacle_map)
+            # and
+            x >= 20 and x < w - 20 and y >= 20 and y < h - 20
         ):
             actions.append((x, y))
             i += 1
@@ -196,11 +194,11 @@ def get_base(image, instruction, depth_image, obstacle_map, R, T, fx, fy, cx, cy
     annotated_image = annotate_image(image, robot_base, final_actions)
     # write the image
     cv2.imwrite(
-        f"./data/final_annotated_image.png",
+        "./data/final_annotated_image.png",
         annotated_image,
     )
     result = get_point(
-        f"./data/final_annotated_image.png",
+        "./data/final_annotated_image.png",
         instruction,
         1,
     )

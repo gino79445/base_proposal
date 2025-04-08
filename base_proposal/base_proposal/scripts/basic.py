@@ -26,7 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
+import torch
 import numpy as np
 import hydra
 from omegaconf import DictConfig
@@ -38,7 +38,8 @@ from base_proposal.utils.task_util import initialize_task
 from base_proposal.envs.env import IsaacEnv
 
 # from base_proposal.policy.test
-from base_proposal.policy.spaceAware_pivot import Policy
+from base_proposal.policy.pivot import Policy as pivot_Policy
+from base_proposal.policy.spaceAware_pivot import Policy as spaceAware_Policy
 
 from dotenv import load_dotenv
 import os
@@ -70,31 +71,57 @@ def parse_hydra_configs(cfg: DictConfig):
 
         t += 1
 
-    instruction = env.get_instruction()
-    policy = Policy(instruction)
     # env.step(["start"])
     # env.step(["set_initial_base", [0.7, -1]])
-    # env.step(["rotate", [np.pi / 2]])
+    # \env.step(["rotate", [np.pi * 100]])
     # env.step(["rotate", [np.pi / 2]])
     # env.step(["rotate", [np.pi / 2]])
     # env.step(["rotate", [np.pi / 2]])
 
     time = 5
     current_time = 0
+
     while current_time < time:
+        torch.cuda.empty_cache()
+
         current_time += 1
-        global_position = [[1.47, 0.85], [1.8, -4.5]]
-        global_position = [[-0.58, -4], [1.8, -4.5]]
-        # env.step(["rotate", [np.pi]])
-        # continue
-        pick_and_place(
-            env, policy, global_position, local_nav="pivot", algo="rrt_rough"
-        )
+        global_position = [[1.47, 0.85], [2, -4.45]]
+        # global_position = [[-0.2, -1.3], [0.15, 1.54]]
+        # global_position = [[1.85, -2.4], [1.64, -1]]
+        # global_position = [[-0.2, -1.3], [0.15, 1.43]]
+        # global_position = [[-0.58, -4]]
+        instruction = env.get_instruction()
+
+        policy = spaceAware_Policy(instruction)
+        #  try:
+        # pick_and_place(
+        #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
+        # )
         # pick_and_place(env, policy, global_position, local_nav="None", algo="rrt")
+        pick_and_place(
+            env,
+            policy,
+            global_position,
+            local_nav="spaceAware_pivot",
+            algo="rrt_rough",
+        )
 
         # pull(env, policy, global_position, local_nav="None", algo="astar")
         # pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
+        # pull(
+        #     env,
+        #     policy,
+        #     global_position,
+        #     local_nav="spaceAware_pivot",
+        #     algo="rrt_rough",
+        # )
+        #  except Exception as e:
+        #      print(e)
+        #      print("Error")
 
+        env.step(["open_gripper"])
+        env.reset()
+        policy.reset()
         success_num = env.get_success_num()
         # success_num success rate
         print(f"Success rate: {success_num}/{current_time}")
@@ -103,7 +130,6 @@ def parse_hydra_configs(cfg: DictConfig):
 
 
 def pull(env, policy, global_position, local_nav="none", algo="astar"):
-    global_position = [[-0.58, -4]]
     policy.set_destination(global_position)
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
     policy.get_camera_params(R, T, fx, fy, cx, cy)
@@ -126,6 +152,27 @@ def pull(env, policy, global_position, local_nav="none", algo="astar"):
             policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
             action = policy.get_action()
             rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+
+        if local_nav == "spaceAware_pivot":
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            rough_action = policy.get_rough_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(rough_action)
+
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            action = policy.get_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+
             policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
             pos = policy.global2local(global_pos)
             rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
@@ -137,15 +184,9 @@ def pull(env, policy, global_position, local_nav="none", algo="astar"):
         env.step(["close_gripper"])
         env.step(["backward"])
         env.step(["check_pull_success"])
-    env.step(["open_gripper"])
-    env.reset()
 
 
 def pick_and_place(env, policy, global_position, local_nav="none", algo="astar"):
-    global_position = [[1.47, 0.85], [1.8, -4.5]]
-    global_position = [[-0.2, -1.3], [0.15, 1.54]]
-    global_position = [[1.85, -2.4], [1.62, -1]]
-    # global_position = [[-0.2, -1.3], [0.15, 1.43]]
     policy.set_destination(global_position)
     R, T, fx, fy, cx, cy = env.retrieve_camera_params()
     policy.get_camera_params(R, T, fx, fy, cx, cy)
@@ -154,6 +195,7 @@ def pick_and_place(env, policy, global_position, local_nav="none", algo="astar")
     action_step = 0
     for global_pos in global_position:
         policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+
         pos = policy.global2local(global_pos)
         rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
             [f"navigateNear_{algo}", pos]
@@ -175,6 +217,23 @@ def pick_and_place(env, policy, global_position, local_nav="none", algo="astar")
                 ["turn_to_goal", pos]
             )
 
+        if local_nav == "spaceAware_pivot":
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            rough_action = policy.get_rough_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(rough_action)
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            action = policy.get_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
         ###   local navigate ###
 
         if action_step == 0:
@@ -196,8 +255,6 @@ def pick_and_place(env, policy, global_position, local_nav="none", algo="astar")
             env.step(["check_place_success"])
             terminal = True
         if terminal:
-            env.step(["open_gripper"])
-            env.reset()
             break
 
 
