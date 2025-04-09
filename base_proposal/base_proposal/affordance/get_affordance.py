@@ -61,37 +61,6 @@ def prepare_image(image_path):
     return image
 
 
-def remove_depth_outliers_by_zscore(points_2d, depth_image, z_thresh=1.0):
-    """
-    points_2d: N×2 像素点 [[y, x], ...]
-    depth_image: H×W 的深度图
-    z_thresh: z-score 阈值（默认2.0）
-
-    """
-    zs = []
-    for pt in points_2d:
-        y, x = pt
-        z = depth_image[y, x]
-        if z > 0:
-            zs.append(z)
-        else:
-            zs.append(np.nan)  # 保持长度对齐
-
-    zs = np.array(zs)
-    valid_mask = ~np.isnan(zs)
-    mean_z = np.nanmean(zs)
-    std_z = np.nanstd(zs)
-
-    z_scores = np.abs((zs - mean_z) / std_z)
-
-    # if point z-score is greater than z_thresh, than make it depth mean depth
-
-    depth_image = np.where(z_scores > z_thresh, mean_z, depth_image)
-    inlier_mask = (z_scores < z_thresh) & valid_mask
-
-    return points_2d[inlier_mask]
-
-
 def get_3d_point(u, v, Z, R, T, fx, fy, cx, cy):
     # Retrieve camera parameters
 
@@ -317,6 +286,7 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     depth_mean = np.mean(depth)
     depth_std = np.std(depth)
     depth_z = (depth_center - depth_mean) / depth_std
+    depth_z = np.abs(depth_z)
     if depth_z > 1:
         depth_center = depth_mean
 
@@ -348,17 +318,18 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     mask = cv2.imread("./data/mask.png", cv2.IMREAD_GRAYSCALE)
     # convert 2d object mask to 3d point
     mask_points = np.column_stack(np.where(mask))
-    for point in mask_points:
-        # get the 3d point
-        point_3d = get_3d_point(
-            w - point[1], h - point[0], depth[point[0], point[1]], R, T, fx, fy, cx, cy
-        )
-        # convert to map point
-        map_x = int(point_3d[0] / 0.05) + 100
-        map_y = int(point_3d[1] / 0.05) + 100
 
-        # draw the occupancy point on map
-        map_rgb[map_y, map_x] = (0, 255, 255)
+    # for point in mask_points:
+
+    #    point_3d = get_3d_point(
+    #        w - point[1], h - point[0], depth_z, R, T, fx, fy, cx, cy
+    #    )
+    #    # convert to map point
+    #    map_x = int(point_3d[0] / 0.05) + 100
+    #    map_y = int(point_3d[1] / 0.05) + 100
+
+    #    # draw the occupancy point on map
+    #    map_rgb[map_y, map_x] = (0, 255, 255)
 
     cv2.imwrite("./data/affann.png", map_rgb)
 

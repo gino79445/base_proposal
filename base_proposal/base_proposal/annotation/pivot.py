@@ -170,7 +170,7 @@ def get_base(image, instruction, depth_image, obstacle_map, R, T, fx, fy, cx, cy
             initial_mean, std_dev = update_gaussian_distribution(
                 best_actions_positions, std_dev
             )
-            num_samples -= 4
+            # num_samples -= 4
         for action in best_actions_positions:
             final_actions.append(action)
 
@@ -178,7 +178,7 @@ def get_base(image, instruction, depth_image, obstacle_map, R, T, fx, fy, cx, cy
     final_actions = sample_gaussian_actions(
         initial_mean,
         std_dev,
-        3,
+        15,
         image_size,
         depth_image,
         obstacle_map,

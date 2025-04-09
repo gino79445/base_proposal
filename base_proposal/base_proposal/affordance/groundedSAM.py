@@ -6,6 +6,7 @@ from autodistill.detection import CaptionOntology
 from autodistill_grounding_dino import GroundingDINO as DINO
 from segment_anything import sam_model_registry, SamPredictor
 from segment_anything.utils.transforms import ResizeLongestSide
+import gc
 
 
 def detect_and_segment(
@@ -27,6 +28,8 @@ def detect_and_segment(
     sam = sam_model_registry["vit_h"](checkpoint=sam_checkpoint)
     sam.to("cuda")
     predictor = SamPredictor(sam)
+    gc.collect()
+    torch.cuda.empty_cache()
     predictor.set_image(image_rgb)
 
     results = []

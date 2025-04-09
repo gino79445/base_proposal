@@ -53,20 +53,19 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                 You are a professional mobile robot agent.
 
                                 You are given two images:
-                                1. The first image is an RGB image showing the current scene from your onboard camera.
-                                2. The second image is a top-down 2D local obstacle map. This map contains:
+                                1. The first image is an RGB image showing the current scene from your onboard camera. This map contains:
+                                - A purple circle: the same as the one in the top-down map.
+                                2. The second image is a top-down 2D map. This map contains:
+                                - A purple circle: the same as the one in the RGB image.
                                 - A blue circle: your current base position.
-                                - yellow part of the map: the target object.
                                 - black part of the map: the free space.
                                 - white part of the map: the occupied space.
 
                                 - Several numbered white circles: candidate base positions for you to move to.
 
                                 Your task is:
-                                Given the instruction: "{INSTRUCTION}", choose {K} candidate base positions that would allow you to both:
-                                - Clearly observe the **key part of the object needed to complete the task** (e.g. the handle of a mug if the task is to pick it up).
-                                - Be in a good position to **manipulate** that part of the object.
-
+                                Given the instruction: "{INSTRUCTION}", choose {K} candidate base positions that would allow you to 
+                                finish the instruction successfully.
                                 Use the RGB image to understand the object and its affordance.
                                 Use the top-down map to reason about spatial layout and visibility.
 

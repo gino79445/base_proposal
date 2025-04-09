@@ -85,39 +85,40 @@ def parse_hydra_configs(cfg: DictConfig):
         torch.cuda.empty_cache()
 
         current_time += 1
-        global_position = [[1.47, 0.85], [2, -4.45]]
+        global_position = [[1.47, 0.85], [2, -4.4]]
         # global_position = [[-0.2, -1.3], [0.15, 1.54]]
         # global_position = [[1.85, -2.4], [1.64, -1]]
         # global_position = [[-0.2, -1.3], [0.15, 1.43]]
-        # global_position = [[-0.58, -4]]
+        global_position = [[-0.58, -4.4]]
         instruction = env.get_instruction()
 
         policy = spaceAware_Policy(instruction)
-        #  try:
-        # pick_and_place(
-        #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
-        # )
-        # pick_and_place(env, policy, global_position, local_nav="None", algo="rrt")
-        pick_and_place(
-            env,
-            policy,
-            global_position,
-            local_nav="spaceAware_pivot",
-            algo="rrt_rough",
-        )
+        # policy = pivot_Policy(instruction)
+        try:
+            # pick_and_place(
+            #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
+            # )
+            # pick_and_place(env, policy, global_position, local_nav="None", algo="rrt")
+            # pick_and_place(
+            #    env,
+            #    policy,
+            #    global_position,
+            #    local_nav="spaceAware_pivot",
+            #    algo="rrt_rough",
+            # )
 
-        # pull(env, policy, global_position, local_nav="None", algo="astar")
-        # pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
-        # pull(
-        #     env,
-        #     policy,
-        #     global_position,
-        #     local_nav="spaceAware_pivot",
-        #     algo="rrt_rough",
-        # )
-        #  except Exception as e:
-        #      print(e)
-        #      print("Error")
+            # pull(env, policy, global_position, local_nav="None", algo="astar")
+            #   pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
+            pull(
+                env,
+                policy,
+                global_position,
+                local_nav="spaceAware_pivot",
+                algo="rrt_rough",
+            )
+        except Exception as e:
+            print(e)
+            print("Error")
 
         env.step(["open_gripper"])
         env.reset()

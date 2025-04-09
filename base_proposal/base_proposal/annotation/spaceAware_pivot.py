@@ -22,26 +22,28 @@ def sample_gaussian_actions_on_map(
     obstacle_map,
     preferred_mean=None,
     bias_sigma=0.2,
+    alpha=0.2,
 ):
     actions = []
     w, h = image_size
     i = 0
     preferred_dist = 0.7
-    dist_sigma = 0.1
+    dist_sigma = 0.2
+    R = 1.2
 
     while i < num_samples:
         t = 0
         while True:
             t += 1
             x = np.clip(
-                np.random.normal(center[0], std_dev), center[0] - 1.0, center[0] + 1.0
+                np.random.normal(center[0], std_dev), center[0] - R, center[0] + R
             )
             y = np.clip(
-                np.random.normal(center[1], std_dev), center[1] - 1.0, center[1] + 1.0
+                np.random.normal(center[1], std_dev), center[1] - R, center[1] + R
             )
 
             dist_to_goal = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
-            if dist_to_goal < 0.4 or dist_to_goal > 1.0:
+            if dist_to_goal < 0.4 or dist_to_goal > R:
                 continue
 
             weight_to_goal = np.exp(
@@ -69,10 +71,19 @@ def sample_gaussian_actions_on_map(
                     i += 1
                     break
 
-            if t > 10000:
-                std_dev += 0.1
-                bias_sigma += 0.1
+            if t > 1000:
+                R += 0.2
                 break
+        # draw the mean on the map
+    if preferred_mean is not None:
+        map = obstacle_map.copy()
+        map = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
+        map_x = int(preferred_mean[0] / 0.05) + 100
+        map_y = int(preferred_mean[1] / 0.05) + 100
+        cv2.circle(map, (map_x, map_y), 1, (0, 255, 0), -1)  # draw the mean on the map
+        # save the map with the mean
+        cv2.imwrite("./data/mean_map.png", map)
+
     return actions
 
 
@@ -103,7 +114,7 @@ def annotate_image(image, goal, actions, best_actions=[]):
         )
 
     crop_size = 300
-    #  cv2.circle(annotated_image, goal, 10, (255, 0, 255), -1)
+    cv2.circle(annotated_image, goal, 5, (255, 0, 255), -1)
     cv2.circle(annotated_image, (1000, 1000), 20, (255, 0, 0), -1)
     # save the annotated image
     cv2.imwrite("./data/annotated_map.png", annotated_image)
@@ -124,7 +135,7 @@ def update_gaussian_distribution(
     bias_sigma,
     destination=None,
     max_drift=1,
-    std_dev_decay=1,
+    std_dev_decay=0.9,
 ):
     if not best_actions_positions:
         return None, bias_sigma
@@ -160,7 +171,8 @@ def get_base(occupancy_2d_map, destination, instruction, K=3):
     for p in range(parallel):
         num_samples = 15
         preferred_mean = None
-        bias_sigma = 0.3
+        bias_sigma = 0.2
+        alpha = 0.8
         for i in range(iterations):
             actions = sample_gaussian_actions_on_map(
                 center=destination,
@@ -170,6 +182,7 @@ def get_base(occupancy_2d_map, destination, instruction, K=3):
                 obstacle_map=occupancy_2d_map,
                 preferred_mean=preferred_mean,
                 bias_sigma=bias_sigma,
+                alpha=alpha,
             )
             annotated_image = annotate_image(map_img.copy(), goal, actions)
             cv2.imwrite(f"./data/annotated_map_{i + 1}.png", annotated_image)
@@ -180,7 +193,9 @@ def get_base(occupancy_2d_map, destination, instruction, K=3):
             preferred_mean, std_dev = update_gaussian_distribution(
                 best_actions_positions, std_dev, destination
             )
+            alpha -= 0.3
         #    final_actions.extend(best_actions_positions)
+
         for action in best_actions_positions:
             final_actions.append(action)
 
@@ -190,16 +205,17 @@ def get_base(occupancy_2d_map, destination, instruction, K=3):
     final_actions = sample_gaussian_actions_on_map(
         center=destination,
         std_dev=std_dev,
-        num_samples=3,
+        num_samples=15,
         image_size=(200, 200),
         obstacle_map=occupancy_2d_map,
         preferred_mean=preferred_mean,
         bias_sigma=bias_sigma,
+        alpha=0.2,
     )
     final_img = annotate_image(map_img.copy(), goal, final_actions)
     cv2.imwrite("./data/final_annotated_map.png", final_img)
     result = get_point(
-        "./data/rgb.png", "./data/final_annotated_map.png", instruction, 1
+        "./data/affrgb.png", "./data/final_annotated_map.png", instruction, 1
     )
     print(f"Final Best Action Index -> {result}")
     base = final_actions[result[0]]
