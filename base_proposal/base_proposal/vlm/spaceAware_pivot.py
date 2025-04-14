@@ -53,22 +53,22 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                 You are a professional mobile robot agent.
 
                                 You are given two images:
-                                1. The first image is an RGB image showing the current scene from your onboard camera. This map contains:
-                                - A purple circle: the same as the one in the top-down map.
-                                2. The second image is a top-down 2D map. This map contains:
-                                - A purple circle: the same as the one in the RGB image.
-                                - A blue circle: your current base position.
-                                - black part of the map: the free space.
-                                - white part of the map: the occupied space.
+                                1. The first image is an RGB image showing the current scene from your onboard camera.
+                                2. The second image is a top-down 2D map. The map contains:
+                                    - A blue circle: your current base position.
+                                    - black part of the map: the free space.
+                                    - white part of the map: the occupied space.
+                                    - yellow part of the map: Approximately the target object region.
+                                    - red arrow: the direction between the current base position and the candidate base position.
+                                    - Several numbered white circles: candidate base positions for you to move to.
 
-                                - Several numbered white circles: candidate base positions for you to move to.
+                                Your task:
+                                Given the instruction: "{INSTRUCTION}", choose {K} that best allow you to:
+                                - Clearly observe the **key part of the object required for the task** (e.g., the mug handle).
+                                - **Face the object from the front**, with a good viewing angle and manipulation feasibility.
 
-                                Your task is:
-                                Given the instruction: "{INSTRUCTION}", choose {K} candidate base positions that would allow you to 
-                                finish the instruction successfully.
-                                Use the RGB image to understand the object and its affordance.
-                                Use the top-down map to reason about spatial layout and visibility.
-
+                                Use the RGB image to understand the affordance and semantics of the target object.
+                                Use the 2D map to reason about spatial layout and visibility.
                                 At the end, directly return your answer as a JSON in the following format:
                                 {{ "points": [] }}
 

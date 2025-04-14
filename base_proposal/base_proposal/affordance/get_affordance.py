@@ -76,12 +76,15 @@ def get_3d_point(u, v, Z, R, T, fx, fy, cx, cy):
     return point_3d
 
 
-def get_features(R, T, fx, fy, cx, cy, depth_image, K):
+def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
     config = {
         "device": "cuda" if torch.cuda.is_available() else "cpu",
     }
     proposer = KeypointProposer(config)
 
+    if map is not None:
+        # map to rgb
+        map = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
     image_path = "./data/rgb.png"
     mask_path = "./data/mask.png"
     original_image = cv2.imread(image_path)
@@ -205,7 +208,30 @@ def get_features(R, T, fx, fy, cx, cy, depth_image, K):
             1,
         )
 
+        if map is not None:
+            # transform the pixel coordinates to map coordinates
+            for point in centroid_points:
+                point_3d = get_3d_point(
+                    origin_w - point[1],
+                    origin_h - point[0],
+                    depth_image[point[0], point[1]],
+                    R,
+                    T,
+                    fx,
+                    fy,
+                    cx,
+                    cy,
+                )
+                # convert to map point
+                map_x = int(point_3d[0] / 0.05) + 100
+                map_y = int(point_3d[1] / 0.05) + 100
+                # draw the occupancy point on map
+                cv2.circle(map, (map_x, map_y), 1, (255, 0, 255), -1)
+
         number += 1
+    # save the map
+    if map is not None:
+        cv2.imwrite("./data/map_clustter.png", map)
 
     # if len(points) > 0:
 
@@ -228,7 +254,7 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     rgb = cv2.imread("./data/rgb.png")
     detect_and_segment("./data/rgb.png", target)
     cluster_points, cluster_labels, number_list = get_features(
-        R, T, fx, fy, cx, cy, depth, 20
+        R, T, fx, fy, cx, cy, depth, 20, map
     )
     times = 0
     while True:
@@ -319,21 +345,148 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     # convert 2d object mask to 3d point
     mask_points = np.column_stack(np.where(mask))
 
-    # for point in mask_points:
+    for point in mask_points:
+        Z = depth[point[0], point[1]]
+        point_3d = get_3d_point(w - point[1], h - point[0], Z, R, T, fx, fy, cx, cy)
+        # convert to map point
+        map_x = int(point_3d[0] / 0.05) + 100
+        map_y = int(point_3d[1] / 0.05) + 100
 
-    #    point_3d = get_3d_point(
-    #        w - point[1], h - point[0], depth_z, R, T, fx, fy, cx, cy
-    #    )
-    #    # convert to map point
-    #    map_x = int(point_3d[0] / 0.05) + 100
-    #    map_y = int(point_3d[1] / 0.05) + 100
-
-    #    # draw the occupancy point on map
-    #    map_rgb[map_y, map_x] = (0, 255, 255)
+        # draw the occupancy point on map
+        map_rgb[map_y, map_x] = (0, 255, 255)
 
     cv2.imwrite("./data/affann.png", map_rgb)
 
-    return (affordance_point[0], affordance_point[1])
+    return (affordance_point[0], affordance_point[1]), (
+        affordance_center[0],
+        affordance_center[1],
+    )
+
+
+def sample_from_mask_gaussian(
+    center, target, sigma, R, T, fx, fy, cx, cy, map, num_samples=1
+):
+    torch.cuda.empty_cache()
+    mask = cv2.imread("./data/mask.png", cv2.IMREAD_GRAYSCALE)
+    mask = cv2.threshold(mask, 127, 1, cv2.THRESH_BINARY)[1]
+
+    H, W = mask.shape
+    cx, cy = center
+
+    # 建立整張圖的網格座標
+    y_coords, x_coords = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
+
+    # 計算高斯權重（以中心點為中心）
+    gauss = np.exp(-((x_coords - cx) ** 2 + (y_coords - cy) ** 2) / (2 * sigma**2))
+
+    # 把非 mask 區域的權重設為 0
+    gauss[mask == 0] = 0
+
+    # 如果所有權重都為 0（例如中心不在 mask 附近），就 return None
+    if np.sum(gauss) == 0:
+        return None
+
+    # Normalize 成機率分布
+    probs = gauss.flatten() / np.sum(gauss)
+
+    # 所有像素點 index
+    all_indices = np.arange(H * W)
+
+    # 根據權重進行抽樣
+    sampled_indices = np.random.choice(all_indices, size=num_samples, p=probs)
+    sampled_coords = np.array([(idx // W, idx % W) for idx in sampled_indices])
+
+    rgb = cv2.imread("./data/rgb.png")
+
+    number_list = []
+    coordinates = []
+    Continue = False
+    depth = np.load("./data/depth.npy")
+    for i in range(sampled_coords.shape[0]):
+        y, x = sampled_coords[i]
+        coordinates.append((y, x))
+        # if too close to the point in the list, then skip
+        # for j in number_list:
+        #    point = sampled_coords[j]
+        #    P = get_3d_point(W - x, H - y, depth[y, x], R, T, fx, fy, cx, cy)
+        #    Q = get_3d_point(
+        #        W - point[1],
+        #        H - point[0],
+        #        depth[point[0], point[1]],
+        #        R,
+        #        T,
+        #        fx,
+        #        fy,
+        #        cx,
+        #        cy,
+        #    )
+        #    # calculate the distance between the centroid and the point
+        #    distance = np.linalg.norm(P - Q)
+        #    if distance < 0.05:
+        #        Continue = True
+        #        break
+
+        # if Continue:
+        #    continue
+        number_list.append(i)
+        # daw the  point on the image like above
+        cv2.circle(rgb, (x, y), 12, (255, 255, 255), -1)
+        cv2.circle(rgb, (x, y), 12, (0, 0, 255), 1)
+        text_width, text_height = cv2.getTextSize(
+            f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+        )[0]
+        cv2.putText(
+            rgb,
+            f"{i}",
+            (x - text_width // 2, y + text_height // 2),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 0, 0),
+            1,
+        )
+
+    cv2.imwrite("./data/sample.png", rgb)
+    times = 0
+    while True:
+        try:
+            affordance_num = determine_affordance(
+                "./data/sample.png",
+                target,
+                number_list,
+            )
+            break
+        except ValueError:
+            print("Invalid affordance number. Please try again.")
+            times += 1
+            if times > 3:
+                raise ValueError("Invalid affordance number. Please try again.")
+                break
+    print(f"Affordance num: {affordance_num}")
+
+    coordinates = coordinates[affordance_num]
+
+    # get the 3d point
+    depth = np.load("./data/depth.npy")
+    point_3d = get_3d_point(
+        W - coordinates[1],
+        H - coordinates[0],
+        depth[coordinates[0], coordinates[1]],
+        R,
+        T,
+        fx,
+        fy,
+        cx,
+        cy,
+    )
+    # convert to map point
+    map_x = int(point_3d[0] / 0.05) + 100
+    map_y = int(point_3d[1] / 0.05) + 100
+    # draw the occupancy point on map
+    map_color = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
+    cv2.circle(map_color, (map_x, map_y), 1, (255, 0, 255), -1)
+    cv2.imwrite("./data/sample_map.png", map_color)
+
+    return point_3d, coordinates
 
 
 # # get the mask of the count = 1

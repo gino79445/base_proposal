@@ -216,7 +216,19 @@ class Policy:
         return ["navigateReach_astar", [rough_base[0], rough_base[1]]]
 
     def get_action(self):
-        affordance_point = get_affordance_point(
+        # affordance_point = get_affordance_point(
+        #    self.target[self.des_idx],
+        #    self.instruction[self.des_idx],
+        #    self.R,
+        #    self.T,
+        #    self.fx,
+        #    self.fy,
+        #    self.cx,
+        #    self.cy,
+        #    self.occupancy,
+        # )
+        base_point = get_base(
+            self.occupancy,
             self.target[self.des_idx],
             self.instruction[self.des_idx],
             self.R,
@@ -225,13 +237,6 @@ class Policy:
             self.fy,
             self.cx,
             self.cy,
-            self.occupancy,
-        )
-        print(affordance_point)
-        base_point = get_base(
-            self.occupancy,
-            affordance_point,
-            self.instruction[self.des_idx],
         )
         print(f"Base point: {base_point}")
         self.des_idx += 1

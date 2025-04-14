@@ -97,22 +97,43 @@ class NMTask(Task):
             device=self._device,
         )
 
-        yaml_path = self._task_cfg["env"]["object_config"]
-        full_yaml_path = os.path.join(hydra.utils.get_original_cwd(), yaml_path)
+        self.all_envs = self.load_all_yaml_in_folder(
+            self._task_cfg["env"]["env_folder"]
+        )
 
-        # read the YAML file
-        with open(full_yaml_path, "r") as f:
-            self.env_yaml = yaml.safe_load(f)
+        for i, env1 in enumerate(self.all_envs):
+            print(f"🔹 YAML {i + 1}:")
+            print(env1["targets_position"])
 
-        self._obstacle_names = self.env_yaml["obstacles"]
-        self._grasp_obj_names = self.env_yaml["target"]
+        self._obstacle_names = self.all_envs[0]["obstacles"]
+        self._grasp_obj_names = self.all_envs[0]["target"]
         self._num_obstacles = len(self._obstacle_names)
         self._num_grasp_objs = len(self._grasp_obj_names)
-        self.targets_position = self.env_yaml["targets_position"]
-        self.targets_se3 = self.env_yaml["targets_se3"]
-        self.num_se3 = self.env_yaml["num_se3"]
-        self.instruction = self.env_yaml["instruction"]
-        self.initial_base = self.env_yaml["initial_base"]
+        self.targets_position = self.all_envs[0]["targets_position"]
+        self.targets_se3 = self.all_envs[0]["targets_se3"]
+        self.num_se3 = self.all_envs[0]["num_se3"]
+        self.instruction = self.all_envs[0]["instruction"]
+        self.initial_base = self.all_envs[0]["initial_base"]
+        self.destination = self.all_envs[0]["destination"]
+
+        yaml_path = self._task_cfg["env"]["object_config"]
+        if yaml_path is not None:
+            full_yaml_path = os.path.join(hydra.utils.get_original_cwd(), yaml_path)
+
+            # read the YAML file
+            with open(full_yaml_path, "r") as f:
+                self.env_yaml = yaml.safe_load(f)
+
+            self._obstacle_names = self.env_yaml["obstacles"]
+            self._grasp_obj_names = self.env_yaml["target"]
+            self._num_obstacles = len(self._obstacle_names)
+            self._num_grasp_objs = len(self._grasp_obj_names)
+            self.targets_position = self.env_yaml["targets_position"]
+            self.targets_se3 = self.env_yaml["targets_se3"]
+            self.num_se3 = self.env_yaml["num_se3"]
+            self.instruction = self.env_yaml["instruction"]
+            self.initial_base = self.env_yaml["initial_base"]
+            self.destination = self.env_yaml["destination"]
         # Environment object settings: (reset() randomizes the environment)
         #  self._obstacle_names = self._task_cfg["env"]["obstacles"]
         #  # self._tabular_obstacle_mask = [False, True] # Mask to denote which objects are tabular (i.e. grasp objects can be placed on them)
@@ -170,7 +191,7 @@ class NMTask(Task):
 
         #  self.instruction = self._task_cfg["env"]["instruction"]
         self.arm = self._task_cfg["env"]["move_group"]
-        self.step_count = 0
+        self.env_count = 0
 
         #    self.targets_position = self._task_cfg["env"]["targets_position"]
         #    self.targets_se3 = self._task_cfg["env"]["targets_se3"]
@@ -200,6 +221,19 @@ class NMTask(Task):
 
         # RLTask.__init__(self, name, env)
         Task.__init__(self, name, env)
+
+    def load_all_yaml_in_folder(self, folder_path):
+        import glob
+
+        yaml_files = sorted(glob.glob(os.path.join(folder_path, "*.yaml")))
+        all_yaml_data = []
+
+        for file_path in yaml_files:
+            with open(file_path, "r") as f:
+                yaml_data = yaml.safe_load(f)
+                all_yaml_data.append(yaml_data)
+
+        return all_yaml_data
 
     def get_camera_intrinsics(self):
         # Get camera intrinsics for rendering
@@ -1060,6 +1094,43 @@ class NMTask(Task):
             self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
         #            print(f"Goal position: {self._curr_goal_tf}")
 
+        if actions == "turn_to_se3":
+            # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
+            x_scaled = torch.tensor([0], device=self._device)
+            y_scaled = torch.tensor([0], device=self._device)
+            total = 0
+            t = 0
+            for i in self.num_se3:
+                if t == self.se3_idx:
+                    break
+                total += i
+                t += 1
+
+            curr_goal_pos = self._curr_goal_tf[total, 0:3, 3]
+            theta_scaled = torch.tensor(
+                [torch.atan2(curr_goal_pos[1], curr_goal_pos[0])], device=self._device
+            )
+
+            base_tf, action_tf = self.set_new_base(x_scaled, y_scaled, theta_scaled)
+            new_base_tf = torch.matmul(base_tf, action_tf)
+            new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
+            new_base_theta = (
+                torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
+                .unsqueeze(dim=0)
+                .unsqueeze(dim=0)
+            )
+            self.x_delta = new_base_xy[0, 0].cpu().numpy()
+            self.y_delta = new_base_xy[0, 1].cpu().numpy()
+            self.theta_delta = new_base_theta[0, 0].cpu().numpy()
+            self.tiago_handler.set_base_positions(
+                torch.hstack((new_base_xy, new_base_theta))
+            )
+
+            # Transform goal to robot frame
+            inv_base_tf = torch.linalg.inv(new_base_tf)
+            self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
+            return
+
         if actions == "turn_to_goal":
             # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
             x_scaled = torch.tensor([0], device=self._device)
@@ -1311,7 +1382,7 @@ class NMTask(Task):
                 torch.tensor(curr_pose[0][:3]) - torch.tensor(target_pose[0][:3])
             )
             print(f"distance: {dis}")
-            if dis <= 0.24:
+            if dis <= 0.3:
                 print("place success")
                 self.success_num += 1
             else:
@@ -1335,6 +1406,23 @@ class NMTask(Task):
         local_transform = UsdGeom.XformCache().GetLocalToWorldTransform(prim)
 
         return local_transform
+
+    def get_destination(self):
+        # Get the destination position
+        if self.destination is not None:
+            return self.destination
+        else:
+            print("No destination set.")
+            return None
+
+    def set_new_target_pose(self):
+        self.env_count += 1
+        try:
+            self.targets_position = self.all_envs[self.env_count]["targets_position"]
+            self.targets_se3 = self.all_envs[self.env_count]["targets_se3"]
+            self.destination = self.all_envs[self.env_count]["destination"]
+        except IndexError:
+            print("No more environments to load.")
 
     def reset_idx(self, env_ids):
         # apply resets
@@ -1389,7 +1477,7 @@ class NMTask(Task):
                     )
 
         # bookkeeping
-        self.step_count = 0
+        # self.env_count = 0
         self._is_success[env_ids] = 0
         self._collided[env_ids] = 0
         self.reset_buf[env_ids] = 0

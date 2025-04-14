@@ -66,8 +66,8 @@ def parse_instruction(instruction):
     return json_response
 
 
-a = parse_instruction("put the red mug on the shelf")
-print(a)
+# a = parse_instruction("put the red mug on the shelf")
+# print(a)
 ## determine_base(path, part_to_grab_str, count_list)
 # result = determine_base(
 #    "./data/rgb.png",

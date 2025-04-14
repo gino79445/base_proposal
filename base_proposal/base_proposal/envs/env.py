@@ -164,6 +164,12 @@ class IsaacEnv:
     def get_success_num(self):
         return self._task.get_success_num()
 
+    def set_new_target_pose(self):
+        return self._task.set_new_target_pose()
+
+    def get_destination(self):
+        return self._task.get_destination()
+
     def step(self, action):
         """Basic implementation for stepping simulation.
             Can be overriden by inherited Env classes
@@ -188,9 +194,15 @@ class IsaacEnv:
             self.render()
 
         if action[0] == "turn_to_goal":
+            print("Turning to goal")
             self._task.set_goal(action[1])
             self.render()
             self._task.pre_physics_step("turn_to_goal")
+            self.render()
+
+        if action[0] == "turn_to_se3":
+            print("Turning to SE3")
+            self._task.pre_physics_step("turn_to_se3")
             self.render()
 
         if "navigate" in action[0]:

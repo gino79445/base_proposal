@@ -2,6 +2,8 @@ import numpy as np
 import cv2
 from base_proposal.vlm.spaceAware_pivot import get_point
 from base_proposal.tasks.utils import astar_utils
+from base_proposal.affordance.get_affordance import get_affordance_point
+from base_proposal.affordance.get_affordance import sample_from_mask_gaussian
 
 
 def process_2d_map(occupancy_2d_map):
@@ -29,7 +31,7 @@ def sample_gaussian_actions_on_map(
     i = 0
     preferred_dist = 0.7
     dist_sigma = 0.2
-    R = 1.2
+    R = 1.5
 
     while i < num_samples:
         t = 0
@@ -56,7 +58,7 @@ def sample_gaussian_actions_on_map(
                     [x - preferred_mean[0], y - preferred_mean[1]]
                 )
                 weight_to_mean = np.exp(-0.5 * (dist_to_mean / bias_sigma) ** 2)
-            alpha = 0.5
+            # alpha = 0.5
             weight = alpha * weight_to_goal + (1 - alpha) * weight_to_mean
             map_x = int(x / 0.05) + 100
             map_y = int(y / 0.05) + 100
@@ -71,10 +73,10 @@ def sample_gaussian_actions_on_map(
                     i += 1
                     break
 
-            if t > 1000:
+            if t > 10000:
                 R += 0.2
                 break
-        # draw the mean on the map
+
     if preferred_mean is not None:
         map = obstacle_map.copy()
         map = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
@@ -89,17 +91,16 @@ def sample_gaussian_actions_on_map(
 
 def annotate_image(image, goal, actions, best_actions=[]):
     annotated_image = image.copy()
+    overlay = annotated_image.copy()
+
     for i, (x, y) in enumerate(actions):
         color = (0, 0, 255)
         thickness = 1
         x, y = (199 - y) * 10, (199 - x) * 10
 
         # cv2.arrowedLine(annotated_image, goal, (x, y), color, thickness, tipLength=0.2)
-        cv2.arrowedLine(
-            annotated_image, (1000, 1000), (x, y), color, thickness, tipLength=0.2
-        )
-        cv2.circle(annotated_image, (x, y), 12, (255, 255, 255), -1)
-        cv2.circle(annotated_image, (x, y), 12, (0, 0, 255), 1)
+        cv2.circle(annotated_image, (x, y), 14, (255, 255, 255), -1)
+        cv2.circle(annotated_image, (x, y), 14, (0, 0, 255), 1)
         text_width, text_height = cv2.getTextSize(
             f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2
         )[0]
@@ -113,8 +114,19 @@ def annotate_image(image, goal, actions, best_actions=[]):
             1,
         )
 
+    for i, (x, y) in enumerate(actions):
+        x, y = (199 - y) * 10, (199 - x) * 10
+        color = (0, 0, 255)
+        thickness = 1
+        cv2.arrowedLine(overlay, (1000, 1000), (x, y), color, thickness, tipLength=0.2)
+        # vector = (goal[0] - 1000, goal[1] - 1000)
+        # vector = vector / np.linalg.norm(vector) * 50
+        # arrow = (int(1000 + vector[0]), int(1000 + vector[1]))
+        # cv2.arrowedLine(overlay, (1000, 1000), arrow, (0, 255, 255), 4, tipLength=0.3)
+    cv2.addWeighted(overlay, 0.7, annotated_image, 1, 0, annotated_image)
+
     crop_size = 300
-    cv2.circle(annotated_image, goal, 5, (255, 0, 255), -1)
+    # cv2.circle(annotated_image, goal, 5, (255, 0, 255), -1)
     cv2.circle(annotated_image, (1000, 1000), 20, (255, 0, 0), -1)
     # save the annotated image
     cv2.imwrite("./data/annotated_map.png", annotated_image)
@@ -134,7 +146,7 @@ def update_gaussian_distribution(
     best_actions_positions,
     bias_sigma,
     destination=None,
-    max_drift=1,
+    max_drift=1.5,
     std_dev_decay=0.9,
 ):
     if not best_actions_positions:
@@ -154,16 +166,24 @@ def update_gaussian_distribution(
     return (mean_x, mean_y), bias_sigma
 
 
-def get_base(occupancy_2d_map, destination, instruction, K=3):
-    img_map = cv2.imread("./data/affann.png")
-    map_img = process_2d_map(img_map)
-    image_size = map_img.shape[:2][::-1]
+def get_dynamic_alpha(i, total_iterations=3, max_alpha=0.6):
+    shift = total_iterations / 2
+    k = 6 / total_iterations  # 控制斜率，值越大越陡
+    sigmoid = 1 / (1 + np.exp(-k * (i - shift)))
+    return sigmoid * max_alpha
 
-    goal = (
-        (199 - (int(destination[1] / 0.05) + 100)) * 10,
-        (199 - (int(destination[0] / 0.05) + 100)) * 10,
-    )
-    iterations = 3
+
+def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
+    # affordance_point, affordance_pixel = get_affordance_point(
+    #     target, instruction, R, T, fx, fy, cx, cy, occupancy_2d_map
+    # )
+    # destination = affordance_point
+    # goal = (
+    #     (199 - (int(destination[1] / 0.05) + 100)) * 10,
+    #     (199 - (int(destination[0] / 0.05) + 100)) * 10,
+    # )
+
+    iterations = 4
     parallel = 3
     final_actions = []
     std_dev = 1.0
@@ -172,8 +192,21 @@ def get_base(occupancy_2d_map, destination, instruction, K=3):
         num_samples = 15
         preferred_mean = None
         bias_sigma = 0.2
-        alpha = 0.8
+        alpha = 0.0
+        affordance_point, affordance_pixel = get_affordance_point(
+            target, instruction, R, T, fx, fy, cx, cy, occupancy_2d_map
+        )
+        img_map = cv2.imread("./data/affann.png")
+        map_img = process_2d_map(img_map)
+        destination = affordance_point
+        goal = (
+            (199 - (int(destination[1] / 0.05) + 100)) * 10,
+            (199 - (int(destination[0] / 0.05) + 100)) * 10,
+        )
+        center_sigma = 100
+        num_samples_center = 15
         for i in range(iterations):
+            alpha = get_dynamic_alpha(i, iterations, max_alpha=0.6)
             actions = sample_gaussian_actions_on_map(
                 center=destination,
                 std_dev=std_dev,
@@ -187,13 +220,31 @@ def get_base(occupancy_2d_map, destination, instruction, K=3):
             annotated_image = annotate_image(map_img.copy(), goal, actions)
             cv2.imwrite(f"./data/annotated_map_{i + 1}.png", annotated_image)
             result = get_point(
-                "./data/rgb.png", f"./data/annotated_map_{i + 1}.png", instruction, K
+                "./data/rgb.png",
+                f"./data/annotated_map_{i + 1}.png",
+                instruction,
+                f"{K} candidate base positions",
             )
+            print(f"Best Action Index -> {result}")
             best_actions_positions = [actions[idx] for idx in result]
             preferred_mean, std_dev = update_gaussian_distribution(
                 best_actions_positions, std_dev, destination
             )
-            alpha -= 0.3
+            destination, affordance_pixel = sample_from_mask_gaussian(
+                (affordance_pixel[1], affordance_pixel[0]),
+                target,
+                center_sigma,
+                R,
+                T,
+                fx,
+                fy,
+                cx,
+                cy,
+                occupancy_2d_map,
+                num_samples=num_samples_center,
+            )
+            center_sigma -= 20
+            num_samples_center -= 2
         #    final_actions.extend(best_actions_positions)
 
         for action in best_actions_positions:
@@ -202,22 +253,49 @@ def get_base(occupancy_2d_map, destination, instruction, K=3):
     preferred_mean, bias_sigma = update_gaussian_distribution(
         final_actions, bias_sigma, destination
     )
+    # get the preferred mean map
+    preferred_mean_map = occupancy_2d_map.copy()
+    preferred_mean_map = cv2.cvtColor(preferred_mean_map, cv2.COLOR_GRAY2BGR)
+    map_x = int(preferred_mean[0] / 0.05) + 100
+    map_y = int(preferred_mean[1] / 0.05) + 100
+    cv2.circle(
+        preferred_mean_map, (map_x, map_y), 1, (0, 255, 0), -1
+    )  # draw the mean on the map
+    cv2.imwrite("./data/preferred_mean_map.png", preferred_mean_map)
     final_actions = sample_gaussian_actions_on_map(
         center=destination,
         std_dev=std_dev,
-        num_samples=15,
+        num_samples=10,
         image_size=(200, 200),
         obstacle_map=occupancy_2d_map,
         preferred_mean=preferred_mean,
-        bias_sigma=bias_sigma,
-        alpha=0.2,
+        bias_sigma=0.1,
+        alpha=0.3,
     )
     final_img = annotate_image(map_img.copy(), goal, final_actions)
     cv2.imwrite("./data/final_annotated_map.png", final_img)
     result = get_point(
-        "./data/affrgb.png", "./data/final_annotated_map.png", instruction, 1
+        "./data/rgb.png",
+        "./data/final_annotated_map.png",
+        instruction,
+        "5 candidate base positions",
     )
     print(f"Final Best Action Index -> {result}")
-    base = final_actions[result[0]]
+    final_actions = [final_actions[idx] for idx in result]
+
+    mean_x = np.mean([x for x, y in final_actions])
+    mean_y = np.mean([y for x, y in final_actions])
+    # remove 2 outliers most far from the mean
+    distances = [
+        np.sqrt((x - mean_x) ** 2 + (y - mean_y) ** 2) for x, y in final_actions
+    ]
+
+    sorted_indices = np.argsort(distances)
+    final_actions = [final_actions[i] for i in sorted_indices[: len(final_actions) - 2]]
+    final_actions = np.array(final_actions)
+    base = np.mean(final_actions, axis=0)
+
+    print(f"Final Base Position -> {base}")
+    # base = final_actions[result[0]]
     base = (base[0] - 100) * 0.05, (base[1] - 100) * 0.05
     return base
