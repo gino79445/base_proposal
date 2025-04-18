@@ -40,6 +40,7 @@ from base_proposal.envs.env import IsaacEnv
 # from base_proposal.policy.test
 from base_proposal.policy.pivot import Policy as pivot_Policy
 from base_proposal.policy.spaceAware_pivot import Policy as spaceAware_Policy
+from base_proposal.policy.rough_nav import Policy as rough_nav_Policy
 
 from dotenv import load_dotenv
 import os
@@ -93,29 +94,37 @@ def parse_hydra_configs(cfg: DictConfig):
 
         policy = spaceAware_Policy(instruction)
         # policy = pivot_Policy(instruction)
+        # policy = rough_nav_Policy(instruction)
         try:
             destinations = env.get_destination()
             global_position = [destination[0] for destination in destinations]
             # pick_and_place(
             #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
             # )
-            # pick_and_place(env, policy, global_position, local_nav="None", algo="rrt")
+            # pick_and_place(env, policy, global_position, local_nav="None", algo="astar")
+            # pick_and_place(
+            #     env,
+            #     policy,
+            #     global_position,
+            #     local_nav="rough_nav",
+            #     algo="astar_rough",
+            # )
+
             pick_and_place(
                 env,
                 policy,
                 global_position,
                 local_nav="spaceAware_pivot",
-                algo="rrt_rough",
+                algo="astar_rough",
             )
-
         # pull(env, policy, global_position, local_nav="None", algo="astar")
         #   pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
         # pull(
-        #    env,
-        #    policy,
-        #    global_position,
-        #    local_nav="spaceAware_pivot",
-        #    algo="rrt_rough",
+        #     env,
+        #     policy,
+        #     global_position,
+        #     local_nav="spaceAware_pivot",
+        #     algo="astar_rough",
         # )
         except Exception as e:
             print(e)
@@ -198,6 +207,24 @@ def pick_and_place(env, policy, global_position, local_nav="none", algo="astar")
             [f"navigateNear_{algo}", pos]
         )
 
+        if local_nav == "rough_nav":
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            rough_action = policy.get_rough_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(rough_action)
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            action = policy.get_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
+
         ###   local navigate ###
         if local_nav == "pivot":
             policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
@@ -210,14 +237,20 @@ def pick_and_place(env, policy, global_position, local_nav="none", algo="astar")
             rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
 
         if local_nav == "spaceAware_pivot":
-            # policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
-            # rough_action = policy.get_rough_action()
-            # rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(rough_action)
             policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
             pos = policy.global2local(global_pos)
             rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
                 ["turn_to_goal", pos]
             )
+            # policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            # rough_action = policy.get_rough_action()
+            # rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(rough_action)
+            # policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            # pos = policy.global2local(global_pos)
+            # rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+            #    ["turn_to_goal", pos]
+            # )
+
             policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
             action = policy.get_action()
             rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)

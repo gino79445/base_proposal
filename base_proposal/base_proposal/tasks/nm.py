@@ -532,14 +532,38 @@ class NMTask(Task):
                     path = astar_utils.a_star(occupancy_2d_map, start, end)
             else:
                 if algo == "astar":
-                    path = astar_utils.a_star_rough(occupancy_2d_map, start, end)
+                    R = 0.8
+                    t = 0
+                    while True:
+                        path = astar_utils.a_star_rough(
+                            occupancy_2d_map, start, end, R=R
+                        )
+                        if path is not None and len(path) > 0 or t > 10:
+                            break
+                        else:
+                            R += 0.1
+                        t += 1
                 if algo == "rrt":
-                    path = rrt_utils.rrt_star_rough(occupancy_2d_map, start, end)
-                    path = path[:-1]
+                    R = 0.8
+                    t = 0
+                    while True:
+                        t += 1
+                        path = rrt_utils.rrt_star_rough(
+                            occupancy_2d_map, start, end, R=R
+                        )
+                        if path is not None and len(path) > 0 or t > 10:
+                            break
+                        else:
+                            R += 0.1
+                        t += 1
+                    if path is not None and len(path) > 0:
+                        path = path[:-1]
                 if algo == "astar_rough":
-                    path = astar_utils.a_star_rough(occupancy_2d_map, start, end, R=1.5)
+                    R = 1.5
+                    path = astar_utils.a_star_rough(occupancy_2d_map, start, end, R=R)
                 if algo == "rrt_rough":
-                    path = rrt_utils.rrt_star_rough(occupancy_2d_map, start, end, R=1.5)
+                    R = 1.5
+                    path = rrt_utils.rrt_star_rough(occupancy_2d_map, start, end, R=R)
                     path = path[:-1]
             map = self.occupancy_2d_map.copy()
             for p in path:
@@ -1197,12 +1221,12 @@ class NMTask(Task):
                     Rmin=[-0.0, -0.0, 0.965, -0.259],
                     Rmax=[0.0, 0.0, 1, 0.259],
                 )
-                # pos_threshold=self._goal_pos_threshold,
-                # angle_threshold=self._goal_ang_threshold,
-                # verbose=False,
-                # Rmin=[-0.0, -0.0, 0.866, -0.5],
-                # Rmax=[0.0, 0.0, 1, 0.5],
-                # )
+                #      pos_threshold=self._goal_pos_threshold,
+                #      angle_threshold=self._goal_ang_threshold,
+                #      verbose=False,
+                #      Rmin=[-0.0, -0.0, 0.866, -0.5],
+                #      Rmax=[0.0, 0.0, 1, 0.5],
+                #  )
                 success = False
                 for i in range(len(success_list)):
                     if success_list[i]:

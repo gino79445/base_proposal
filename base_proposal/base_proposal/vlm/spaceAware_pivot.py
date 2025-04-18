@@ -42,7 +42,7 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
         messages=[
             {
                 "role": "system",
-                "content": "You are a robot capable of manipulating objects and moving.",
+                "content": "You are a left-hand robot capable of manipulating objects and moving.",
             },
             {
                 "role": "user",
@@ -51,28 +51,30 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                         "type": "text",
                         "text": f"""
                                 You are a professional mobile robot agent.
-
                                 You are given two images:
-                                1. The first image is an RGB image showing the current scene from your onboard camera.
+                                1. The first image is an RGB image showing the current scene from your onboard camera. The image contains:
+                                    - purple arrow: the direction you are facing in the top-down map and the RGB image.
+
                                 2. The second image is a top-down 2D map. The map contains:
                                     - A blue circle: your current base position.
                                     - black part of the map: the free space.
                                     - white part of the map: the occupied space.
-                                    - yellow part of the map: Approximately the target object region.
-                                    - red arrow: the direction between the current base position and the candidate base position.
-                                    - Several numbered white circles: candidate base positions for you to move to.
+                                    - yellow part of the map: Roughly indicates the target object area  that appears in the RGB image.
+                                    - purple arrow: the direction you are facing in the top-down map and the RGB image.
+                                    - Several numbered white circles with a blue outline (0~14): candidate base positions for you to move to.
 
+                                Use the purple arrow to align the two images and 
+                                understand the relationship between the two images.
                                 Your task:
                                 Given the instruction: "{INSTRUCTION}", choose {K} that best allow you to:
-                                - Clearly observe the **key part of the object required for the task** (e.g., the mug handle).
-                                - **Face the object from the front**, with a good viewing angle and manipulation feasibility.
+                                - Clearly observe the **key part of the object required for the task** (e.g., the mug handle) 
+                                when you are in the candidate base position and facing the target, 
+                                - Facing the target object perpendicularly from the front, not from the side or angle.
 
-                                Use the RGB image to understand the affordance and semantics of the target object.
-                                Use the 2D map to reason about spatial layout and visibility.
-                                At the end, directly return your answer as a JSON in the following format:
-                                {{ "points": [] }}
-
-                                Only return the JSON. Do not include explanation or reasoning.
+                                Note:You must use both the onboard RGB image and the top-down map together.
+                                     Each point only has an ID. You must only select IDs (0~14) that are visible and appear in the top-down map.                                At the end, directly return your answer as a JSON in the following format:
+                                     At the end, directly return your answer as a JSON in the following format: {{ "points": [] }}
+                                     Only return the JSON. Do not include explanation or reasoning.
                                 """,
                     },
                     {

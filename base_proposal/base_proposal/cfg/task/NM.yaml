@@ -27,6 +27,7 @@ env:
 
   # object_config: "base_proposal/cfg/env/pickplace_mug_speaker/pickplace_mug_speaker_1.yaml"
   #object_config: "base_proposal/cfg/env/pickplace_mug_shelf/01_dataset.yaml"
+  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pull_cabinet_1.yaml"
   object_config: null
   env_folder: "base_proposal/cfg/env/pickplace_mug_shelf/"
   house: True

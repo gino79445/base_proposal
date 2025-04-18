@@ -7,7 +7,7 @@ from PIL import Image
 from base_proposal.vlm.course_nav import get_point
 
 
-def process_image(occupancy_2d_map, destination):
+def process_image(occupancy_2d_map, destination, affann):
     num_points = 18
     cell_size = 0.05
 
@@ -16,25 +16,25 @@ def process_image(occupancy_2d_map, destination):
     candidate_points = []
     cell_size = 0.05
     scale = 10
-    occupancy_map = occupancy_2d_map.copy()
+    occupancy_map = affann
     occupancy_map = np.flipud(occupancy_map)
     occupancy_map = np.rot90(occupancy_map)
 
     #
     # make occupancy map rgb
-    occupancy_map = cv2.cvtColor(occupancy_map, cv2.COLOR_GRAY2BGR)
+    # occupancy_map = cv2.cvtColor(occupancy_map, cv2.COLOR_GRAY2BGR)
     # size 200 x 200 to 1000 x 1000
     occupancy_map = cv2.resize(occupancy_map, (200 * scale, 200 * scale))
-    occupancy_map = cv2.circle(
-        occupancy_map,
-        (
-            (199 - (int(destination[1] / cell_size) + 100)) * scale,
-            (199 - (int(destination[0] / cell_size) + 100)) * scale,
-        ),
-        5,
-        (0, 255, 0),
-        -1,
-    )
+    # occupancy_map = cv2.circle(
+    #    occupancy_map,
+    #    (
+    #        (199 - (int(destination[1] / cell_size) + 100)) * scale,
+    #        (199 - (int(destination[0] / cell_size) + 100)) * scale,
+    #    ),
+    #    5,
+    #    (0, 255, 0),
+    #    -1,
+    # )
     candidate_points = []
     for i in range(num_points):
         angle = 2 * np.pi / num_points * i
@@ -92,8 +92,8 @@ def process_image(occupancy_2d_map, destination):
     return candidate_points, counts
 
 
-def get_rough_base(occupancy_2d_map, destination, instruction):
-    candidate_points, counts = process_image(occupancy_2d_map, destination)
+def get_rough_base(occupancy_2d_map, destination, instruction, affann):
+    candidate_points, counts = process_image(occupancy_2d_map, destination, affann)
 
     print(f"counts: {counts}")
     des_idx = get_point(

@@ -9,6 +9,7 @@ from sklearn.preprocessing import normalize
 from base_proposal.affordance.groundedSAM import detect_and_segment
 
 from base_proposal.vlm.get_affordance import determine_affordance
+import time
 
 
 class KeypointProposer:
@@ -74,6 +75,118 @@ def get_3d_point(u, v, Z, R, T, fx, fy, cx, cy):
     R_inv = np.linalg.inv(R)
     point_3d = R_inv @ point + T
     return point_3d
+
+
+def get_pixel(point, R, T, fx, fy, cx, cy):
+    point = R @ (point - T)
+    X = point[1]
+    Y = point[2]
+    Z = point[0]
+
+    u = (fx * X) / Z + cx
+    v = (fy * Y) / Z + cy
+    i = int(u)
+    j = int(v)
+    return i, j
+
+
+def rotate_vector_z(vec, angle_deg):
+    """Rotate a 3D vector around Z axis by given degree."""
+    angle_rad = np.deg2rad(angle_deg)
+    Rz = np.array(
+        [
+            [np.cos(angle_rad), -np.sin(angle_rad), 0],
+            [np.sin(angle_rad), np.cos(angle_rad), 0],
+            [0, 0, 1],
+        ]
+    )
+    return Rz @ vec
+
+
+def get_annotated_image(rgb, goal, R, T, fx, fy, cx, cy):
+    annotated_image = rgb.copy()
+    overlay = rgb.copy()
+
+    # Convert goal = (array([x]), array([y])) → [[x], [y]]
+    if isinstance(goal, tuple) or isinstance(goal, list):
+        goal = np.array([[goal[0][0]], [goal[1][0]]])
+    goal = np.vstack((goal, np.array([[0.0]])))  # shape: (3, 1)
+
+    origin_heights = [0.0]
+    scale = 1  # control length of arrow
+    angle_list = [0]  # degrees: center, left, right
+    color_map = {
+        0: (255, 0, 255),  # magenta (center)
+        -30: (0, 255, 0),  # green (left)
+        30: (0, 165, 255),  # orange (right)
+    }
+
+    for h in origin_heights:
+        origin = np.array([[0], [0], [h]])
+
+        # base direction toward goal
+        direction = goal - origin
+
+        for angle in angle_list:
+            rotated_direction = rotate_vector_z(direction, angle)
+            tip = origin + rotated_direction * scale
+
+            ox, oy = get_pixel(origin, R, T, fx, fy, cx, cy)
+            tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
+
+            # Flip image coordinate if needed
+            H, W = rgb.shape[:2]
+            ox = W - ox
+            oy = H - oy
+            tx = W - tx
+            ty = H - ty
+
+            color = color_map[angle]
+            cv2.arrowedLine(overlay, (ox, oy), (tx, ty), color, 20, tipLength=0.05)
+
+    # Overlay blending
+    cv2.addWeighted(overlay, 0.7, annotated_image, 0.3, 0, annotated_image)
+
+    # Draw goal dot (optional)
+    gx, gy = get_pixel(goal, R, T, fx, fy, cx, cy)
+    gx = rgb.shape[1] - gx
+    gy = rgb.shape[0] - gy
+    # cv2.circle(annotated_image, (gx, gy), 6, (0, 255, 0), -1)
+
+    cv2.imwrite("./data/annotated_image.png", annotated_image)
+
+
+# def get_annotated_image(rgb, goal, R, T, fx, fy, cx, cy):
+#    annotated_image = rgb.copy()
+#    print("goal:", goal)
+#    #            point = np.array([[x], [y], [0]])
+#    goal = np.vstack((goal, np.array([[1]])))
+#    print("goal:", goal)
+#    origin = np.array([[0], [0], [0]])
+#    goal_x, goal_y = get_pixel(goal, R, T, fx, fy, cx, cy)
+#    goal_x, goal_y = rgb.shape[1] - goal_x, rgb.shape[0] - goal_y
+#    origin_x, origin_y = get_pixel(origin, R, T, fx, fy, cx, cy)
+#    origin_x, origin_y = rgb.shape[1] - origin_x, rgb.shape[0] - origin_y
+#    print("goal_x:", goal_x)
+#    print("goal_y:", goal_y)
+#    print("origin_x:", origin_x)
+#
+#    cv2.circle(annotated_image, (goal_x, goal_y), 5, (0, 255, 0), -1)
+#    # cv2.circle(annotated_image, (origin_x, origin_y), 5, (255, 0, 0), -1)
+#    cv2.line(
+#        annotated_image,
+#        (goal_x, goal_y),
+#        (origin_x, origin_y),
+#        (0, 0, 255),
+#        2,
+#    )
+#    # save the image
+#    cv2.imwrite("./data/annotated_image.png", annotated_image)
+#
+#
+##   #     a, b = self.get_pixel(affordance_point, R, T, fx, fy, cx, cy)
+##   #     b = rgb.shape[0] - b
+##   #     a = rgb.shape[1] - a
 
 
 def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
@@ -249,6 +362,37 @@ def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
     return cluster_points, cluster_labels, number_list
 
 
+def get_rough_affann(target, instruction, R, T, fx, fy, cx, cy, map):
+    depth = np.load("./data/depth.npy")
+    rgb = cv2.imread("./data/rgb.png")
+    detect_and_segment("./data/rgb.png", target)
+    cluster_points, cluster_labels, number_list = get_features(
+        R, T, fx, fy, cx, cy, depth, 20, map
+    )
+
+    w = rgb.shape[1]
+    h = rgb.shape[0]
+    map_rgb = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
+    mask = cv2.imread("./data/mask.png", cv2.IMREAD_GRAYSCALE)
+    # convert 2d object mask to 3d point
+    mask_points = np.column_stack(np.where(mask))
+    mask_points_list = []
+    for point in mask_points:
+        Z = depth[point[0], point[1]]
+        point_3d = get_3d_point(w - point[1], h - point[0], Z, R, T, fx, fy, cx, cy)
+        mask_points_list.append(point_3d)
+        # convert to map point
+        map_x = int(point_3d[0] / 0.05) + 100
+        map_y = int(point_3d[1] / 0.05) + 100
+
+        # draw the occupancy point on map
+        map_rgb[map_y, map_x] = (255, 255, 0)
+
+    mask_points_mean = np.mean(mask_points_list, axis=0)
+    np.save("./data/rough_mask_points_mean.npy", mask_points_mean)
+    cv2.imwrite("./data/rough_affann.png", map_rgb)
+
+
 def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     depth = np.load("./data/depth.npy")
     rgb = cv2.imread("./data/rgb.png")
@@ -267,9 +411,11 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
             break
         except ValueError:
             print("Invalid affordance number. Please try again.")
+            time.sleep(1)
             times += 1
-            if times > 3:
-                raise ValueError("Invalid affordance number. Please try again.")
+            if times > 10:
+                affordance_num = np.random.randint(0, len(number_list))
+                # raise ValueError("Invalid affordance number. Please try again.")
                 break
 
     print(f"Affordance num: {affordance_num}")
@@ -345,15 +491,23 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     # convert 2d object mask to 3d point
     mask_points = np.column_stack(np.where(mask))
 
+    mask_points_list = []
     for point in mask_points:
         Z = depth[point[0], point[1]]
         point_3d = get_3d_point(w - point[1], h - point[0], Z, R, T, fx, fy, cx, cy)
+        mask_points_list.append(point_3d)
+
         # convert to map point
         map_x = int(point_3d[0] / 0.05) + 100
         map_y = int(point_3d[1] / 0.05) + 100
 
         # draw the occupancy point on map
         map_rgb[map_y, map_x] = (0, 255, 255)
+
+    # caculate the mean of the mask points
+    mask_points_list = np.array(mask_points_list)
+    mask_points_mean = np.mean(mask_points_list, axis=0)
+    np.save("./data/mask_points_mean.npy", mask_points_mean)
 
     cv2.imwrite("./data/affann.png", map_rgb)
 
@@ -457,9 +611,12 @@ def sample_from_mask_gaussian(
             break
         except ValueError:
             print("Invalid affordance number. Please try again.")
+            time.sleep(1)
             times += 1
-            if times > 3:
-                raise ValueError("Invalid affordance number. Please try again.")
+            if times > 10:
+                # random select the affordance_num
+                affordance_num = np.random.randint(0, len(number_list))
+                # raise ValueError("Invalid affordance number. Please try again.")
                 break
     print(f"Affordance num: {affordance_num}")
 

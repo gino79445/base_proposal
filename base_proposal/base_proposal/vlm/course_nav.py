@@ -55,8 +55,8 @@ def get_point(image_path1, image_path2, INSTRUCTION, count_list):
                                 You are given two images:
                                 1. The first image is an RGB image showing the current scene from your onboard camera.
                                 2. The second image is a top-down 2D map. This map contains:
-                                - A green circle: The direction you are facing.
                                 - A blue circle: your current base position.
+                                - yellow part of the map: Roughly indicates the target object's location.
                                 - black part of the map: the free space.
                                 - white part of the map: the occupied space.
                                 - Several numbered white circles: candidate base positions for you to move to.
@@ -64,7 +64,8 @@ def get_point(image_path1, image_path2, INSTRUCTION, count_list):
 
                                 Your task is:
                                 Given the instruction: "{INSTRUCTION}", choose a candidate base position that would allow you to 
-                                clearly observe the target object and its affordance in the RGB image.
+                                clearly observe the **key part of the object required for the task** (e.g., the mug handle) 
+                                when you are in the candidate base position and facing the target.
 
 
                                 Use the RGB image to understand the object and its affordance.
