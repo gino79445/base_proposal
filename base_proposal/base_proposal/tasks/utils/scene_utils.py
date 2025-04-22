@@ -169,7 +169,9 @@ def spawn_grasp_object(name, prim_path, device):
 
     if name == "PLACE":
         return obj
+    print("Adding object: ", name)
     density = 0.01 if "heavy" in name else -1
+
     RigidPrim.__init__(
         obj,  # Add Rigid prim attributes since it can move
         prim_path=prim_path + "/grasp_obj/ycb_" + name,

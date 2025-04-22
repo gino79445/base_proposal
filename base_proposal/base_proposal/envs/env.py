@@ -302,8 +302,11 @@ class IsaacEnv:
         if action[0] == "open_gripper":
             self._task.pre_physics_step("detach_object")
             self.render()
-            self._task.pre_physics_step("open_gripper")
+            self.open_gripper()
             self.render()
+            for i in range(50):
+                self._task.pre_physics_step("wait")
+                self.render()
 
         if action[0] == "attach_object":
             self._task.pre_physics_step("attach_object")
@@ -454,5 +457,15 @@ class IsaacEnv:
             if v >= 1:
                 break
             v += 0.005
+            self._task.pre_physics_step(actions)
+            self.render()
+
+    def open_gripper(self):
+        actions = "open_gripper"
+        v = 0
+        while self._simulation_app.is_running():
+            if v >= 1:
+                break
+            v += 0.01
             self._task.pre_physics_step(actions)
             self.render()

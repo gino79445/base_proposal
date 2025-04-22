@@ -47,7 +47,8 @@ def parse_instruction(instruction):
                     {
                         "type": "text",
                         "text": f"""
-                        You are a robot using your left hand and not holding anything. The instruction '{instruction}'  is what you need to follow. Please parse the instruction into two parts: 
+                        You are a robot using your left hand and not holding anything. The instruction '{instruction}'  is what you need to follow. 
+                        Please parse the instruction into two parts: 
                         the navigation destination and the manipulation action.
                         For example, for the instruction "Throw the garbage on the cabinet into the trash bin," the parsed parts would be:
                         ["the garbage on the cabinet", "pick up the garbage", "trash bin", "throw the garbage"].

@@ -72,6 +72,10 @@ import yaml
 import logging
 
 
+cell_size = 0.05
+map_size = (203, 203)
+
+
 # Base placement environment for fetching a target object among clutter
 class NMTask(Task):
     def __init__(self, name, sim_config, env) -> None:
@@ -495,20 +499,29 @@ class NMTask(Task):
 
         goal = position
 
-        start = (100, 100)
-        end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
+        start = (map_size[0] // 2, map_size[1] // 2)
+        end = (
+            int(goal[1] / cell_size) + map_size[0] // 2,
+            int(goal[0] / cell_size + map_size[1] // 2),
+        )
 
         occupancy_2d_map = self.occupancy_2d_map
         path = []
         if self._task_cfg["env"]["check_env"] == True:
-            occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
-            path = [(100, 100), end]
+            occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
+            end = (
+                int(goal[1] / cell_size) + map_size[0] // 2,
+                int(goal[0] / cell_size + map_size[1] // 2),
+            )
+            path = [(map_size[0] // 2, map_size[1] // 2), end]
 
         elif self._task_cfg["env"]["build_global_map"]:
-            occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
-            path = [(100, 100), end]
+            occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
+            end = (
+                int(goal[1] / cell_size) + map_size[0] // 2,
+                int(goal[0] / cell_size + map_size[1] // 2),
+            )
+            path = [(map_size[0] // 2, map_size[1] // 2), end]
 
         else:
             radius = 7
@@ -518,10 +531,14 @@ class NMTask(Task):
                 for j in range(-radius, radius + 1):
                     if (
                         i**2 + j**2 <= radius**2
-                        and 0 <= end[0] + i < 200
-                        and 0 <= end[1] + j < 200
+                        and 0 <= end[0] + i < map_size[0]
+                        and 0 <= end[1] + j < map_size[1]
                     ):
-                        des[i + 100, j + 100] = [255, 0, 0]  # 紅色標記
+                        des[i + map_size[0] // 2, j + map_size[1] // 2] = [
+                            255,
+                            0,
+                            0,
+                        ]  # 紅色標記
                         des[end[0] + i, end[1] + j] = [0, 255, 0]  # 綠色標記
 
             im = Image.fromarray(des.astype(np.uint8))  # 確保資料類型正確
@@ -532,7 +549,7 @@ class NMTask(Task):
                     path = astar_utils.a_star(occupancy_2d_map, start, end)
             else:
                 if algo == "astar":
-                    R = 0.8
+                    R = 0.7
                     t = 0
                     while True:
                         path = astar_utils.a_star_rough(
@@ -544,7 +561,7 @@ class NMTask(Task):
                             R += 0.1
                         t += 1
                 if algo == "rrt":
-                    R = 0.8
+                    R = 0.7
                     t = 0
                     while True:
                         t += 1
@@ -576,8 +593,8 @@ class NMTask(Task):
 
         self.path = []
         for p in path:
-            x = (p[1] - 100) * cell_size
-            y = (p[0] - 100) * cell_size
+            x = (p[1] - map_size[1] // 2) * cell_size
+            y = (p[0] - map_size[0] // 2) * cell_size
             self.path.append([x, y])
 
         #        # transform the path to the robot coordinate
@@ -688,7 +705,7 @@ class NMTask(Task):
 
     def build_map(self, R, T, fx, fy, cx, cy):
         # 2d occupancy map
-        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
         # open the occupancy_2d_map file
 
         if (
@@ -696,11 +713,11 @@ class NMTask(Task):
             and self._task_cfg["env"]["build_global_map"]
         ):
             self.occupancy_2d_map = np.load("./data/occupancy_2d_map.npy")
-            self.occupancy_2d_map = self.occupancy_2d_map.reshape(200, 200)
+            self.occupancy_2d_map = self.occupancy_2d_map.reshape(
+                map_size[0], map_size[1]
+            )
         # self.occupancy_2d_map.fill(255)
         depth = self.depth_data
-        map_size = (200, 200)
-        cell_size = 0.05
         #  for i in range(-10, 20):
         #      for j in range(-20, 20):
         #          self.occupancy_2d_map[100+j,100+i] = 0
@@ -776,11 +793,11 @@ class NMTask(Task):
         R, T, fx, fy, cx, cy = self.retrieve_camera_params()
         if self._task_cfg["env"]["check_env"] == True:
             time.sleep(1)
-            self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+            self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
             return self.rgb_data, self.depth_data, self.occupancy_2d_map, self.robot_obs
 
         if self._task_cfg["env"]["build_global_map"]:
-            self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+            self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
             global_R, global_T = self.get_global_RT()
             self.build_map(global_R, global_T, fx, fy, cx, cy)
 
@@ -806,6 +823,21 @@ class NMTask(Task):
         # save the depth np
         np.save("./data/depth.npy", self.depth_data)
 
+        r = self.rgb_data.copy()
+        pos = self._curr_goal_tf[5, 0:3, 3]
+        point3d = np.array([[pos[0]], [pos[1]], [pos[2]]])
+        a, b = self.get_pixel(point3d, R, T, fx, fy, cx, cy)
+        b = self.rgb_data.shape[0] - b
+        a = self.rgb_data.shape[1] - a
+        cv2.circle(r, (a, b), 10, (255, 0, 255), 3)
+        # save
+        im = Image.fromarray(r)
+        cv2.imwrite("./data/robot.png", r)
+
+        #   #     a, b = self.get_pixel(affordance_point, R, T, fx, fy, cx, cy)
+        #   #     b = rgb.shape[0] - b
+        #   #     a = rgb.shape[1] - a
+        #   #     cv2.circle(rgb, (a, b), 10, (255, 0, 255), 3)
         # for box in self.bounding_box:
         #    if box['semanticLabel'] == 'target':
         #        x_min, y_min, x_max, y_max = int(box['x_min']), int(box['y_min']), int(box['x_max']), int(box['y_max'])
@@ -814,7 +846,7 @@ class NMTask(Task):
         #        im = Image.fromarray(rgb)
         #        im.save("./data/original.png")
 
-        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
         # open the occupancy_2d_map png
         #   if os.path.exists("./data/occupancy_2d_map.npy"):
         #       self.occupancy_2d_map = np.load("./data/occupancy_2d_map.npy")
@@ -823,7 +855,7 @@ class NMTask(Task):
         if os.path.exists("./data/or2m.png"):
             self.occupancy_2d_map = cv2.imread("./data/or2m.png", 0)
             self.occupancy_2d_map = np.array(self.occupancy_2d_map, dtype=np.uint8)
-            self.occupancy_2d_map = cv2.resize(self.occupancy_2d_map, (200, 200))
+            self.occupancy_2d_map = cv2.resize(self.occupancy_2d_map, map_size)
         # left rotate
         # np left to right
         self.occupancy_2d_map = np.flip(self.occupancy_2d_map, 1)
@@ -834,26 +866,37 @@ class NMTask(Task):
 
         import scipy.ndimage
 
-        # === 🟢 定義地圖大小與網格間距 ===
-        grid_size = 200  # 地圖大小 200x200
-        cell_size = 0.05  # 每格代表 5cm (0.05m)
-
         # === 🟢 計算機器人位置對應的索引 (在 global_map 中的 pixel) ===
-        robot_pixel_x = int((robot_x / cell_size) + grid_size // 2)
-        robot_pixel_y = int((robot_y / cell_size) + grid_size // 2)
+        #  robot_pixel_x = int((robot_x / cell_size) + map_size[0] // 2)
+        #  robot_pixel_y = int((robot_y / cell_size) + map_size[1] // 2)
 
-        # === 🔴 旋轉地圖到機器人座標 ===
-        # scipy.ndimage 直接旋轉影像，不用手動計算旋轉矩陣
+        #  # === 🔴 旋轉地圖到機器人座標 ===
+        #  # scipy.ndimage 直接旋轉影像，不用手動計算旋轉矩陣
 
-        robot_map = global_map.copy()
-        # === 🔵 平移地圖，讓機器人居中 ===
-        dx = grid_size // 2 - robot_pixel_x
-        dy = grid_size // 2 - robot_pixel_y
-        robot_map = np.roll(robot_map, shift=(dy, dx), axis=(0, 1))
+        #  robot_map = global_map.copy()
+        #  # === 🔵 平移地圖，讓機器人居中 ===
+        #  dx = map_size[0] // 2 - robot_pixel_x
+        #  dy = map_size[1] // 2 - robot_pixel_y
+        #  robot_map = np.roll(robot_map, shift=(dy, dx), axis=(0, 1))
 
-        robot_map = scipy.ndimage.rotate(
-            robot_map, np.rad2deg(theta), reshape=False, order=1
-        )
+        #  robot_map = scipy.ndimage.rotate(
+        #      robot_map, np.rad2deg(theta), reshape=False, order=1
+        #  )
+        from scipy.ndimage import shift
+
+        px = (robot_x / cell_size) + map_size[0] // 2
+        py = (robot_y / cell_size) + map_size[1] // 2
+        dx = map_size[0] // 2 - px
+        dy = map_size[1] // 2 - py
+        robot_map = shift(
+            global_map, shift=(dy, dx), order=1, mode="nearest"
+        )  # 支援 subpixel 移動
+
+        # === 精準旋轉 ===
+        h, w = robot_map.shape
+        center = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(center, float(np.rad2deg(theta)), 1.0)
+        robot_map = cv2.warpAffine(robot_map, M, (w, h), flags=cv2.INTER_NEAREST)
         self.occupancy_2d_map = robot_map
 
         map = self.occupancy_2d_map.copy()
@@ -867,7 +910,7 @@ class NMTask(Task):
                 # ✅ 只檢查圓形內的點 (i, j)
                 if i**2 + j**2 > radius**2:
                     continue  # 忽略圓外的格子
-                map[100 + j, 100 + i] = 255
+                map[99 + j, 99 + i] = 255
 
         im = Image.fromarray(map)
         # flip up and down
@@ -984,8 +1027,10 @@ class NMTask(Task):
         # self.tiago_handler.set_gripper_positions(
         #     torch.tensor([-0.5, -0.5], device=self._device)
         # )
-        if actions == "open_gripper":
+        if actions == "detach_object":
             self.detach_object(self._grasp_objs[0])
+            return
+        if actions == "open_gripper":
             self.tiago_handler.open_gripper()
             self.gripper_closed = 0
             return
@@ -1230,8 +1275,12 @@ class NMTask(Task):
                 success = False
                 for i in range(len(success_list)):
                     if success_list[i]:
-                        x = int((base_positions_list[i][0]) / 0.05 + 100)
-                        y = int((base_positions_list[i][1]) / 0.05 + 100)
+                        x = int(
+                            (base_positions_list[i][0]) / cell_size + map_size[0] // 2
+                        )
+                        y = int(
+                            (base_positions_list[i][1]) / cell_size + map_size[1] // 2
+                        )
                         success = success_list[i]
                         base_positions = base_positions_list[i]
 
@@ -1617,6 +1666,28 @@ class NMTask(Task):
 
         # reset if success OR collided OR if reached max episode length
         resets = self._is_success.clone()
+        resets = torch.where(self._collided.bool(), 1, resets)
+        resets = torch.where(self._is_failure.bool(), 1, resets)
+        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
+        self.reset_buf[:] = resets
+        resets = torch.where(self._collided.bool(), 1, resets)
+        resets = torch.where(self._is_failure.bool(), 1, resets)
+        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
+        self.reset_buf[:] = resets
+        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
+        self.reset_buf[:] = resets
+        resets = torch.where(self._collided.bool(), 1, resets)
+        resets = torch.where(self._is_failure.bool(), 1, resets)
+        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
+        self.reset_buf[:] = resets
+        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
+        self.reset_buf[:] = resets
+        resets = torch.where(self._collided.bool(), 1, resets)
+        resets = torch.where(self._is_failure.bool(), 1, resets)
+        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
+        self.reset_buf[:] = resets
+        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
+        self.reset_buf[:] = resets
         resets = torch.where(self._collided.bool(), 1, resets)
         resets = torch.where(self._is_failure.bool(), 1, resets)
         resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)

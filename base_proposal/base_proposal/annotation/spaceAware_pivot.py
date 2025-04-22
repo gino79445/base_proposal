@@ -4,7 +4,12 @@ from base_proposal.vlm.spaceAware_pivot import get_point
 from base_proposal.tasks.utils import astar_utils
 from base_proposal.affordance.get_affordance import get_affordance_point
 from base_proposal.affordance.get_affordance import sample_from_mask_gaussian
-from base_proposal.affordance.get_affordance import get_annotated_image
+from base_proposal.affordance.get_affordance import annotate_rgb
+from base_proposal.affordance.get_affordance import get_affordance_direction_id
+
+
+cell_size = 0.05
+map_size = (203, 203)
 
 
 def process_2d_map(occupancy_2d_map):
@@ -13,7 +18,9 @@ def process_2d_map(occupancy_2d_map):
     occupancy_2d_map = np.rot90(occupancy_2d_map)
     # occupancy_2d_map = cv2.cvtColor(occupancy_2d_map, cv2.COLOR_GRAY2BGR)
     scale = 10
-    occupancy_2d_map = cv2.resize(occupancy_2d_map, (200 * scale, 200 * scale))
+    occupancy_2d_map = cv2.resize(
+        occupancy_2d_map, (map_size[0] * scale, map_size[1] * scale)
+    )
     return occupancy_2d_map
 
 
@@ -31,7 +38,7 @@ def sample_gaussian_actions_on_map(
     w, h = image_size
     i = 0
     preferred_dist = 0.7
-    dist_sigma = 0.1
+    dist_sigma = 0.02
     R = 1.5
 
     while i < num_samples:
@@ -61,13 +68,13 @@ def sample_gaussian_actions_on_map(
                 weight_to_mean = np.exp(-0.5 * (dist_to_mean / bias_sigma) ** 2)
             # alpha = 0.5
             weight = alpha * weight_to_goal + (1 - alpha) * weight_to_mean
-            map_x = int(x / 0.05) + 100
-            map_y = int(y / 0.05) + 100
+            map_x = int(x / cell_size) + map_size[0] // 2
+            map_y = int(y / cell_size) + map_size[1] // 2
 
             if (
-                0 <= map_x < 200
-                and 0 <= map_y < 200
-                and astar_utils.is_valid_des(map_y, map_x, obstacle_map)
+                0 <= map_x < map_size[0]
+                and 0 <= map_y < map_size[1]
+                and astar_utils.is_valid(map_y, map_x, obstacle_map)
             ):
                 if np.random.rand() < weight:
                     actions.append((map_x, map_y))
@@ -84,8 +91,8 @@ def sample_gaussian_actions_on_map(
     if preferred_mean is not None:
         map = obstacle_map.copy()
         map = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
-        map_x = int(preferred_mean[0] / 0.05) + 100
-        map_y = int(preferred_mean[1] / 0.05) + 100
+        map_x = int(preferred_mean[0] / cell_size) + map_size[0] // 2
+        map_y = int(preferred_mean[1] / cell_size) + map_size[1] // 2
         cv2.circle(map, (map_x, map_y), 1, (0, 255, 0), -1)  # draw the mean on the map
         # save the map with the mean
         cv2.imwrite("./data/mean_map.png", map)
@@ -105,62 +112,268 @@ def rotate_vector_2d(v, angle_deg):
     return rot @ v
 
 
-def annotate_image(image, goal, actions, best_actions=[]):
+def find_arrow_stop_point(start, vector, annotated_image):
+    length = int(np.linalg.norm(vector))
+    unit_vector = vector / length
+
+    for i in range(length):
+        x = int(start[0] + unit_vector[0] * i)
+        y = int(start[1] + unit_vector[1] * i)
+
+        # 確保不越界
+        if (
+            x < 0
+            or y < 0
+            or x >= annotated_image.shape[1]
+            or y >= annotated_image.shape[0]
+        ):
+            break
+
+        b, g, r = annotated_image[y, x]
+        if (abs(b - 255) < 10 and abs(g - 255) < 10 and abs(r - 255) < 10) or (
+            abs(b - 0) < 10 and abs(g - 255) < 10 and abs(r - 255) < 10
+        ):
+            # 碰到白色就停
+            return (x, y)
+    return (int(start[0] + vector[0]), int(start[1] + vector[1]))
+
+
+def get_affordance_direction_pos(goal, direction_id, occupancy_2d_map):
+    occupancy_2d_map = occupancy_2d_map.copy()
+    directions = list(range(0, 360, 30))  # 0° 到 330°，每 30°
+    if direction_id != -1:
+        angle = directions[direction_id]
+    else:
+        return None
+    scale = 200
+    step = 1
+    start = (goal[0], goal[1])
+    start = (
+        int(start[0] / cell_size) + map_size[0] // 2,
+        int(start[1] / cell_size) + map_size[1] // 2,
+    )
+    for s in np.arange(0.0, scale, step):
+        vector = np.array(
+            [s * np.cos(np.deg2rad(angle)), s * np.sin(np.deg2rad(angle))]
+        )
+        tx, ty = start[0] + vector[0], start[1] + vector[1]
+        if (
+            tx < 0
+            or ty < 0
+            or tx >= occupancy_2d_map.shape[1]
+            or ty >= occupancy_2d_map.shape[0]
+            or occupancy_2d_map[int(ty), int(tx)] != 0
+        ):
+            continue
+        else:
+            print(f"Direction {angle}°: ({tx}, {ty})")
+            cv2.circle(occupancy_2d_map, (int(tx), int(ty)), 3, (0, 255, 0), -1)
+            break
+    cv2.imwrite("./data/affordance_direction.png", occupancy_2d_map)
+    return (tx, ty)
+
+
+def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=None):
     annotated_image = image.copy()
     mask_points_mean = np.load("./data/mask_points_mean.npy")
-    mask_x = int(mask_points_mean[0] / 0.05) + 100
-    mask_y = int(mask_points_mean[1] / 0.05) + 100
-    mask_x, mask_y = (199 - mask_y) * 10, (199 - mask_x) * 10
+    mask_x = int(mask_points_mean[0] / cell_size) + map_size[0] // 2
+    mask_y = int(mask_points_mean[1] / cell_size) + map_size[1] // 2
+    mask_x, mask_y = (map_size[1] - 1 - mask_y) * 10, (map_size[0] - 1 - mask_x) * 10
+    goal = (
+        (map_size[1] - 1 - (int(destination[1] / cell_size) + map_size[1] // 2)) * 10,
+        (map_size[0] - 1 - (int(destination[0] / cell_size) + map_size[0] // 2)) * 10,
+    )
+    direction_2d = get_affordance_direction_pos(
+        mask_points_mean, direction_id, occupancy_2d_map
+    )
+    if direction_2d is not None:
+        direction_2d = (
+            int(map_size[1] - 1 - direction_2d[1]) * 10,
+            int(map_size[0] - 1 - direction_2d[0]) * 10,
+        )
+        cv2.circle(
+            annotated_image, (direction_2d[0], direction_2d[1]), 17, (0, 0, 0), -1
+        )
+        cv2.circle(
+            annotated_image, (direction_2d[0], direction_2d[1]), 17, (0, 120, 255), 3
+        )
+        text_size = cv2.getTextSize("A", cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+        text_width, text_height = text_size
+        text_x = direction_2d[0] - text_width // 2
+        text_y = direction_2d[1] + text_height // 2
 
+        cv2.putText(
+            annotated_image,
+            "A",
+            (text_x, text_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 120, 255),
+            2,
+        )
+
+    #  for i, (x, y) in enumerate(actions):
+    #      color = (0, 0, 255)
+    #      thickness = 1
+    #      x, y = (200 - y) * 10, (200 - x) * 10
+    #      cv2.arrowedLine(
+    #          annotated_image, (x, y), (mask_x, mask_y), color, thickness, tipLength=0.1
+    #      )
+    # cv2.arrowedLine(overlay, (1000, 1000), (x, y), color, thickness, tipLength=0.1)
     for i, (x, y) in enumerate(actions):
         color = (0, 0, 255)
         thickness = 1
-        x, y = (199 - y) * 10, (199 - x) * 10
+        x, y = (map_size[1] - y) * 10, (map_size[0] - x) * 10
         # cv2.arrowedLine(
-        #    annotated_image, (x, y), (mask_x, mask_y), color, thickness, tipLength=0.1
+        #     annotated_image, (x, y), (mask_x, mask_y), color, thickness, tipLength=0.1
         # )
-        cv2.circle(annotated_image, (x, y), 15, (255, 255, 255), -1)
-        cv2.circle(annotated_image, (x, y), 15, (225, 0, 0), 2)
+        cv2.circle(annotated_image, (x, y), 17, (255, 255, 255), -1)
+        cv2.circle(annotated_image, (x, y), 17, (225, 0, 0), 3)
         text_width, text_height = cv2.getTextSize(
-            f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+            f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
         )[0]
         cv2.putText(
             annotated_image,
             f"{i}",
             (x - text_width // 2, y + text_height // 2),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
+            0.7,
             (0, 100, 150),
             2,
         )
 
     overlay = annotated_image.copy()
 
-    #   for i, (x, y) in enumerate(actions):
-    #       color = (0, 0, 255)
-    #       thickness = 1
-    #       x, y = (199 - y) * 10, (199 - x) * 10
-    #       cv2.arrowedLine(overlay, (1000, 1000), (x, y), color, thickness, tipLength=0.1)
-
-    # === 新增：從 (1000, 1000) 朝 goal 畫出三條箭頭 ===
-    start = (1000, 1000)
-    vector = np.array([goal[0] - start[0], goal[1] - start[1]])
-    vector = vector / np.linalg.norm(vector) * 100  # 控制箭頭長度
-
-    angle_list = [0]
-    color_map = {
-        0: (255, 0, 255),  # center - magenta
-        30: (0, 255, 0),  # left - green
-        -30: (0, 165, 255),  # right - orange
-    }
-
-    for angle in angle_list:
-        rotated = rotate_vector_2d(vector, angle)
-        end_point = (int(start[0] + rotated[0]), int(start[1] + rotated[1]))
-        cv2.arrowedLine(overlay, start, end_point, color_map[angle], 8, tipLength=0.2)
-
+    #    # === 新增：從 (1000, 1000) 朝 goal 畫出三條箭頭 ===
+    #    end = (1000, 999)
+    #    start = (1000, 1000)
+    #    start = (mask_x, mask_y)
+    #    end = (mask_x, mask_y + 1)
+    #    vector = np.array([end[0] - start[0], end[1] - start[1]])
+    #    vector = vector / np.linalg.norm(vector)  # 控制箭頭長度
+    #
+    #    color_map = {}
+    #    hue_order = [0, 6, 3, 9, 1, 7, 4, 10, 2, 8, 5, 11]
+    #
+    #    import colorsys
+    #
+    #    directions = list(range(-180, -540, -30))  # 0° 到 330°，每 30°
+    #    for i, angle in enumerate(directions):
+    #        hue = i / len(directions)  # 分布在 HSV 色環上（0~1）
+    #        hue = hue_order[i] / len(directions)  # 分布在 HSV 色環上（0~1）
+    #        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    #        color_map[angle] = (int(b * 255), int(g * 255), int(r * 255))  # BGR
+    #    origin_map = image.copy()
+    #    scale = 2000
+    #    step = 1
+    #
+    #    for i, angle in enumerate(directions):
+    #        rotated = rotate_vector_2d(vector, angle)
+    #        pt_prev = start
+    #
+    #        for s in np.arange(0.0, scale, step):
+    #            tip = start + rotated * s
+    #            # not in white area and yellow area
+    #            if (
+    #                tip[0] < 0
+    #                or tip[1] < 0
+    #                or tip[0] >= origin_map.shape[1]
+    #                or tip[1] >= origin_map.shape[0]
+    #            ):
+    #                continue
+    #            b, g, r = origin_map[int(tip[1]), int(tip[0])]
+    #            if abs(b - 0) < 10 and abs(g - 0) < 10 and abs(r - 0) < 10:
+    #                if i == direction_id:
+    #                    cv2.circle(
+    #                        annotated_image, (int(tip[0]), int(tip[1])), 17, (0, 0, 0), -1
+    #                    )
+    #                    cv2.circle(
+    #                        annotated_image,
+    #                        (int(tip[0]), int(tip[1])),
+    #                        17,
+    #                        (0, 120, 255),  # orange color
+    #                        3,
+    #                    )
+    #                    text_size = cv2.getTextSize(
+    #                        "A",
+    #                        cv2.FONT_HERSHEY_SIMPLEX,
+    #                        0.7,
+    #                        2,
+    #                    )[0]
+    #                    text_width, text_height = text_size
+    #                    text_x = int(tip[0]) - text_width // 2
+    #                    text_y = int(tip[1]) + text_height // 2
+    #                    cv2.putText(
+    #                        annotated_image,
+    #                        "A",
+    #                        (text_x, text_y),
+    #                        cv2.FONT_HERSHEY_SIMPLEX,
+    #                        0.7,
+    #                        (0, 165, 255),
+    #                        2,
+    #                    )
+    #
+    #                cv2.arrowedLine(
+    #                    overlay,
+    #                    (int(pt_prev[0]), int(pt_prev[1])),
+    #                    (int(tip[0]), int(tip[1])),
+    #                    color_map[angle],
+    #                    10,
+    #                    tipLength=0.1,
+    #                )
+    #
+    #            pt_prev = tip  # 更新前一點
+    #
     # 加上 overlay 到圖上
-    cv2.addWeighted(overlay, 0.5, annotated_image, 0.5, 0, annotated_image)
+    cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
+    import colorsys
+
+    # === 新增：畫 12 條箭頭 + 編號（以 goal 為圓心） ===
+    #  angle_list = list(range(-90, -450, -30))  # 0° 到 330°，每 30°
+    #  arrow_length = 80  # 可調整箭頭長度（像素）
+
+    #  for i, angle in enumerate(angle_list):
+    #      angle_rad = np.deg2rad(angle)
+    #      dx = int(np.cos(angle_rad) * arrow_length)
+    #      dy = int(np.sin(angle_rad) * arrow_length)
+
+    #      start = (mask_x, mask_y)
+    #      end = (mask_x + dx, mask_y + dy)
+    #      # 彩色箭頭（HSV → BGR）
+    #      hue = i / len(angle_list)
+    #      r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    #      color = (int(b * 255), int(g * 255), int(r * 255))
+
+    #      # 畫箭頭
+    #      cv2.arrowedLine(annotated_image, start, end, color, 2, tipLength=0.2)
+
+    #      # 編號文字（置中在箭頭末端）
+    #      label = f"{i}"
+    #      text_offset = 20  # 可調整：越大越靠近起點
+    #      unit_dx = dx / arrow_length
+    #      unit_dy = dy / arrow_length
+
+    #      a = end[0] + int(unit_dx * text_offset)
+    #      b = end[1] + int(unit_dy * text_offset)
+    #      end = (a, b)
+
+    #      cv2.circle(annotated_image, end, 16, (0, 0, 0), -1)
+    #      cv2.circle(annotated_image, end, 16, color, 3)
+    #      text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+    #      text_width, text_height = text_size
+    #      text_x = end[0] - text_width // 2
+    #      text_y = end[1] + text_height // 2
+
+    #      cv2.putText(
+    #          annotated_image,
+    #          label,
+    #          (text_x, text_y),
+    #          cv2.FONT_HERSHEY_SIMPLEX,
+    #          0.7,
+    #          color,
+    #          2,
+    #          cv2.LINE_AA,
+    #      )
 
     # 額外標記
     crop_size = 400
@@ -193,8 +406,8 @@ def update_gaussian_distribution(
 
     mean_x = np.mean([x for x, y in best_actions_positions])
     mean_y = np.mean([y for x, y in best_actions_positions])
-    mean_x = (mean_x - 100) * 0.05
-    mean_y = (mean_y - 100) * 0.05
+    mean_x = (mean_x - map_size[0] // 2) * cell_size
+    mean_y = (mean_y - map_size[1] // 2) * cell_size
     if destination is not None:
         dx = destination[0]
         dy = destination[1]
@@ -205,9 +418,9 @@ def update_gaussian_distribution(
     return (mean_x, mean_y), bias_sigma
 
 
-def get_dynamic_alpha(i, total_iterations=3, max_alpha=0.6):
-    shift = total_iterations / 2
-    k = 6 / total_iterations  # 控制斜率，值越大越陡
+def get_dynamic_alpha(i, total_iterations=6, max_alpha=0.6):
+    shift = total_iterations * 0.35  # 提早轉折點
+    k = 12 / total_iterations  # 增加斜率，加速轉變
     sigmoid = 1 / (1 + np.exp(-k * (i - shift)))
     return sigmoid * max_alpha
 
@@ -218,8 +431,8 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     # )
     # destination = affordance_point
     # goal = (
-    #     (199 - (int(destination[1] / 0.05) + 100)) * 10,
-    #     (199 - (int(destination[0] / 0.05) + 100)) * 10,
+    #     (200 - (int(destination[1] / 0.05) + 100)) * 10,
+    #     (200 - (int(destination[0] / 0.05) + 100)) * 10,
     # )
 
     iterations = 4
@@ -230,27 +443,44 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     for p in range(parallel):
         num_samples = 15
         preferred_mean = None
-        bias_sigma = 0.2
+        bias_sigma = 0.1
         alpha = 0.0
+
         affordance_point, affordance_pixel = get_affordance_point(
             target, instruction, R, T, fx, fy, cx, cy, occupancy_2d_map
         )
-        rgb = cv2.imread("./data/rgb.png")
 
+        rgb = cv2.imread("./data/rgb.png")
         mask_points_mean = np.load("./data/mask_points_mean.npy")
-        mask_points_mean = np.array(mask_points_mean[0:2])
-        get_annotated_image(rgb, mask_points_mean, R, T, fx, fy, cx, cy)
+        mask_points_mean = np.array(mask_points_mean[0:3])
         img_map = cv2.imread("./data/affann.png")
         map_img = process_2d_map(img_map)
         destination = affordance_point
-        goal = (
-            (199 - (int(destination[1] / 0.05) + 100)) * 10,
-            (199 - (int(destination[0] / 0.05) + 100)) * 10,
-        )
+        # goal = (
+        #     (200 - (int(destination[1] / 0.05) + 100)) * 10,
+        #     (200 - (int(destination[0] / 0.05) + 100)) * 10,
+        # )
         center_sigma = 100
         num_samples_center = 15
+
+        affordance_direction_id, affordance_direction_pixel = (
+            get_affordance_direction_id(
+                rgb,
+                mask_points_mean,
+                instruction,
+                R,
+                T,
+                fx,
+                fy,
+                cx,
+                cy,
+                occupancy_2d_map,
+            )
+        )
+
         for i in range(iterations):
-            alpha = get_dynamic_alpha(i, iterations, max_alpha=0.8)
+            alpha = get_dynamic_alpha(i, iterations, max_alpha=0.5)
+            print(f"Iteration {i + 1}/{iterations}, alpha: {alpha:.2f}")
             #  actions = sample_gaussian_actions_on_map(
             #      center=destination,
             #      std_dev=std_dev,
@@ -266,7 +496,7 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
                     center=destination,
                     std_dev=std_dev,
                     num_samples=num_samples,
-                    image_size=(200, 200),
+                    image_size=map_size,
                     obstacle_map=occupancy_2d_map,
                     preferred_mean=preferred_mean,
                     bias_sigma=bias_sigma,
@@ -295,7 +525,28 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
                     )
                     center_sigma += 10
 
-            annotated_image = annotate_image(map_img.copy(), goal, actions)
+            annotated_image = annotate_map(
+                map_img.copy(),
+                destination,
+                actions,
+                direction_id=affordance_direction_id,
+                occupancy_2d_map=occupancy_2d_map,
+            )
+
+            annotate_rgb(
+                rgb,
+                mask_points_mean,
+                actions,
+                instruction,
+                R,
+                T,
+                fx,
+                fy,
+                cx,
+                cy,
+                occupancy_2d_map,
+                affordance_direction_pixel,
+            )
             cv2.imwrite(f"./data/annotated_map_{i + 1}.png", annotated_image)
             t = 0
             while True:
@@ -347,8 +598,8 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     # get the preferred mean map
     preferred_mean_map = occupancy_2d_map.copy()
     preferred_mean_map = cv2.cvtColor(preferred_mean_map, cv2.COLOR_GRAY2BGR)
-    map_x = int(preferred_mean[0] / 0.05) + 100
-    map_y = int(preferred_mean[1] / 0.05) + 100
+    map_x = int(preferred_mean[0] / cell_size) + map_size[0] // 2
+    map_y = int(preferred_mean[1] / cell_size) + map_size[1] // 2
     cv2.circle(
         preferred_mean_map, (map_x, map_y), 1, (0, 255, 0), -1
     )  # draw the mean on the map
@@ -368,11 +619,11 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
             center=destination,
             std_dev=std_dev,
             num_samples=15,
-            image_size=(200, 200),
+            image_size=map_size,
             obstacle_map=occupancy_2d_map,
             preferred_mean=preferred_mean,
             bias_sigma=0.1,
-            alpha=0.4,
+            alpha=0.3,
         )
         if len(final_actions) >= 5:
             break
@@ -392,7 +643,27 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
         )
         center_sigma += 20
 
-    final_img = annotate_image(map_img.copy(), goal, final_actions)
+    final_img = annotate_map(
+        map_img.copy(),
+        destination,
+        final_actions,
+        direction_id=affordance_direction_id,
+        occupancy_2d_map=occupancy_2d_map,
+    )
+    annotate_rgb(
+        rgb,
+        mask_points_mean,
+        final_actions,
+        instruction,
+        R,
+        T,
+        fx,
+        fy,
+        cx,
+        cy,
+        occupancy_2d_map,
+        affordance_direction_pixel,
+    )
     cv2.imwrite("./data/final_annotated_map.png", final_img)
 
     t = 0
@@ -442,7 +713,7 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     # check if the base is colliding with the obstacle
     map_x = base[0]
     map_y = base[1]
-    if astar_utils.is_valid_des(map_y, map_x, occupancy_2d_map):
+    if astar_utils.is_valid(map_y, map_x, occupancy_2d_map):
         print("Base Position is valid")
     else:
         print("Base Position is invalid")
@@ -455,6 +726,9 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
         print(f"Base Position is invalid, use the closest point {base}")
 
     print(f"Final Base Position -> {base}")
-    base = (base[0] - 100) * 0.05, (base[1] - 100) * 0.05
+    base = (
+        (base[0] - map_size[0] // 2) * cell_size,
+        (base[1] - map_size[1] // 2) * cell_size,
+    )
 
     return base

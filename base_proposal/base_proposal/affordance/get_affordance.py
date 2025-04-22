@@ -9,7 +9,13 @@ from sklearn.preprocessing import normalize
 from base_proposal.affordance.groundedSAM import detect_and_segment
 
 from base_proposal.vlm.get_affordance import determine_affordance
+from base_proposal.vlm.get_affordance_direction import get_affordance_direction
 import time
+from base_proposal.tasks.utils import astar_utils
+
+
+cell_size = 0.05  # meters
+map_size = (203, 203)
 
 
 class KeypointProposer:
@@ -103,58 +109,537 @@ def rotate_vector_z(vec, angle_deg):
     return Rz @ vec
 
 
-def get_annotated_image(rgb, goal, R, T, fx, fy, cx, cy):
+def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
     annotated_image = rgb.copy()
     overlay = rgb.copy()
 
-    # Convert goal = (array([x]), array([y])) → [[x], [y]]
     if isinstance(goal, tuple) or isinstance(goal, list):
-        goal = np.array([[goal[0][0]], [goal[1][0]]])
-    goal = np.vstack((goal, np.array([[0.0]])))  # shape: (3, 1)
+        goal = np.array([[goal[0][0]], [goal[1][0]], [goal[2][0]]])
+        print("goal:", goal)
 
-    origin_heights = [0.0]
-    scale = 1  # control length of arrow
-    angle_list = [0]  # degrees: center, left, right
-    color_map = {
-        0: (255, 0, 255),  # magenta (center)
-        -30: (0, 255, 0),  # green (left)
-        30: (0, 165, 255),  # orange (right)
-    }
+    origin = np.array([[goal[0][0]], [goal[1][0]], [0.0]])  # shape: (3, 1)
 
-    for h in origin_heights:
-        origin = np.array([[0], [0], [h]])
+    scale = 3
+    step = 0.01
+    import colorsys
 
-        # base direction toward goal
-        direction = goal - origin
+    directions = list(range(0, 360, 30))  # 12 條箭頭
+    color_map = {}
+    hue_order = [0, 6, 3, 9, 1, 7, 4, 10, 2, 8, 5, 11]
 
-        for angle in angle_list:
-            rotated_direction = rotate_vector_z(direction, angle)
-            tip = origin + rotated_direction * scale
+    for i, angle in enumerate(directions):
+        hue = i / len(directions)  # 分布在 HSV 色環上（0~1）
+        hue = hue_order[i] / len(directions)  # 分布在 HSV 色環上（0~1）
+        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+        color_map[angle] = (int(b * 255), int(g * 255), int(r * 255))  # BGR
+    depth = np.load("./data/depth.npy")
 
-            ox, oy = get_pixel(origin, R, T, fx, fy, cx, cy)
-            tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
+    annotated_angles = set()  # 記錄已經編號過的方向
+    label = 0
 
-            # Flip image coordinate if needed
-            H, W = rgb.shape[:2]
-            ox = W - ox
-            oy = H - oy
-            tx = W - tx
-            ty = H - ty
+    label_list = []
+    pixel_list = []
+    for angle in directions:
+        direction = np.array([[1], [0], [0]])  # 正前方
+        rotated = rotate_vector_z(direction, angle)
 
-            color = color_map[angle]
-            cv2.arrowedLine(overlay, (ox, oy), (tx, ty), color, 20, tipLength=0.05)
+        pt_prev = origin  # 初始點
 
-    # Overlay blending
-    cv2.addWeighted(overlay, 0.7, annotated_image, 0.3, 0, annotated_image)
+        W = rgb.shape[1] - 1
+        H = rgb.shape[0] - 1
+        for s in np.arange(0.0, scale, step):
+            tip = origin + rotated * s
+            map_x = int(tip[0][0] / cell_size) + map_size[0] // 2
+            map_y = int(tip[1][0] / cell_size) + map_size[1] // 2
+            if (
+                (map_x < 0)
+                or (map_y < 0)
+                or (map_x >= map_size[0])
+                or (map_y >= map_size[1])
+            ):
+                continue
 
-    # Draw goal dot (optional)
+            pixel_x, pixel_y = get_pixel(tip, R, T, fx, fy, cx, cy)
+
+            if (
+                (H - pixel_y) < 0
+                or (W - pixel_x) < 0
+                or (H - pixel_y) >= H
+                or (W - pixel_x) >= W
+            ):
+                continue
+            point_3d = get_3d_point(
+                pixel_x, pixel_y, depth[H - pixel_y, W - pixel_x], R, T, fx, fy, cx, cy
+            )
+
+            # if point_3d[2] < 0.02:
+            if obstacle_map[map_y][map_x] < 1 and point_3d[2] < 0.01:
+                ox, oy = get_pixel(pt_prev, R, T, fx, fy, cx, cy)
+                tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
+                ox = W - ox
+                oy = H - oy
+                tx = W - tx
+                ty = H - ty
+                cv2.arrowedLine(
+                    overlay, (ox, oy), (tx, ty), color_map[angle], 20, tipLength=0.02
+                )
+                if angle not in annotated_angles:
+                    cv2.circle(annotated_image, (tx, ty), 17, (0, 0, 0), -1)  # 畫圓圈
+                    cv2.circle(
+                        annotated_image, (tx, ty), 17, color_map[angle], 2
+                    )  # 畫圓圈
+                    cv2.circle(overlay, (tx, ty), 17, color_map[angle], 2)  # 畫圓圈
+                    text_size = cv2.getTextSize(
+                        str(label), cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+                    )[0]
+                    text_width, text_height = text_size
+
+                    text_x = tx - text_width // 2
+                    text_y = ty + text_height // 2
+
+                    cv2.putText(
+                        annotated_image,
+                        str(label),
+                        (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        color_map[angle],
+                        2,
+                        cv2.LINE_AA,
+                    )
+                    cv2.putText(
+                        overlay,
+                        str(label),
+                        (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (0, 0, 0),
+                        2,
+                        cv2.LINE_AA,
+                    )
+                    label_list.append(label)
+                    pixel_list.append((tx, ty))
+                    annotated_angles.add(angle)  # 記錄這個方向已經加過編號了
+
+            pt_prev = tip  # 更新前一點
+        label += 1
+
+    cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
+
     gx, gy = get_pixel(goal, R, T, fx, fy, cx, cy)
     gx = rgb.shape[1] - gx
     gy = rgb.shape[0] - gy
-    # cv2.circle(annotated_image, (gx, gy), 6, (0, 255, 0), -1)
 
+    cv2.imwrite("./data/annotated_rgb1.png", annotated_image)
+    return label_list, pixel_list
+
+
+def get_affordance_direction_id(
+    rgb, goal, instruction, R, T, fx, fy, cx, cy, obstacle_map
+):
+    IDs = []
+    # run 3 times select the most common
+    for i in range(3):
+        ID = -1
+        labels, pixels = get_annotated_rgb1(
+            rgb, goal, R, T, fx, fy, cx, cy, obstacle_map
+        )
+        if len(labels) == 0:
+            print("No labels found.")
+
+        else:
+            ID = get_affordance_direction(
+                "./data/annotated_rgb1.png", instruction, labels
+            )
+        if isinstance(ID, list):
+            IDs.append(ID[0])  # or apply a strategy to select one
+        else:
+            IDs.append(ID)
+    # return the most common ID
+    ID = max(set(IDs), key=IDs.count)
+    print(f"IDs : {IDs}, ID : {ID}")
+    H = rgb.shape[0] - 1
+    W = rgb.shape[1] - 1
+    if ID != -1:
+        pixel = pixels[labels.index(ID)]
+        depth = np.load("./data/depth.npy")
+        point_3d = get_3d_point(
+            pixel[0], pixel[1], depth[H - pixel[1], W - pixel[0]], R, T, fx, fy, cx, cy
+        )
+    else:
+        pixel = None
+        point_3d = None
+
+    return ID, pixel
+
+
+def get_annotated_rgb2(rgb, pixel):
+    if pixel is None:
+        print("No pixel found.")
+        cv2.imwrite("./data/annotated_image.png", rgb)
+        return
+    label = "A"
+    annotated_image = rgb.copy()
+
+    cv2.circle(annotated_image, (pixel[0], pixel[1]), 17, (0, 0, 0), -1)  # 畫圓圈
+    cv2.circle(annotated_image, (pixel[0], pixel[1]), 17, (0, 165, 255), 2)  # 畫圓圈
+    text_size = cv2.getTextSize(str(label), cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+    text_width, text_height = text_size
+    text_x = pixel[0] - text_width // 2
+    text_y = pixel[1] + text_height // 2
+
+    cv2.putText(
+        annotated_image,
+        str(label),
+        (text_x, text_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 120, 255),
+        2,
+        cv2.LINE_AA,
+    )
+    # cv2.imwrite("./data/annotated_rgb2.png", annotated_image)
     cv2.imwrite("./data/annotated_image.png", annotated_image)
 
+
+def annotate_rgb(
+    rgb, goal, actions, instruction, R, T, fx, fy, cx, cy, obstacle_map, pixel
+):
+    annotated_image = rgb.copy()
+    overlay = rgb.copy()
+    get_annotated_rgb2(rgb, pixel)
+
+    #  # === 畫點位與 index ===
+    #  actions_3d = []
+    #  for action in actions:
+    #      map_x = action[0]
+    #      map_y = action[1]
+    #      x = (map_x - 100) * 0.05
+    #      y = (map_y - 100) * 0.05
+    #      actions_3d.append((x, y, 0))
+
+    #  for i, action in enumerate(actions_3d):
+    #      if isinstance(action, tuple) or isinstance(action, list):
+    #          action = np.array([[action[0]], [action[1]], [0.0]])
+    #      pixel_x, pixel_y = get_pixel(action, R, T, fx, fy, cx, cy)
+    #      pixel_x = rgb.shape[1] - pixel_x
+    #      pixel_y = rgb.shape[0] - pixel_y
+
+    #      cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (255, 255, 255), -1)
+    #      cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (225, 0, 0), 2)
+    #      text_width, text_height = cv2.getTextSize(
+    #          f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+    #      )[0]
+    #      cv2.putText(
+    #          annotated_image,
+    #          f"{i}",
+    #          (pixel_x - text_width // 2, pixel_y + text_height // 2),
+    #          cv2.FONT_HERSHEY_SIMPLEX,
+    #          0.6,
+    #          (0, 100, 150),
+    #          2,
+    #      )
+    # === 處理 goal 格式 ===
+    if isinstance(goal, tuple) or isinstance(goal, list):
+        goal = np.array([[goal[0][0]], [goal[1][0]], [goal[2][0]]])
+        print("goal:", goal)
+    # goal = np.vstack((goal, np.array([[0.0]])))  # shape: (3, 1)
+    # 假設 goal 已經是 (3, 1) 形狀的 np.array 了
+    # goal = np.array([[goal[0][0]], [goal[1][0]], [0.0]])  # shape: (3, 1)
+    #  origin = goal
+    #  scale = 1000
+    #  # scale = 2
+    #  angle_list = list(range(0, 360, 30))  # 每 30 度
+
+    #  for i, angle in enumerate(angle_list):
+    #      # 建立方向向量
+    #      direction = np.array([[scale], [0], [0]])
+    #      rotated_direction = rotate_vector_z(direction, angle)
+    #      tip = origin + rotated_direction
+
+    #      # 投影到像素座標
+    #      ox, oy = get_pixel(origin, R, T, fx, fy, cx, cy)
+    #      tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
+
+    #      # 轉換成 OpenCV 座標系（左上為 (0,0)）
+    #      H, W = rgb.shape[:2]
+    #      ox = W - ox
+    #      oy = H - oy
+    #      tx = W - tx
+    #      ty = H - ty
+
+    #      # 產生不同顏色（HSV → BGR）
+    #      import colorsys
+
+    #      hue = i / len(angle_list)
+    #      r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    #      color = (int(b * 255), int(g * 255), int(r * 255))  # OpenCV 用 BGR
+
+    #      # 畫箭頭
+    #      cv2.arrowedLine(overlay, (ox, oy), (tx, ty), color, 3, tipLength=0.2)
+    #      dx = tx - ox
+    #      dy = ty - oy
+    #      arrow_length = (dx**2 + dy**2) ** 0.5
+    #      unit_dx = dx / arrow_length
+    #      unit_dy = dy / arrow_length
+    #      text_offset = 30
+    #      tx = tx + int(unit_dx * text_offset)
+    #      ty = ty + int(unit_dy * text_offset)
+
+    #      # ====== 加上置中編號文字 ======
+    #      label = f"{i}"
+
+    #      cv2.circle(annotated_image, (tx, ty), 15, (0, 0, 0), -1)  # 畫圓圈
+    #      cv2.circle(overlay, (tx, ty), 15, (0, 0, 0), -1)  # 畫圓圈
+    #      cv2.circle(annotated_image, (tx, ty), 15, color, 2)  # 畫圓圈
+    #      cv2.circle(overlay, (tx, ty), 15, color, 2)  # 畫圓圈
+    #      text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+    #      text_width, text_height = text_size
+
+    #      text_x = tx - text_width // 2
+    #      text_y = ty + text_height // 2
+
+    #      cv2.putText(
+    #          annotated_image,
+    #          label,
+    #          (text_x, text_y),
+    #          cv2.FONT_HERSHEY_SIMPLEX,
+    #          0.6,
+    #          color,
+    #          2,
+    #          cv2.LINE_AA,
+    #      )
+    #      cv2.putText(
+    #          overlay,
+    #          label,
+    #          (text_x, text_y),
+    #          cv2.FONT_HERSHEY_SIMPLEX,
+    #          0.6,
+    #          (0, 0, 0),
+    #          2,
+    #          cv2.LINE_AA,
+    #      )
+
+    # === 畫正前方 + 左右 ±30° 的射線（避開障礙）===
+    #    H, W = rgb.shape[:2]
+    #
+    #    origin = np.array([[0], [0], [0]])
+    #    origin = np.array([[goal[0][0]], [goal[1][0]], [0.0]])  # shape: (3, 1)
+    #    directions = [0, -45, -30, -15, 0, 15, 30, 45]  # degrees: center, left, right
+    #    # directions = []  # degrees: center, left, right
+    #
+    #    scale = 3
+    #    step = 0.01
+    #    color_map = {
+    #        0: (0, 0, 255),  # 紅色（純紅）
+    #        45: (180, 0, 255),  # 紫色（偏洋紅，更不像藍）
+    #        15: (225, 225, 80),  # 水綠色（與黃和青都拉開）
+    #        -30: (0, 255, 0),  # 綠色（鮮綠）
+    #        -15: (0, 255, 255),  # 黃色（經典亮黃）
+    #        30: (0, 128, 255),  # 橘色（亮橘偏黃，避免偏藍）
+    #        -45: (255, 100, 0),  # 藍色（深藍橘感，更易區分）
+    #    }
+    #    import colorsys
+    #
+    #    directions = list(range(0, 360, 30))  # 12 條箭頭
+    #    color_map = {}
+    #    hue_order = [0, 6, 3, 9, 1, 7, 4, 10, 2, 8, 5, 11]
+    #
+    #    for i, angle in enumerate(directions):
+    #        hue = i / len(directions)  # 分布在 HSV 色環上（0~1）
+    #        hue = hue_order[i] / len(directions)  # 分布在 HSV 色環上（0~1）
+    #        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    #        color_map[angle] = (int(b * 255), int(g * 255), int(r * 255))  # BGR
+    #    depth = np.load("./data/depth.npy")
+    #    annotated_angles = set()  # 記錄已經編號過的方向
+    #    label = 0
+    #
+    #    for angle in directions:
+    #        direction = np.array([[1], [0], [0]])  # 正前方
+    #        rotated = rotate_vector_z(direction, angle)
+    #
+    #        pt_prev = origin  # 初始點
+    #
+    #        W = rgb.shape[1]
+    #        H = rgb.shape[0]
+    #        for s in np.arange(0.0, scale, step):
+    #            tip = origin + rotated * s
+    #
+    #            pixel_x, pixel_y = get_pixel(tip, R, T, fx, fy, cx, cy)
+    #
+    #            if (
+    #                (H - pixel_y) < 0
+    #                or (W - pixel_x) < 0
+    #                or (H - pixel_y) >= H
+    #                or (W - pixel_x) >= W
+    #            ):
+    #                continue
+    #            point_3d = get_3d_point(
+    #                pixel_x, pixel_y, depth[H - pixel_y, W - pixel_x], R, T, fx, fy, cx, cy
+    #            )
+    #            if point_3d[2] < 0.01:
+    #                ox, oy = get_pixel(pt_prev, R, T, fx, fy, cx, cy)
+    #                tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
+    #                ox = W - ox
+    #                oy = H - oy
+    #                tx = W - tx
+    #                ty = H - ty
+    #                cv2.arrowedLine(
+    #                    overlay, (ox, oy), (tx, ty), color_map[angle], 20, tipLength=0.02
+    #                )
+    #                if angle not in annotated_angles:
+    #                    cv2.circle(annotated_image, (tx, ty), 16, (0, 0, 0), -1)  # 畫圓圈
+    #                    cv2.circle(overlay, (tx, ty), 16, (0, 0, 0), -1)  # 畫圓圈
+    #                    cv2.circle(
+    #                        annotated_image, (tx, ty), 16, color_map[angle], 2
+    #                    )  # 畫圓圈
+    #                    cv2.circle(overlay, (tx, ty), 16, color_map[angle], 2)  # 畫圓圈
+    #                    text_size = cv2.getTextSize(
+    #                        str(label), cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+    #                    )[0]
+    #                    text_width, text_height = text_size
+    #
+    #                    text_x = tx - text_width // 2
+    #                    text_y = ty + text_height // 2
+    #
+    #                    cv2.putText(
+    #                        annotated_image,
+    #                        str(label),
+    #                        (text_x, text_y),
+    #                        cv2.FONT_HERSHEY_SIMPLEX,
+    #                        0.7,
+    #                        color_map[angle],
+    #                        2,
+    #                        cv2.LINE_AA,
+    #                    )
+    #                    cv2.putText(
+    #                        overlay,
+    #                        str(label),
+    #                        (text_x, text_y),
+    #                        cv2.FONT_HERSHEY_SIMPLEX,
+    #                        0.7,
+    #                        (0, 0, 0),
+    #                        2,
+    #                        cv2.LINE_AA,
+    #                    )
+    #                    annotated_angles.add(angle)  # 記錄這個方向已經加過編號了
+    #
+    #            pt_prev = tip  # 更新前一點
+    #        label += 1
+    #
+    # 檢查是否撞到障礙
+    # for s in np.arange(0.2, scale, step):
+    #     tip = origin + rotated * s
+
+    #     # map 座標 (map 是 200x200)
+    #     map_x = int(tip[0][0] / 0.05 + 100)
+    #     map_y = int(tip[1][0] / 0.05 + 100)
+    #     if 0 <= map_x < 200 and 0 <= map_y < 200:
+    #         if obstacle_map[map_y, map_x] != 0:
+    #             break  # 撞到障礙，停
+    #     else:
+    #         break  # 超出地圖邊界
+
+    # # 畫箭頭（origin → tip）
+    # ox, oy = get_pixel(origin, R, T, fx, fy, cx, cy)
+    # tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
+    # ox = W - ox
+    # oy = H - oy
+    # tx = W - tx
+    # ty = H - ty
+    # cv2.arrowedLine(
+    #     overlay, (ox, oy), (tx, ty), color_map[angle], 20, tipLength=0.02
+    # )
+
+    # 混合 overlay 到原圖
+    cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
+
+    # cv2.imwrite("./data/annotated_image.png", annotated_image)
+
+
+# def get_annotated_image(rgb, goal, actions, R, T, fx, fy, cx, cy):
+#    annotated_image = rgb.copy()
+#    overlay = rgb.copy()
+#
+#    actions_3d = []
+#    for action in actions:
+#        map_x = action[0]
+#        map_y = action[1]
+#        x = (map_x - 100) * 0.05
+#        y = (map_y - 100) * 0.05
+#        actions_3d.append((x, y, 0))
+#
+#    for i, action in enumerate(actions_3d):
+#        if isinstance(action, tuple) or isinstance(action, list):
+#            action = np.array([[action[0]], [action[1]], [0.0]])
+#        # Convert action to 3D point
+#        pixel_x, pixel_y = get_pixel(action, R, T, fx, fy, cx, cy)
+#        pixel_x = rgb.shape[1] - pixel_x
+#        pixel_y = rgb.shape[0] - pixel_y
+#
+#        cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (255, 255, 255), -1)
+#        cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (225, 0, 0), 2)
+#        text_width, text_height = cv2.getTextSize(
+#            f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+#        )[0]
+#        cv2.putText(
+#            annotated_image,
+#            f"{i}",
+#            (pixel_x - text_width // 2, pixel_y + text_height // 2),
+#            cv2.FONT_HERSHEY_SIMPLEX,
+#            0.6,
+#            (0, 100, 150),
+#            2,
+#        )
+#
+#    # Convert goal = (array([x]), array([y])) → [[x], [y]]
+#    if isinstance(goal, tuple) or isinstance(goal, list):
+#        goal = np.array([[goal[0][0]], [goal[1][0]]])
+#    goal = np.vstack((goal, np.array([[0.0]])))  # shape: (3, 1)
+#
+#    origin_heights = [0.0]
+#    scale = 1  # control length of arrow
+#    angle_list = [0]  # degrees: center, left, right
+#    color_map = {
+#        0: (255, 0, 255),  # magenta (center)
+#        -30: (0, 255, 0),  # green (left)
+#        30: (0, 165, 255),  # orange (right)
+#    }
+#
+#    for h in origin_heights:
+#        origin = np.array([[0], [0], [h]])
+#
+#        # base direction toward goal
+#        direction = goal - origin
+#
+#        for angle in angle_list:
+#            rotated_direction = rotate_vector_z(direction, angle)
+#            tip = origin + rotated_direction * scale
+#
+#            ox, oy = get_pixel(origin, R, T, fx, fy, cx, cy)
+#            tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
+#
+#            # Flip image coordinate if needed
+#            H, W = rgb.shape[:2]
+#            ox = W - ox
+#            oy = H - oy
+#            tx = W - tx
+#            ty = H - ty
+#
+#            color = color_map[angle]
+#            cv2.arrowedLine(overlay, (ox, oy), (tx, ty), color, 20, tipLength=0.05)
+#
+#    # Overlay blending
+#    cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
+#
+#    # Draw goal dot (optional)
+#    gx, gy = get_pixel(goal, R, T, fx, fy, cx, cy)
+#    gx = rgb.shape[1] - gx
+#    gy = rgb.shape[0] - gy
+#    # cv2.circle(annotated_image, (gx, gy), 6, (0, 255, 0), -1)
+#
+#    cv2.imwrite("./data/annotated_image.png", annotated_image)
+#
 
 # def get_annotated_image(rgb, goal, R, T, fx, fy, cx, cy):
 #    annotated_image = rgb.copy()
@@ -306,19 +791,19 @@ def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
         # distance = np.linalg.norm(points - centroid, axis=1)
         # closest_point = points[np.argmin(distance)]
         # y, x = closest_point
-        cv2.circle(final_image, (x, y), 10, (255, 255, 255), -1)
-        cv2.circle(final_image, (x, y), 10, (0, 0, 255), 1)
+        cv2.circle(final_image, (x, y), 15, (255, 255, 255), -1)
+        cv2.circle(final_image, (x, y), 15, (0, 0, 255), 1)
         text_width, text_height = cv2.getTextSize(
-            f"{number}", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+            f"{number}", cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
         )[0]
         cv2.putText(
             final_image,
             f"{number}",
             (x - text_width // 2, y + text_height // 2),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
+            0.6,
             (255, 0, 0),
-            1,
+            2,
         )
 
         if map is not None:
@@ -336,8 +821,8 @@ def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
                     cy,
                 )
                 # convert to map point
-                map_x = int(point_3d[0] / 0.05) + 100
-                map_y = int(point_3d[1] / 0.05) + 100
+                map_x = int(point_3d[0] / cell_size) + map_size[0] // 2
+                map_y = int(point_3d[1] / cell_size) + map_size[1] // 2
                 # draw the occupancy point on map
                 cv2.circle(map, (map_x, map_y), 1, (255, 0, 255), -1)
 
@@ -382,8 +867,8 @@ def get_rough_affann(target, instruction, R, T, fx, fy, cx, cy, map):
         point_3d = get_3d_point(w - point[1], h - point[0], Z, R, T, fx, fy, cx, cy)
         mask_points_list.append(point_3d)
         # convert to map point
-        map_x = int(point_3d[0] / 0.05) + 100
-        map_y = int(point_3d[1] / 0.05) + 100
+        map_x = int(point_3d[0] / cell_size) + map_size[0] // 2
+        map_y = int(point_3d[1] / cell_size) + map_size[1] // 2
 
         # draw the occupancy point on map
         map_rgb[map_y, map_x] = (255, 255, 0)
@@ -479,8 +964,8 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
         cy,
     )
     # draw the affordance center on depth image
-    center_x = int(affordance_point[0] / 0.05) + 100
-    center_y = int(affordance_point[1] / 0.05) + 100
+    center_x = int(affordance_point[0] / cell_size) + map_size[0] // 2
+    center_y = int(affordance_point[1] / cell_size) + map_size[1] // 2
     # cvt map to rgb
     map_rgb = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
     # scale to 1000 x 1000
@@ -498,8 +983,8 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
         mask_points_list.append(point_3d)
 
         # convert to map point
-        map_x = int(point_3d[0] / 0.05) + 100
-        map_y = int(point_3d[1] / 0.05) + 100
+        map_x = int(point_3d[0] / cell_size) + map_size[0] // 2
+        map_y = int(point_3d[1] / cell_size) + map_size[1] // 2
 
         # draw the occupancy point on map
         map_rgb[map_y, map_x] = (0, 255, 255)
@@ -636,8 +1121,8 @@ def sample_from_mask_gaussian(
         cy,
     )
     # convert to map point
-    map_x = int(point_3d[0] / 0.05) + 100
-    map_y = int(point_3d[1] / 0.05) + 100
+    map_x = int(point_3d[0] / cell_size) + map_size[0] // 2
+    map_y = int(point_3d[1] / cell_size) + map_size[1] // 2
     # draw the occupancy point on map
     map_color = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
     cv2.circle(map_color, (map_x, map_y), 1, (255, 0, 255), -1)

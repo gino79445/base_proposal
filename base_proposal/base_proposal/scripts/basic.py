@@ -41,6 +41,7 @@ from base_proposal.envs.env import IsaacEnv
 from base_proposal.policy.pivot import Policy as pivot_Policy
 from base_proposal.policy.spaceAware_pivot import Policy as spaceAware_Policy
 from base_proposal.policy.rough_nav import Policy as rough_nav_Policy
+from base_proposal.policy.rekep import Policy as reke_Policy
 
 from dotenv import load_dotenv
 import os
@@ -61,6 +62,7 @@ def parse_hydra_configs(cfg: DictConfig):
     env = IsaacEnv(headless=headless, render=render, sim_app_cfg_path=sim_app_cfg_path)
     task = initialize_task(cfg_dict, env)
     t = 0
+
     while env._simulation_app.is_running():
         if t % 100 == 0:
             env.reset()
@@ -71,9 +73,17 @@ def parse_hydra_configs(cfg: DictConfig):
 
         t += 1
 
-    # env.step(["start"])
+    env.step(["start"])
     # env.step(["set_initial_base", [0.7, -1]])
     # env.step(["rotate", [np.pi * 100]])
+    # env.step(["set_initial_base", [0.7, -1]])
+    # env.step(["rotate", [np.pi / 2]])
+    # env.step(["rotate", [np.pi / 2]])
+    # env.step(["rotate", [np.pi / 2]])
+    # env.step(["rotate", [np.pi / 2]])
+    # env.step(["set_initial_base", [0.7, -3.6]])
+
+    # env.step(["rotate", [np.pi / 2]])
     # env.step(["rotate", [np.pi / 2]])
     # env.step(["rotate", [np.pi / 2]])
     # env.step(["rotate", [np.pi / 2]])
@@ -95,28 +105,36 @@ def parse_hydra_configs(cfg: DictConfig):
         policy = spaceAware_Policy(instruction)
         # policy = pivot_Policy(instruction)
         # policy = rough_nav_Policy(instruction)
-        try:
-            destinations = env.get_destination()
-            global_position = [destination[0] for destination in destinations]
-            # pick_and_place(
-            #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
-            # )
-            # pick_and_place(env, policy, global_position, local_nav="None", algo="astar")
-            # pick_and_place(
-            #     env,
-            #     policy,
-            #     global_position,
-            #     local_nav="rough_nav",
-            #     algo="astar_rough",
-            # )
+        # policy = reke_Policy(instruction)
+        # try:
+        destinations = env.get_destination()
+        global_position = [destination[0] for destination in destinations]
+        # pick_and_place(
+        #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
+        # )
+        # pick_and_place(env, policy, global_position, local_nav="None", algo="astar")
+        # pick_and_place(
+        #     env,
+        #     policy,
+        #     global_position,
+        #     local_nav="rough_nav",
+        #     algo="astar_rough",
+        # )
 
-            pick_and_place(
-                env,
-                policy,
-                global_position,
-                local_nav="spaceAware_pivot",
-                algo="astar_rough",
-            )
+        # pick_and_place(
+        #     env,
+        #     policy,
+        #     global_position,
+        #     local_nav="rekep",
+        #     algo="astar_rough",
+        # )
+        pick_and_place(
+            env,
+            policy,
+            global_position,
+            local_nav="spaceAware_pivot",
+            algo="astar_rough",
+        )
         # pull(env, policy, global_position, local_nav="None", algo="astar")
         #   pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
         # pull(
@@ -126,9 +144,9 @@ def parse_hydra_configs(cfg: DictConfig):
         #     local_nav="spaceAware_pivot",
         #     algo="astar_rough",
         # )
-        except Exception as e:
-            print(e)
-            print("Error")
+        #  except Exception as e:
+        #      print(e)
+        #      print("Error")
 
         env.step(["open_gripper"])
         env.step(["reset_arm"])
@@ -206,6 +224,15 @@ def pick_and_place(env, policy, global_position, local_nav="none", algo="astar")
         rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
             [f"navigateNear_{algo}", pos]
         )
+        if local_nav == "rekep":
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            pos = policy.global2local(global_pos)
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(
+                ["turn_to_goal", pos]
+            )
+            policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)
+            action = policy.get_action()
+            rgb, depth, occupancy_2d_map, robot_pos, terminal = env.step(action)
 
         if local_nav == "rough_nav":
             policy.get_observation(rgb, depth, occupancy_2d_map, robot_pos)

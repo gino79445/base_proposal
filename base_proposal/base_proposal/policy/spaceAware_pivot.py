@@ -10,6 +10,9 @@ from base_proposal.annotation.course_move import get_rough_base
 from base_proposal.affordance.get_affordance import get_affordance_point
 from base_proposal.affordance.get_affordance import get_rough_affann
 
+cell_size = 0.05
+map_size = (203, 203)
+
 
 class Policy:
     def __init__(self, instruction, semantic_map=None):
@@ -151,46 +154,50 @@ class Policy:
 
         # colorize the occupancy map
         occupancy_map = cv2.cvtColor(occupancy_map, cv2.COLOR_GRAY2BGR)
-        cell_size = 0.05
         for i in range(len(destinations)):
             destination = self.global2local(destinations[i])
             destination = (
-                int(destination[1] / cell_size) + 100,
-                int(destination[0] / cell_size) + 100,
+                int(destination[1] / cell_size) + map_size[1] // 2,
+                int(destination[0] / cell_size) + map_size[0] // 2,
             )
             occupancy_map = cv2.circle(
                 occupancy_map, (destination[1], destination[0]), 1, (0, 255, 0), -1
             )
         # resize the occupancy map to 200x200
-        occupancy_map = cv2.resize(occupancy_map, (2000, 2000))
+        occupancy_map = cv2.resize(occupancy_map, (10 * map_size[0], 10 * map_size[1]))
         im = Image.fromarray(occupancy_map)
         im.save("./data/target_2dmap.png")
         return occupancy_map
 
     def global2local(self, global_point):
-        cell_size = 0.05
         end = (
-            int(global_point[1] / cell_size) + 100,
-            int(global_point[0] / cell_size) + 100,
+            int(global_point[1] / cell_size) + map_size[1] // 2,
+            int(global_point[0] / cell_size) + map_size[0] // 2,
         )
 
         robot_pos = self.robot_pos
         x, y, theta = robot_pos
-        start = (int(y / cell_size) + 100, int(x / cell_size) + 100)
-        star_delta = (start[0] - 100, start[1] - 100)
-        start = (100, 100)
+        start = (
+            int(y / cell_size) + map_size[1] // 2,
+            int(x / cell_size) + map_size[0] // 2,
+        )
+        star_delta = (start[0] - map_size[0] // 2, start[1] - map_size[1] // 2)
+        start = map_size[0] // 2, map_size[1] // 2
         end = (end[0] - star_delta[0], end[1] - star_delta[1])
         cos_theta = np.cos(theta)
         sin_theta = np.sin(theta)
 
         # 以 start 為中心旋轉
-        cx, cy = 100, 100
+        cx, cy = map_size[0] // 2, map_size[1] // 2
         px, py = end
         dx, dy = px - cx, py - cy
         new_x = cx + (dx * cos_theta - dy * sin_theta)
         new_y = cy + (dx * sin_theta + dy * cos_theta)
         end = (int(new_x), int(new_y))
-        end = ((end[1] - 100) * cell_size, (end[0] - 100) * cell_size)
+        end = (
+            (end[1] - map_size[1] // 2) * cell_size,
+            (end[0] - map_size[0] // 2) * cell_size,
+        )
         return end
 
     def visibility(self):
