@@ -51,12 +51,14 @@ def get_affordance_direction(image_path, INSTRUCTION, IDs):
                         "text": f"""
                                 You are a professional mobile robot agent.
                                 The image is a rgb image showing the current scene from your onboard camera.
-                                This image has markings on the floor indicating different directions, each labeled with a number.                                
+                                Numbered lines radiating outward from the target object, with each line pointing in a different direction on the floor relative to the target. 
                                 The directions are labeled with the numbers: {IDs}.
 
                                 Given the instruction: {INSTRUCTION},
                                 step 1: Determine which key part of the object should be manipulated.
-                                step 2: Identify the direction of this key part.
+                                step 2: Identify the direction of this key part relative to the main body of the object.
+                                        (eg., the handle of the mug is on the right side of the mug, the open side of the box is on the left side of the box, etc.)
+                                        If the key part is not visible, please try to infer the direction based on the image.
                                         Please do not give me the direction of the target object relative to the robot,
                                         but rather the direction of the key part relative to the main body.
                                 step 3: Provide me with a most likely suitable direction number.

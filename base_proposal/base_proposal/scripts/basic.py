@@ -106,35 +106,35 @@ def parse_hydra_configs(cfg: DictConfig):
         # policy = pivot_Policy(instruction)
         # policy = rough_nav_Policy(instruction)
         # policy = reke_Policy(instruction)
-        # try:
-        destinations = env.get_destination()
-        global_position = [destination[0] for destination in destinations]
-        # pick_and_place(
-        #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
-        # )
-        # pick_and_place(env, policy, global_position, local_nav="None", algo="astar")
-        # pick_and_place(
-        #     env,
-        #     policy,
-        #     global_position,
-        #     local_nav="rough_nav",
-        #     algo="astar_rough",
-        # )
+        try:
+            destinations = env.get_destination()
+            global_position = [destination[0] for destination in destinations]
+            # pick_and_place(
+            #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
+            # )
+            pick_and_place(env, policy, global_position, local_nav="None", algo="astar")
+            # pick_and_place(
+            #     env,
+            #     policy,
+            #     global_position,
+            #     local_nav="rough_nav",
+            #     algo="astar_rough",
+            # )
 
+            # pick_and_place(
+            #     env,
+            #     policy,
+            #     global_position,
+            #     local_nav="rekep",
+            #     algo="astar_rough",
+            # )
         # pick_and_place(
         #     env,
         #     policy,
         #     global_position,
-        #     local_nav="rekep",
+        #     local_nav="spaceAware_pivot",
         #     algo="astar_rough",
         # )
-        pick_and_place(
-            env,
-            policy,
-            global_position,
-            local_nav="spaceAware_pivot",
-            algo="astar_rough",
-        )
         # pull(env, policy, global_position, local_nav="None", algo="astar")
         #   pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
         # pull(
@@ -144,9 +144,9 @@ def parse_hydra_configs(cfg: DictConfig):
         #     local_nav="spaceAware_pivot",
         #     algo="astar_rough",
         # )
-        #  except Exception as e:
-        #      print(e)
-        #      print("Error")
+        except Exception as e:
+            print(e)
+            print("Error")
 
         env.step(["open_gripper"])
         env.step(["reset_arm"])

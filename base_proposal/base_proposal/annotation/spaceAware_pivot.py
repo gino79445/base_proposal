@@ -38,8 +38,8 @@ def sample_gaussian_actions_on_map(
     w, h = image_size
     i = 0
     preferred_dist = 0.7
-    dist_sigma = 0.02
-    R = 1.5
+    dist_sigma = 0.04
+    R = 1.2
 
     while i < num_samples:
         t = 0
@@ -74,7 +74,7 @@ def sample_gaussian_actions_on_map(
             if (
                 0 <= map_x < map_size[0]
                 and 0 <= map_y < map_size[1]
-                and astar_utils.is_valid(map_y, map_x, obstacle_map)
+                and astar_utils.is_valid_des(map_y, map_x, obstacle_map)
             ):
                 if np.random.rand() < weight:
                     actions.append((map_x, map_y))
@@ -175,6 +175,7 @@ def get_affordance_direction_pos(goal, direction_id, occupancy_2d_map):
 
 def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=None):
     annotated_image = image.copy()
+    overlay = np.zeros_like(annotated_image)
     mask_points_mean = np.load("./data/mask_points_mean.npy")
     mask_x = int(mask_points_mean[0] / cell_size) + map_size[0] // 2
     mask_y = int(mask_points_mean[1] / cell_size) + map_size[1] // 2
@@ -191,6 +192,39 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
             int(map_size[1] - 1 - direction_2d[1]) * 10,
             int(map_size[0] - 1 - direction_2d[0]) * 10,
         )
+
+        # draw the arrow
+        vector = np.array([direction_2d[0] - mask_x, direction_2d[1] - mask_y])
+        vector = vector / np.linalg.norm(vector)  # 控制箭頭長度
+        arrow_length = 200
+        cv2.arrowedLine(
+            annotated_image,
+            (mask_x, mask_y),
+            (
+                int(mask_x + vector[0] * arrow_length),
+                int(mask_y + vector[1] * arrow_length),
+            ),
+            (0, 120, 255),
+            2,
+            tipLength=0.1,
+        )
+        center = (mask_x, mask_y)
+        axes = (arrow_length, arrow_length)  # 扇形半徑
+        angle = np.degrees(np.arctan2(vector[1], vector[0]))  # 箭頭方向的角度
+        start_angle = angle - 45  # 左右各45度
+        end_angle = angle + 45
+
+        cv2.ellipse(
+            overlay,
+            center,
+            axes,
+            0,  # ellipse rotation
+            start_angle,
+            end_angle,
+            (0, 120, 255),  # orange color
+            -1,  # -1 表示填滿扇形
+        )
+        cv2.addWeighted(overlay, 0.4, annotated_image, 1, 0, annotated_image)
         cv2.circle(
             annotated_image, (direction_2d[0], direction_2d[1]), 17, (0, 0, 0), -1
         )
@@ -398,7 +432,7 @@ def update_gaussian_distribution(
     best_actions_positions,
     bias_sigma,
     destination=None,
-    max_drift=1.5,
+    max_drift=1.2,
     std_dev_decay=0.9,
 ):
     if not best_actions_positions:
@@ -435,7 +469,7 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     #     (200 - (int(destination[0] / 0.05) + 100)) * 10,
     # )
 
-    iterations = 4
+    iterations = 3
     parallel = 1
     final_actions = []
     std_dev = 1.0
@@ -443,7 +477,7 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     for p in range(parallel):
         num_samples = 15
         preferred_mean = None
-        bias_sigma = 0.1
+        bias_sigma = 0.2
         alpha = 0.0
 
         affordance_point, affordance_pixel = get_affordance_point(
@@ -713,7 +747,7 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     # check if the base is colliding with the obstacle
     map_x = base[0]
     map_y = base[1]
-    if astar_utils.is_valid(map_y, map_x, occupancy_2d_map):
+    if astar_utils.is_valid_des(map_y, map_x, occupancy_2d_map):
         print("Base Position is valid")
     else:
         print("Base Position is invalid")

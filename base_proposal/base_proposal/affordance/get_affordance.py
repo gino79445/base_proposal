@@ -173,7 +173,7 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
             )
 
             # if point_3d[2] < 0.02:
-            if obstacle_map[map_y][map_x] < 1 and point_3d[2] < 0.01:
+            if obstacle_map[map_y][map_x] < 1 and point_3d[2] < 0.03:
                 ox, oy = get_pixel(pt_prev, R, T, fx, fy, cx, cy)
                 tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
                 ox = W - ox
@@ -248,9 +248,18 @@ def get_affordance_direction_id(
             print("No labels found.")
 
         else:
-            ID = get_affordance_direction(
-                "./data/annotated_rgb1.png", instruction, labels
-            )
+            t = 0
+            while True:
+                try:
+                    ID = determine_affordance(
+                        "./data/annotated_rgb1.png", instruction, labels
+                    )
+                    break
+                except Exception as e:
+                    t += 1
+                    print(f"Error: {e}, retrying {t} time(s)...")
+                    if t > 3:
+                        break
         if isinstance(ID, list):
             IDs.append(ID[0])  # or apply a strategy to select one
         else:

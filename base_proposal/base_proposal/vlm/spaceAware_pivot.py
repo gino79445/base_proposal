@@ -63,13 +63,16 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                     - yellow part of the map: Roughly indicates the target object area  that appears in the RGB image.
                                     - Several numbered white circles with a blue outline labeled IDs(0~14): candidate base positions (obstacle-free) for you to move to.
                                     - The black point outlined in orange "A": This floor point is likely the affordance direction for the task.
-
+                                    - the orange arrow on the balck point "A": The direction of the affordance point "A" in the top-down map.
                                 
                                 Important:
                                     You must use both the onboard RGB image and the top-down map together.
+                                    The floor point "A" in the top-down map is the same as the floor point "A" in the RGB image.
                                     The floor point 'A' near the obstacle or target edge points in the same direction as the object's operable part, 
-                                    guiding the optimal way to interact with it.                                    
-                                    You can choose the candidate point closest to 'A', as it is most likely to offer the best view of the affordance.
+                                    guiding the optimal way to interact with it. 
+                                    Prioritize the point 'A' if visible, as it is likely favorable—the target’s key affordance is generally in that direction. 
+                                    The orange arrow on the point 'A' is likely to indicate the rough direction of the target object, 
+                                    so the candidate base position is likely to be within the sector centered on that direction, spanning 90 degrees."
                                     If point 'A' is not visible, it might be because the RGB camera does not capture the floor area,
                                     or the key part of the target is occluded.You need to determine this condition autonomously.
 
