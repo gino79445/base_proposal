@@ -127,7 +127,7 @@ def rrt_star_rough(
     Map,
     start,
     goal,
-    max_iter=3000,
+    max_iter=6000,
     step_size=2,
     goal_sample_rate=0.15,
     radius=15,
@@ -199,6 +199,7 @@ def rrt_star_target(
             if (
                 distance(new_node, goal_node) * 0.05 <= R + 0.1
                 and distance(new_node, goal_node) * 0.05 >= R - 0.1
+                and is_valid_des(new_node.x, new_node.y, Map, radius=9)
             ):
                 goal_node.parent = new_node
                 goal_node.cost = new_node.cost + distance(new_node, goal_node)

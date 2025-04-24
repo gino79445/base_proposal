@@ -72,6 +72,10 @@ import yaml
 import logging
 
 
+cell_size = 0.05
+map_size = (203, 203)
+
+
 # Base placement environment for fetching a target object among clutter
 class NMTask(Task):
     def __init__(self, name, sim_config, env) -> None:
@@ -97,22 +101,43 @@ class NMTask(Task):
             device=self._device,
         )
 
-        yaml_path = self._task_cfg["env"]["object_config"]
-        full_yaml_path = os.path.join(hydra.utils.get_original_cwd(), yaml_path)
+        self.all_envs = self.load_all_yaml_in_folder(
+            self._task_cfg["env"]["env_folder"]
+        )
 
-        # read the YAML file
-        with open(full_yaml_path, "r") as f:
-            self.env_yaml = yaml.safe_load(f)
+        for i, env1 in enumerate(self.all_envs):
+            print(f"🔹 YAML {i + 1}:")
+            print(env1["targets_position"])
 
-        self._obstacle_names = self.env_yaml["obstacles"]
-        self._grasp_obj_names = self.env_yaml["target"]
+        self._obstacle_names = self.all_envs[0]["obstacles"]
+        self._grasp_obj_names = self.all_envs[0]["target"]
         self._num_obstacles = len(self._obstacle_names)
         self._num_grasp_objs = len(self._grasp_obj_names)
-        self.targets_position = self.env_yaml["targets_position"]
-        self.targets_se3 = self.env_yaml["targets_se3"]
-        self.num_se3 = self.env_yaml["num_se3"]
-        self.instruction = self.env_yaml["instruction"]
-        self.initial_base = self.env_yaml["initial_base"]
+        self.targets_position = self.all_envs[0]["targets_position"]
+        self.targets_se3 = self.all_envs[0]["targets_se3"]
+        self.num_se3 = self.all_envs[0]["num_se3"]
+        self.instruction = self.all_envs[0]["instruction"]
+        self.initial_base = self.all_envs[0]["initial_base"]
+        self.destination = self.all_envs[0]["destination"]
+
+        yaml_path = self._task_cfg["env"]["object_config"]
+        if yaml_path is not None:
+            full_yaml_path = os.path.join(hydra.utils.get_original_cwd(), yaml_path)
+
+            # read the YAML file
+            with open(full_yaml_path, "r") as f:
+                self.env_yaml = yaml.safe_load(f)
+
+            self._obstacle_names = self.env_yaml["obstacles"]
+            self._grasp_obj_names = self.env_yaml["target"]
+            self._num_obstacles = len(self._obstacle_names)
+            self._num_grasp_objs = len(self._grasp_obj_names)
+            self.targets_position = self.env_yaml["targets_position"]
+            self.targets_se3 = self.env_yaml["targets_se3"]
+            self.num_se3 = self.env_yaml["num_se3"]
+            self.instruction = self.env_yaml["instruction"]
+            self.initial_base = self.env_yaml["initial_base"]
+            self.destination = self.env_yaml["destination"]
         # Environment object settings: (reset() randomizes the environment)
         #  self._obstacle_names = self._task_cfg["env"]["obstacles"]
         #  # self._tabular_obstacle_mask = [False, True] # Mask to denote which objects are tabular (i.e. grasp objects can be placed on them)
@@ -170,7 +195,7 @@ class NMTask(Task):
 
         #  self.instruction = self._task_cfg["env"]["instruction"]
         self.arm = self._task_cfg["env"]["move_group"]
-        self.step_count = 0
+        self.env_count = 0
 
         #    self.targets_position = self._task_cfg["env"]["targets_position"]
         #    self.targets_se3 = self._task_cfg["env"]["targets_se3"]
@@ -200,6 +225,19 @@ class NMTask(Task):
 
         # RLTask.__init__(self, name, env)
         Task.__init__(self, name, env)
+
+    def load_all_yaml_in_folder(self, folder_path):
+        import glob
+
+        yaml_files = sorted(glob.glob(os.path.join(folder_path, "*.yaml")))
+        all_yaml_data = []
+
+        for file_path in yaml_files:
+            with open(file_path, "r") as f:
+                yaml_data = yaml.safe_load(f)
+                all_yaml_data.append(yaml_data)
+
+        return all_yaml_data
 
     def get_camera_intrinsics(self):
         # Get camera intrinsics for rendering
@@ -461,20 +499,29 @@ class NMTask(Task):
 
         goal = position
 
-        start = (100, 100)
-        end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
+        start = (map_size[0] // 2, map_size[1] // 2)
+        end = (
+            int(goal[1] / cell_size) + map_size[0] // 2,
+            int(goal[0] / cell_size + map_size[1] // 2),
+        )
 
         occupancy_2d_map = self.occupancy_2d_map
         path = []
         if self._task_cfg["env"]["check_env"] == True:
-            occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
-            path = [(100, 100), end]
+            occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
+            end = (
+                int(goal[1] / cell_size) + map_size[0] // 2,
+                int(goal[0] / cell_size + map_size[1] // 2),
+            )
+            path = [(map_size[0] // 2, map_size[1] // 2), end]
 
         elif self._task_cfg["env"]["build_global_map"]:
-            occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
-            end = (int(goal[1] / cell_size) + 100, int(goal[0] / cell_size + 100))
-            path = [(100, 100), end]
+            occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
+            end = (
+                int(goal[1] / cell_size) + map_size[0] // 2,
+                int(goal[0] / cell_size + map_size[1] // 2),
+            )
+            path = [(map_size[0] // 2, map_size[1] // 2), end]
 
         else:
             radius = 7
@@ -484,10 +531,14 @@ class NMTask(Task):
                 for j in range(-radius, radius + 1):
                     if (
                         i**2 + j**2 <= radius**2
-                        and 0 <= end[0] + i < 200
-                        and 0 <= end[1] + j < 200
+                        and 0 <= end[0] + i < map_size[0]
+                        and 0 <= end[1] + j < map_size[1]
                     ):
-                        des[i + 100, j + 100] = [255, 0, 0]  # 紅色標記
+                        des[i + map_size[0] // 2, j + map_size[1] // 2] = [
+                            255,
+                            0,
+                            0,
+                        ]  # 紅色標記
                         des[end[0] + i, end[1] + j] = [0, 255, 0]  # 綠色標記
 
             im = Image.fromarray(des.astype(np.uint8))  # 確保資料類型正確
@@ -498,14 +549,38 @@ class NMTask(Task):
                     path = astar_utils.a_star(occupancy_2d_map, start, end)
             else:
                 if algo == "astar":
-                    path = astar_utils.a_star_rough(occupancy_2d_map, start, end)
+                    R = 0.7
+                    t = 0
+                    while True:
+                        path = astar_utils.a_star_rough(
+                            occupancy_2d_map, start, end, R=R
+                        )
+                        if path is not None and len(path) > 0 or t > 10:
+                            break
+                        else:
+                            R += 0.1
+                        t += 1
                 if algo == "rrt":
-                    path = rrt_utils.rrt_star_rough(occupancy_2d_map, start, end)
-                    path = path[:-1]
+                    R = 0.7
+                    t = 0
+                    while True:
+                        t += 1
+                        path = rrt_utils.rrt_star_rough(
+                            occupancy_2d_map, start, end, R=R
+                        )
+                        if path is not None and len(path) > 0 or t > 10:
+                            break
+                        else:
+                            R += 0.1
+                        t += 1
+                    if path is not None and len(path) > 0:
+                        path = path[:-1]
                 if algo == "astar_rough":
-                    path = astar_utils.a_star_rough(occupancy_2d_map, start, end, R=1.5)
+                    R = 1.5
+                    path = astar_utils.a_star_rough(occupancy_2d_map, start, end, R=R)
                 if algo == "rrt_rough":
-                    path = rrt_utils.rrt_star_rough(occupancy_2d_map, start, end, R=1.5)
+                    R = 1.5
+                    path = rrt_utils.rrt_star_rough(occupancy_2d_map, start, end, R=R)
                     path = path[:-1]
             map = self.occupancy_2d_map.copy()
             for p in path:
@@ -518,8 +593,8 @@ class NMTask(Task):
 
         self.path = []
         for p in path:
-            x = (p[1] - 100) * cell_size
-            y = (p[0] - 100) * cell_size
+            x = (p[1] - map_size[1] // 2) * cell_size
+            y = (p[0] - map_size[0] // 2) * cell_size
             self.path.append([x, y])
 
         #        # transform the path to the robot coordinate
@@ -630,7 +705,7 @@ class NMTask(Task):
 
     def build_map(self, R, T, fx, fy, cx, cy):
         # 2d occupancy map
-        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
         # open the occupancy_2d_map file
 
         if (
@@ -638,11 +713,11 @@ class NMTask(Task):
             and self._task_cfg["env"]["build_global_map"]
         ):
             self.occupancy_2d_map = np.load("./data/occupancy_2d_map.npy")
-            self.occupancy_2d_map = self.occupancy_2d_map.reshape(200, 200)
+            self.occupancy_2d_map = self.occupancy_2d_map.reshape(
+                map_size[0], map_size[1]
+            )
         # self.occupancy_2d_map.fill(255)
         depth = self.depth_data
-        map_size = (200, 200)
-        cell_size = 0.05
         #  for i in range(-10, 20):
         #      for j in range(-20, 20):
         #          self.occupancy_2d_map[100+j,100+i] = 0
@@ -718,11 +793,11 @@ class NMTask(Task):
         R, T, fx, fy, cx, cy = self.retrieve_camera_params()
         if self._task_cfg["env"]["check_env"] == True:
             time.sleep(1)
-            self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+            self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
             return self.rgb_data, self.depth_data, self.occupancy_2d_map, self.robot_obs
 
         if self._task_cfg["env"]["build_global_map"]:
-            self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+            self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
             global_R, global_T = self.get_global_RT()
             self.build_map(global_R, global_T, fx, fy, cx, cy)
 
@@ -745,7 +820,24 @@ class NMTask(Task):
         # save the rgb image
         im = Image.fromarray(self.rgb_data)
         im.save("./data/rgb.png")
+        # save the depth np
+        np.save("./data/depth.npy", self.depth_data)
 
+        r = self.rgb_data.copy()
+        pos = self._curr_goal_tf[5, 0:3, 3]
+        point3d = np.array([[pos[0]], [pos[1]], [pos[2]]])
+        a, b = self.get_pixel(point3d, R, T, fx, fy, cx, cy)
+        b = self.rgb_data.shape[0] - b
+        a = self.rgb_data.shape[1] - a
+        cv2.circle(r, (a, b), 10, (255, 0, 255), 3)
+        # save
+        im = Image.fromarray(r)
+        cv2.imwrite("./data/robot.png", r)
+
+        #   #     a, b = self.get_pixel(affordance_point, R, T, fx, fy, cx, cy)
+        #   #     b = rgb.shape[0] - b
+        #   #     a = rgb.shape[1] - a
+        #   #     cv2.circle(rgb, (a, b), 10, (255, 0, 255), 3)
         # for box in self.bounding_box:
         #    if box['semanticLabel'] == 'target':
         #        x_min, y_min, x_max, y_max = int(box['x_min']), int(box['y_min']), int(box['x_max']), int(box['y_max'])
@@ -754,7 +846,7 @@ class NMTask(Task):
         #        im = Image.fromarray(rgb)
         #        im.save("./data/original.png")
 
-        self.occupancy_2d_map = np.zeros((200, 200), dtype=np.uint8)
+        self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
         # open the occupancy_2d_map png
         #   if os.path.exists("./data/occupancy_2d_map.npy"):
         #       self.occupancy_2d_map = np.load("./data/occupancy_2d_map.npy")
@@ -763,7 +855,7 @@ class NMTask(Task):
         if os.path.exists("./data/or2m.png"):
             self.occupancy_2d_map = cv2.imread("./data/or2m.png", 0)
             self.occupancy_2d_map = np.array(self.occupancy_2d_map, dtype=np.uint8)
-            self.occupancy_2d_map = cv2.resize(self.occupancy_2d_map, (200, 200))
+            self.occupancy_2d_map = cv2.resize(self.occupancy_2d_map, map_size)
         # left rotate
         # np left to right
         self.occupancy_2d_map = np.flip(self.occupancy_2d_map, 1)
@@ -774,26 +866,37 @@ class NMTask(Task):
 
         import scipy.ndimage
 
-        # === 🟢 定義地圖大小與網格間距 ===
-        grid_size = 200  # 地圖大小 200x200
-        cell_size = 0.05  # 每格代表 5cm (0.05m)
-
         # === 🟢 計算機器人位置對應的索引 (在 global_map 中的 pixel) ===
-        robot_pixel_x = int((robot_x / cell_size) + grid_size // 2)
-        robot_pixel_y = int((robot_y / cell_size) + grid_size // 2)
+        #  robot_pixel_x = int((robot_x / cell_size) + map_size[0] // 2)
+        #  robot_pixel_y = int((robot_y / cell_size) + map_size[1] // 2)
 
-        # === 🔴 旋轉地圖到機器人座標 ===
-        # scipy.ndimage 直接旋轉影像，不用手動計算旋轉矩陣
+        #  # === 🔴 旋轉地圖到機器人座標 ===
+        #  # scipy.ndimage 直接旋轉影像，不用手動計算旋轉矩陣
 
-        robot_map = global_map.copy()
-        # === 🔵 平移地圖，讓機器人居中 ===
-        dx = grid_size // 2 - robot_pixel_x
-        dy = grid_size // 2 - robot_pixel_y
-        robot_map = np.roll(robot_map, shift=(dy, dx), axis=(0, 1))
+        #  robot_map = global_map.copy()
+        #  # === 🔵 平移地圖，讓機器人居中 ===
+        #  dx = map_size[0] // 2 - robot_pixel_x
+        #  dy = map_size[1] // 2 - robot_pixel_y
+        #  robot_map = np.roll(robot_map, shift=(dy, dx), axis=(0, 1))
 
-        robot_map = scipy.ndimage.rotate(
-            robot_map, np.rad2deg(theta), reshape=False, order=1
-        )
+        #  robot_map = scipy.ndimage.rotate(
+        #      robot_map, np.rad2deg(theta), reshape=False, order=1
+        #  )
+        from scipy.ndimage import shift
+
+        px = (robot_x / cell_size) + map_size[0] // 2
+        py = (robot_y / cell_size) + map_size[1] // 2
+        dx = map_size[0] // 2 - px
+        dy = map_size[1] // 2 - py
+        robot_map = shift(
+            global_map, shift=(dy, dx), order=1, mode="nearest"
+        )  # 支援 subpixel 移動
+
+        # === 精準旋轉 ===
+        h, w = robot_map.shape
+        center = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(center, float(np.rad2deg(theta)), 1.0)
+        robot_map = cv2.warpAffine(robot_map, M, (w, h), flags=cv2.INTER_NEAREST)
         self.occupancy_2d_map = robot_map
 
         map = self.occupancy_2d_map.copy()
@@ -807,7 +910,7 @@ class NMTask(Task):
                 # ✅ 只檢查圓形內的點 (i, j)
                 if i**2 + j**2 > radius**2:
                     continue  # 忽略圓外的格子
-                map[100 + j, 100 + i] = 255
+                map[99 + j, 99 + i] = 255
 
         im = Image.fromarray(map)
         # flip up and down
@@ -924,8 +1027,10 @@ class NMTask(Task):
         # self.tiago_handler.set_gripper_positions(
         #     torch.tensor([-0.5, -0.5], device=self._device)
         # )
-        if actions == "open_gripper":
+        if actions == "detach_object":
             self.detach_object(self._grasp_objs[0])
+            return
+        if actions == "open_gripper":
             self.tiago_handler.open_gripper()
             self.gripper_closed = 0
             return
@@ -1058,6 +1163,43 @@ class NMTask(Task):
             self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
         #            print(f"Goal position: {self._curr_goal_tf}")
 
+        if actions == "turn_to_se3":
+            # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
+            x_scaled = torch.tensor([0], device=self._device)
+            y_scaled = torch.tensor([0], device=self._device)
+            total = 0
+            t = 0
+            for i in self.num_se3:
+                if t == self.se3_idx:
+                    break
+                total += i
+                t += 1
+
+            curr_goal_pos = self._curr_goal_tf[total, 0:3, 3]
+            theta_scaled = torch.tensor(
+                [torch.atan2(curr_goal_pos[1], curr_goal_pos[0])], device=self._device
+            )
+
+            base_tf, action_tf = self.set_new_base(x_scaled, y_scaled, theta_scaled)
+            new_base_tf = torch.matmul(base_tf, action_tf)
+            new_base_xy = new_base_tf[0:2, 3].unsqueeze(dim=0)
+            new_base_theta = (
+                torch.arctan2(new_base_tf[1, 0], new_base_tf[0, 0])
+                .unsqueeze(dim=0)
+                .unsqueeze(dim=0)
+            )
+            self.x_delta = new_base_xy[0, 0].cpu().numpy()
+            self.y_delta = new_base_xy[0, 1].cpu().numpy()
+            self.theta_delta = new_base_theta[0, 0].cpu().numpy()
+            self.tiago_handler.set_base_positions(
+                torch.hstack((new_base_xy, new_base_theta))
+            )
+
+            # Transform goal to robot frame
+            inv_base_tf = torch.linalg.inv(new_base_tf)
+            self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
+            return
+
         if actions == "turn_to_goal":
             # if torch.linalg.norm(self._curr_goal_tf[0:2,3]) < 0.01 :
             x_scaled = torch.tensor([0], device=self._device)
@@ -1118,18 +1260,27 @@ class NMTask(Task):
                 success_list, base_positions_list = self._ik_solver.solve_ik_pos_tiago(
                     des_pos=curr_goal_pos.cpu().numpy(),
                     des_quat=curr_goal_quat,
-                    # pos_threshold=self._goal_pos_threshold, angle_threshold=self._goal_ang_threshold, verbose=False, Rmin=[-0.0, -0.0, 0.965,-0.259],Rmax=[0.0, 0.0, 1, 0.259])
                     pos_threshold=self._goal_pos_threshold,
                     angle_threshold=self._goal_ang_threshold,
                     verbose=False,
-                    Rmin=[-0.0, -0.0, 0.866, -0.5],
-                    Rmax=[0.0, 0.0, 1, 0.5],
+                    Rmin=[-0.0, -0.0, 0.965, -0.259],
+                    Rmax=[0.0, 0.0, 1, 0.259],
                 )
+                #      pos_threshold=self._goal_pos_threshold,
+                #      angle_threshold=self._goal_ang_threshold,
+                #      verbose=False,
+                #      Rmin=[-0.0, -0.0, 0.866, -0.5],
+                #      Rmax=[0.0, 0.0, 1, 0.5],
+                #  )
                 success = False
                 for i in range(len(success_list)):
                     if success_list[i]:
-                        x = int((base_positions_list[i][0]) / 0.05 + 100)
-                        y = int((base_positions_list[i][1]) / 0.05 + 100)
+                        x = int(
+                            (base_positions_list[i][0]) / cell_size + map_size[0] // 2
+                        )
+                        y = int(
+                            (base_positions_list[i][1]) / cell_size + map_size[1] // 2
+                        )
                         success = success_list[i]
                         base_positions = base_positions_list[i]
 
@@ -1304,7 +1455,7 @@ class NMTask(Task):
                 torch.tensor(curr_pose[0][:3]) - torch.tensor(target_pose[0][:3])
             )
             print(f"distance: {dis}")
-            if dis <= 0.24:
+            if dis <= 0.3:
                 print("place success")
                 self.success_num += 1
             else:
@@ -1328,6 +1479,24 @@ class NMTask(Task):
         local_transform = UsdGeom.XformCache().GetLocalToWorldTransform(prim)
 
         return local_transform
+
+    def get_destination(self):
+        # Get the destination position
+        if self.destination is not None:
+            return self.destination
+        else:
+            print("No destination set.")
+            return None
+
+    def set_new_target_pose(self):
+        self.env_count += 1
+        try:
+            self.targets_position = self.all_envs[self.env_count]["targets_position"]
+            self.targets_se3 = self.all_envs[self.env_count]["targets_se3"]
+            self.destination = self.all_envs[self.env_count]["destination"]
+            self.initial_base = self.all_envs[self.env_count]["initial_base"]
+        except IndexError:
+            print("No more environments to load.")
 
     def reset_idx(self, env_ids):
         # apply resets
@@ -1382,7 +1551,7 @@ class NMTask(Task):
                     )
 
         # bookkeeping
-        self.step_count = 0
+        # self.env_count = 0
         self._is_success[env_ids] = 0
         self._collided[env_ids] = 0
         self.reset_buf[env_ids] = 0

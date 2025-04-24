@@ -47,7 +47,8 @@ def parse_instruction(instruction):
                     {
                         "type": "text",
                         "text": f"""
-                        You are a robot using your left hand and not holding anything. The instruction '{instruction}'  is what you need to follow. Please parse the instruction into two parts: 
+                        You are a robot using your left hand and not holding anything. The instruction '{instruction}'  is what you need to follow. 
+                        Please parse the instruction into two parts: 
                         the navigation destination and the manipulation action.
                         For example, for the instruction "Throw the garbage on the cabinet into the trash bin," the parsed parts would be:
                         ["the garbage on the cabinet", "pick up the garbage", "trash bin", "throw the garbage"].
@@ -66,8 +67,8 @@ def parse_instruction(instruction):
     return json_response
 
 
-a = parse_instruction("put the red mug on the shelf")
-print(a)
+# a = parse_instruction("put the red mug on the shelf")
+# print(a)
 ## determine_base(path, part_to_grab_str, count_list)
 # result = determine_base(
 #    "./data/rgb.png",

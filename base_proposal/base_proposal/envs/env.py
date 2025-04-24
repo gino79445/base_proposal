@@ -164,6 +164,12 @@ class IsaacEnv:
     def get_success_num(self):
         return self._task.get_success_num()
 
+    def set_new_target_pose(self):
+        return self._task.set_new_target_pose()
+
+    def get_destination(self):
+        return self._task.get_destination()
+
     def step(self, action):
         """Basic implementation for stepping simulation.
             Can be overriden by inherited Env classes
@@ -188,9 +194,15 @@ class IsaacEnv:
             self.render()
 
         if action[0] == "turn_to_goal":
+            print("Turning to goal")
             self._task.set_goal(action[1])
             self.render()
             self._task.pre_physics_step("turn_to_goal")
+            self.render()
+
+        if action[0] == "turn_to_se3":
+            print("Turning to SE3")
+            self._task.pre_physics_step("turn_to_se3")
             self.render()
 
         if "navigate" in action[0]:
@@ -290,8 +302,11 @@ class IsaacEnv:
         if action[0] == "open_gripper":
             self._task.pre_physics_step("detach_object")
             self.render()
-            self._task.pre_physics_step("open_gripper")
+            self.open_gripper()
             self.render()
+            for i in range(50):
+                self._task.pre_physics_step("wait")
+                self.render()
 
         if action[0] == "attach_object":
             self._task.pre_physics_step("attach_object")
@@ -442,5 +457,15 @@ class IsaacEnv:
             if v >= 1:
                 break
             v += 0.005
+            self._task.pre_physics_step(actions)
+            self.render()
+
+    def open_gripper(self):
+        actions = "open_gripper"
+        v = 0
+        while self._simulation_app.is_running():
+            if v >= 1:
+                break
+            v += 0.01
             self._task.pre_physics_step(actions)
             self.render()
