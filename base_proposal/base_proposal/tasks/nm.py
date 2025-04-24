@@ -1494,6 +1494,7 @@ class NMTask(Task):
             self.targets_position = self.all_envs[self.env_count]["targets_position"]
             self.targets_se3 = self.all_envs[self.env_count]["targets_se3"]
             self.destination = self.all_envs[self.env_count]["destination"]
+            self.initial_base = self.all_envs[self.env_count]["initial_base"]
         except IndexError:
             print("No more environments to load.")
 
@@ -1666,28 +1667,6 @@ class NMTask(Task):
 
         # reset if success OR collided OR if reached max episode length
         resets = self._is_success.clone()
-        resets = torch.where(self._collided.bool(), 1, resets)
-        resets = torch.where(self._is_failure.bool(), 1, resets)
-        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
-        self.reset_buf[:] = resets
-        resets = torch.where(self._collided.bool(), 1, resets)
-        resets = torch.where(self._is_failure.bool(), 1, resets)
-        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
-        self.reset_buf[:] = resets
-        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
-        self.reset_buf[:] = resets
-        resets = torch.where(self._collided.bool(), 1, resets)
-        resets = torch.where(self._is_failure.bool(), 1, resets)
-        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
-        self.reset_buf[:] = resets
-        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
-        self.reset_buf[:] = resets
-        resets = torch.where(self._collided.bool(), 1, resets)
-        resets = torch.where(self._is_failure.bool(), 1, resets)
-        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
-        self.reset_buf[:] = resets
-        resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)
-        self.reset_buf[:] = resets
         resets = torch.where(self._collided.bool(), 1, resets)
         resets = torch.where(self._is_failure.bool(), 1, resets)
         resets = torch.where(self.progress_buf >= self._max_episode_length, 1, resets)

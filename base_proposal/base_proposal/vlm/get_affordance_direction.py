@@ -51,7 +51,8 @@ def get_affordance_direction(image_path, INSTRUCTION, IDs):
                         "text": f"""
                                 You are a professional mobile robot agent.
                                 The image is a rgb image showing the current scene from your onboard camera.
-                                Numbered lines radiating outward from the target object, with each line pointing in a different direction on the floor relative to the target. 
+                                Numbered lines radiating outward from the target object,
+                                with each line pointing in a different direction on the floor relative to the target. 
                                 The directions are labeled with the numbers: {IDs}.
 
                                 Given the instruction: {INSTRUCTION},

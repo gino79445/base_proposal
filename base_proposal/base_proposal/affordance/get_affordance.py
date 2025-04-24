@@ -184,6 +184,18 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
                     overlay, (ox, oy), (tx, ty), color_map[angle], 20, tipLength=0.02
                 )
                 if angle not in annotated_angles:
+                    tx_ = ox + (tx - ox) * 9
+                    ty_ = oy + (ty - oy) * 9
+                    ox_ = ox + (tx - ox) * 8
+                    oy_ = oy + (ty - oy) * 8
+                    cv2.arrowedLine(
+                        annotated_image,
+                        (ox_, oy_),
+                        (tx_, ty_),
+                        (0, 0, 0),
+                        7,
+                        tipLength=5,
+                    )
                     cv2.circle(annotated_image, (tx, ty), 17, (0, 0, 0), -1)  # 畫圓圈
                     cv2.circle(
                         annotated_image, (tx, ty), 17, color_map[angle], 2
@@ -251,6 +263,7 @@ def get_affordance_direction_id(
             t = 0
             while True:
                 try:
+
                     ID = determine_affordance(
                         "./data/annotated_rgb1.png", instruction, labels
                     )
