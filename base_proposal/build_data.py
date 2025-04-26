@@ -21,9 +21,12 @@ def se3_to_matrix_ee(pos, euler_rz_ry_rx):
     return T
 
 
-def matrix_to_se3_ee(T):
+def matrix_to_se3_ee(T, ry=0, rz=0):
     pos = np.round(T[:3, 3], 4).tolist()
     rot = np.round(R.from_matrix(T[:3, :3]).as_euler("zyx"), 4).tolist()
+    rot_x = rot[0]
+    pos = np.round(T[:3, 3], 4).tolist()
+    rot = [rot_x, ry, rz]
     return [pos, rot]
 
 
@@ -181,6 +184,12 @@ def generate_yaml(
         {"name": "cabinet", "x": (-0.35, -0.6), "y": (-4.5, -4.3), "z": 1.01},
     ]
 
+    if category == "pickplace_pot_mug":
+        zones = [
+            {"name": "long_table", "x": (0.0, -0.2), "y": (-2.0, -1.7), "z": 0.57},
+            {"name": "tv_table", "x": (1.8, 1.83), "y": (-2.5, -2.3), "z": 0.99},
+            {"name": "cabinet", "x": (-0.35, -0.5), "y": (-4.4, -4.3), "z": 1.01},
+        ]
     for i in range(count):
         with open(yaml_path, "r") as f:
             data = yaml.safe_load(f)
@@ -202,8 +211,8 @@ def generate_yaml(
             ]
         else:
             base_pos = [0, 0, 0]
-            base_rot = [0, 0, 0]
-        T_base = se3_to_matrix_object(base_pos, base_rot)
+        #    base_rot = [0, 0, 0]
+        # T_base = se3_to_matrix_object(base_pos, base_rot)
 
         # 將 base 寫入 YAML
         data["initial_base"] = [base_pos[0:2]]
@@ -237,6 +246,8 @@ def generate_yaml(
 
             relative_transforms = []
             for ee_se3 in ee_se3_list:
+                ee_se3[1][2] = 0
+
                 T_ee = se3_to_matrix_ee(*ee_se3)
                 T_rel = np.linalg.inv(T_obj) @ T_ee
                 relative_transforms.append(T_rel)
@@ -256,23 +267,33 @@ def generate_yaml(
                 elif zone["name"] == "cabinet":
                     rz = round(random.uniform(np.pi / 2, 3 * np.pi / 4), 4)
 
+            if category == "pickplace_pot_mug":
+                if zone["name"] == "long_table":
+                    rz = round(random.uniform(5 * np.pi / 8, np.pi), 4)
+                elif zone["name"] == "tv_table":
+                    rz = round(random.uniform(0, 3 * np.pi / 4), 4)
+                elif zone["name"] == "cabinet":
+                    rz = round(random.uniform(np.pi, 3.5 * np.pi / 2), 4)
+
             new_pos = [x, y, z]
             new_rot = [0, 0, rz]
             T_new_obj = se3_to_matrix_object(new_pos, new_rot)
 
-            # 將 base 變換套用到新的物件位置
-            T_new_obj_in_base = T_base @ T_new_obj
-            base_pos, base_rot = matrix_to_se3_ee(T_new_obj_in_base)
-            new_positions[obj_name] = base_pos
-            new_rotations[obj_name] = base_rot[0]  # 只取 rz 作為旋轉
-
             new_ee_se3_list = []
             for T_rel in relative_transforms:
-                T_new_ee = T_new_obj_in_base @ T_rel
+                T_new_ee = T_new_obj @ T_rel
                 new_ee_se3_list.append(matrix_to_se3_ee(T_new_ee))
+            if category == "pickplace_pot_mug":
+                new_ee_se3_list = []
+                for T_rel in relative_transforms:
+                    T_new_ee = T_new_obj @ T_rel
+                    new_ee_se3_list.append(matrix_to_se3_ee(T_new_ee, 0, 1.57))
 
-            data["targets_position"][obj_idx] = [base_pos, base_rot]
+            data["targets_position"][obj_idx] = [new_pos, new_rot]
+
             data["targets_se3"][obj_idx] = new_ee_se3_list
+            new_positions[obj_name] = new_pos
+            new_rotations[obj_name] = rz
 
         # 更新 destination
         updated_dest = []
@@ -307,16 +328,15 @@ def generate_yaml(
     print(f"✅ 已產出 {count} 筆資料到：{output_dir}")
 
 
-# generate_yaml(
-#    object_names=["black_mug"],
-#    yaml_path="base_proposal/cfg/env/pickplace_mug_shelf.yaml",
-#    output_dir="base_proposal/cfg/env/pickplace_mug_shelf",
-#    count=20,
-#    random_seed=1,  # ✅ 固定這個值就能重現結果
-#    category="pickplace_mug_shelf",
-#    random_base=False,  # ✅ 隨機 base 位置
-#
-# )
+generate_yaml(
+    object_names=["black_mug"],
+    yaml_path="base_proposal/cfg/env/pickplace_mug_shelf.yaml",
+    output_dir="base_proposal/cfg/env/pickplace_mug_shel2f",
+    count=20,
+    random_seed=1,  # ✅ 固定這個值就能重現結果
+    category="pickplace_mug_shelf",
+    random_base=False,  # ✅ 隨機 base 位置
+)
 
 # generate_yaml(
 #    object_names=[""],
@@ -326,4 +346,13 @@ def generate_yaml(
 #    random_seed=1,  # ✅ 固定這個值就能重現結果
 #    category="pull_cabinet",
 #    random_base=True,  # ✅ 隨機 base 位置
+# )
+# generate_yaml(
+#    object_names=["pot"],
+#    yaml_path="base_proposal/cfg/env/pickplace_pot_mug.yaml",
+#    output_dir="base_proposal/cfg/env/pickplace_pot_mug",
+#    count=20,
+#    random_seed=1,  # ✅ 固定這個值就能重現結果
+#    category="pickplace_pot_mug",
+#    random_base=False,  # ✅ 隨機 base 位置
 # )

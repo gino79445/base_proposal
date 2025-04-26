@@ -199,11 +199,17 @@ class IsaacEnv:
             self.render()
             self._task.pre_physics_step("turn_to_goal")
             self.render()
+            for i in range(50):
+                self._task.pre_physics_step("wait")
+                self.render()
 
         if action[0] == "turn_to_se3":
             print("Turning to SE3")
             self._task.pre_physics_step("turn_to_se3")
             self.render()
+            for i in range(100):
+                self._task.pre_physics_step("wait")
+                self.render()
 
         if "navigate" in action[0]:
             print("Navigating")

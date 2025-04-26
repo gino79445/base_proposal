@@ -195,7 +195,10 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
 
         # draw the arrow
         vector = np.array([direction_2d[0] - mask_x, direction_2d[1] - mask_y])
-        vector = vector / np.linalg.norm(vector)  # 控制箭頭長度
+        norm = np.linalg.norm(vector)
+        if norm == 0:
+            norm = 1
+        vector = vector / norm  # normalize the vector
         arrow_length = 200
         cv2.arrowedLine(
             annotated_image,

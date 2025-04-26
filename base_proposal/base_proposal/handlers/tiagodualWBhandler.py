@@ -277,7 +277,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         self.robots.set_joint_efforts(  # set joint efforts to close gripper
             # efforts=torch.tensor([-1.0, -1.0], device=self._device),
             # efforts=torch.tensor([-15.0, -15.0], device=self._device),
-            efforts=torch.tensor([-35.0, -35.0], device=self._device),
+            efforts=torch.tensor([-100.0, -100.0], device=self._device),
             joint_indices=self.gripper_left_dof_idxs,
         )
 

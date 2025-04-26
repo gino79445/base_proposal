@@ -1016,11 +1016,10 @@ class NMTask(Task):
 
         if self.check_robot_collisions():
             print("Collision detected")
-            self._collided[0] = 0
+            self._collided[0] = 1
         if self._collided[0] == 1:
-            pass
-            # self._is_failure[0] = 1
-            # return
+            self._is_failure[0] = 1
+            return
 
         if self.gripper_closed == 1:
             pass
@@ -1441,7 +1440,7 @@ class NMTask(Task):
             )
 
             print(f"distance: {dis}")
-            if dis >= 0.08:
+            if dis >= 0.08 and self.ik_success:
                 print("lift success")
             else:
                 print("lift fail")

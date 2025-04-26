@@ -263,7 +263,6 @@ def get_affordance_direction_id(
             t = 0
             while True:
                 try:
-
                     ID = determine_affordance(
                         "./data/annotated_rgb1.png", instruction, labels
                     )
@@ -907,6 +906,7 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     cluster_points, cluster_labels, number_list = get_features(
         R, T, fx, fy, cx, cy, depth, 20, map
     )
+
     times = 0
     while True:
         try:
