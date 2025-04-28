@@ -63,7 +63,8 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                     - yellow part of the map: Roughly indicates the target object area  that appears in the RGB image.
                                     - Several numbered white circles with a blue outline labeled IDs(0~14): candidate base positions (obstacle-free) for you to move to.
                                     - The black point outlined in orange "A": This floor point is likely the affordance direction for the task.
-                                    - the orange arrow on the balck point "A": The direction of the affordance point "A" in the top-down map.
+                                    - The orange arrow on the balck point "A": The direction of the affordance point "A" in the top-down map.
+                                    - The green circle: within a 1 meter radius from the center of the target object.
                                 
                                 Important:
                                     You must use both the onboard RGB image and the top-down map together.
@@ -72,7 +73,8 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                     guiding the optimal way to interact with it. 
                                     Prioritize the point 'A' if visible, as it is likely favorable—the target’s key affordance is generally in that direction. 
                                     The orange arrow on the point 'A' is likely to indicate the rough direction of the target object, 
-                                    so the candidate base position is likely to be within the sector centered on that direction, spanning 90 degrees."
+                                    so the candidate base position is likely to be within the sector centered on that direction, spanning 90 degrees.
+                                    The length of your arm is 0.9m, please consider the distance between the candidate base position and the target object.
                                     If point 'A' is not visible, it might be because the RGB camera does not capture the floor area,
                                     or the key part of the target is occluded.You need to determine this condition autonomously.
 

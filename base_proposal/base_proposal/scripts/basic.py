@@ -75,7 +75,7 @@ def parse_hydra_configs(cfg: DictConfig):
 
     env.step(["start"])
     # env.step(["set_initial_base", [0.7, -1]])
-    env.step(["rotate", [np.pi * 100]])
+    # env.step(["rotate", [np.pi * 100]])
     # env.step(["set_initial_base", [0.7, -1]])
     # env.step(["rotate", [np.pi / 2]])
     # env.step(["rotate", [np.pi / 2]])
@@ -102,17 +102,17 @@ def parse_hydra_configs(cfg: DictConfig):
         # global_position = [[-0.58, -4.4]]
         instruction = env.get_instruction()
 
-        # policy = spaceAware_Policy(instruction)
+        policy = spaceAware_Policy(instruction)
         # policy = pivot_Policy(instruction)
         # policy = rough_nav_Policy(instruction)
-        policy = rekep_Policy(instruction)
+        # policy = rekep_Policy(instruction)
         try:
             destinations = env.get_destination()
             global_position = [destination[0] for destination in destinations]
             # pick_and_place(
             #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
             # )
-            pick_and_place(env, policy, global_position, local_nav="None", algo="rrt")
+            # pick_and_place(env, policy, global_position, local_nav="None", algo="astar")
             # pick_and_place(
             #     env,
             #     policy,
@@ -121,36 +121,36 @@ def parse_hydra_configs(cfg: DictConfig):
             #     algo="astar_rough",
             # )
 
-        # pick_and_place(
-        #     env,
-        #     policy,
-        #     global_position,
-        #     local_nav="rekep",
-        #     algo="astar_rough",
-        # )
-        # pick_and_place(
-        #     env,
-        #     policy,
-        #     global_position,
-        #     local_nav="spaceAware_pivot",
-        #     algo="astar_rough",
-        # )
-        # pull(env, policy, global_position, local_nav="None", algo="astar")
-        #     pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
-        # pull(
-        #     env,
-        #     policy,
-        #     global_position,
-        #     local_nav="spaceAware_pivot",
-        #     algo="astar_rough",
-        # )
-        # pull(
-        #     env,
-        #     policy,
-        #     global_position,
-        #     local_nav="rekep",
-        #     algo="astar_rough",
-        # )
+            # pick_and_place(
+            #     env,
+            #     policy,
+            #     global_position,
+            #     local_nav="rekep",
+            #     algo="astar_rough",
+            # )
+            # pick_and_place(
+            #     env,
+            #     policy,
+            #     global_position,
+            #     local_nav="spaceAware_pivot",
+            #     algo="astar_rough",
+            # )
+            # pull(env, policy, global_position, local_nav="None", algo="astar")
+            #     pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
+            pull(
+                env,
+                policy,
+                global_position,
+                local_nav="spaceAware_pivot",
+                algo="astar_rough",
+            )
+        #     pull(
+        #         env,
+        #         policy,
+        #         global_position,
+        #         local_nav="rekep",
+        #         algo="astar_rough",
+        #     )
         except Exception as e:
             print(e)
             print("Error")
@@ -226,6 +226,8 @@ def pull(env, policy, global_position, local_nav="none", algo="astar"):
         env.step(["close_gripper"])
         env.step(["backward"])
         env.step(["check_pull_success"])
+        env.step(["open_gripper"])
+        env.step(["reset_arm"])
     env.reset()
 
 

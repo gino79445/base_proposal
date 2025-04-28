@@ -198,7 +198,7 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
         norm = np.linalg.norm(vector)
         if norm == 0:
             norm = 1
-        vector = vector / norm  # normalize the vector
+        vector = vector / np.linalg.norm(vector)  # 控制箭頭長度
         arrow_length = 200
         cv2.arrowedLine(
             annotated_image,
@@ -215,6 +215,17 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
         axes = (arrow_length, arrow_length)  # 扇形半徑
         angle = np.degrees(np.arctan2(vector[1], vector[0]))  # 箭頭方向的角度
         start_angle = angle - 45  # 左右各45度
+
+        cv2.ellipse(
+            overlay,
+            center,
+            axes,
+            0,  # ellipse rotation
+            0,
+            360,
+            (0, 240, 0),  # orange color
+            -1,  # -1 表示填滿扇形
+        )
         end_angle = angle + 45
 
         cv2.ellipse(

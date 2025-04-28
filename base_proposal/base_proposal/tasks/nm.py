@@ -1014,7 +1014,7 @@ class NMTask(Task):
             self._curr_goal_tf = torch.matmul(inv_base_tf, self._goal_tf)
             return
 
-        if self.check_robot_collisions():
+        if self.check_robot_collisions() and actions != "move_ee":
             print("Collision detected")
             self._collided[0] = 1
         if self._collided[0] == 1:
