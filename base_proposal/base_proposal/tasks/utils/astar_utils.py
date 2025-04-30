@@ -68,6 +68,26 @@ def is_valid(x, y, map, radius=8):
     return True
 
 
+def is_valid2(x, y, map, radius=8.5):
+    r_int = math.ceil(radius)
+    for i in range(-r_int, r_int + 1):
+        for j in range(-r_int, r_int + 1):
+            # ✅ 只檢查圓形內的點 (i, j)
+            if i**2 + j**2 > radius**2:
+                continue  # 忽略圓外的格子
+
+            # ✅ 檢查是否超出邊界或為障礙物
+            if (
+                x + i < 0
+                or y + j < 0
+                or x + i >= len(map)
+                or y + j >= len(map[0])
+                or map[x + i][y + j] != 0
+            ):
+                return False
+    return True
+
+
 def a_star(map, start, end):
     open_list = []
     closed_list = set()

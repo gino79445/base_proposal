@@ -5,7 +5,6 @@ from base_proposal.vlm.parse_instruction import parse_instruction
 import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
-from base_proposal.annotation.spaceAware_pivot import get_base
 from base_proposal.annotation.course_move import get_rough_base
 from base_proposal.affordance.get_affordance import get_affordance_point
 from base_proposal.affordance.get_affordance import get_rough_affann

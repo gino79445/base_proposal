@@ -7,7 +7,7 @@ target:
 - cracker_box
 - black_mug
 initial_base:
-- - 1.673
+- - 1.63
   - 2.9209
 targets_position:
 - - - -0.069

@@ -9,9 +9,7 @@ from sklearn.preprocessing import normalize
 from base_proposal.affordance.groundedSAM import detect_and_segment
 
 from base_proposal.vlm.get_affordance import determine_affordance
-from base_proposal.vlm.get_affordance_direction import get_affordance_direction
 import time
-from base_proposal.tasks.utils import astar_utils
 
 
 cell_size = 0.05  # meters
@@ -30,8 +28,6 @@ class KeypointProposer:
         )
 
     def _get_features(self, transformed_rgb, shape_info):
-        img_h = shape_info["img_h"]
-        img_w = shape_info["img_w"]
         patch_h = shape_info["patch_h"]
         patch_w = shape_info["patch_w"]
         img_tensors = (
@@ -324,13 +320,13 @@ def get_annotated_rgb2(rgb, pixel):
 
 
 def annotate_rgb(
-    rgb, goal, actions, instruction, R, T, fx, fy, cx, cy, obstacle_map, pixel
+    rgb, goal, actions, instruction, R, T, fx, fy, cx, cy, obstacle_map, pixel=None
 ):
     annotated_image = rgb.copy()
     overlay = rgb.copy()
     get_annotated_rgb2(rgb, pixel)
 
-    #  # === 畫點位與 index ===
+    # === 畫點位與 index ===
     #  actions_3d = []
     #  for action in actions:
     #      map_x = action[0]
@@ -360,6 +356,9 @@ def annotate_rgb(
     #          (0, 100, 150),
     #          2,
     #      )
+    # save
+    # cv2.imwrite("./data/annotated_image.png", annotated_image)
+
     # === 處理 goal 格式 ===
     if isinstance(goal, tuple) or isinstance(goal, list):
         goal = np.array([[goal[0][0]], [goal[1][0]], [goal[2][0]]])
@@ -578,123 +577,6 @@ def annotate_rgb(
     # cv2.imwrite("./data/annotated_image.png", annotated_image)
 
 
-# def get_annotated_image(rgb, goal, actions, R, T, fx, fy, cx, cy):
-#    annotated_image = rgb.copy()
-#    overlay = rgb.copy()
-#
-#    actions_3d = []
-#    for action in actions:
-#        map_x = action[0]
-#        map_y = action[1]
-#        x = (map_x - 100) * 0.05
-#        y = (map_y - 100) * 0.05
-#        actions_3d.append((x, y, 0))
-#
-#    for i, action in enumerate(actions_3d):
-#        if isinstance(action, tuple) or isinstance(action, list):
-#            action = np.array([[action[0]], [action[1]], [0.0]])
-#        # Convert action to 3D point
-#        pixel_x, pixel_y = get_pixel(action, R, T, fx, fy, cx, cy)
-#        pixel_x = rgb.shape[1] - pixel_x
-#        pixel_y = rgb.shape[0] - pixel_y
-#
-#        cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (255, 255, 255), -1)
-#        cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (225, 0, 0), 2)
-#        text_width, text_height = cv2.getTextSize(
-#            f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
-#        )[0]
-#        cv2.putText(
-#            annotated_image,
-#            f"{i}",
-#            (pixel_x - text_width // 2, pixel_y + text_height // 2),
-#            cv2.FONT_HERSHEY_SIMPLEX,
-#            0.6,
-#            (0, 100, 150),
-#            2,
-#        )
-#
-#    # Convert goal = (array([x]), array([y])) → [[x], [y]]
-#    if isinstance(goal, tuple) or isinstance(goal, list):
-#        goal = np.array([[goal[0][0]], [goal[1][0]]])
-#    goal = np.vstack((goal, np.array([[0.0]])))  # shape: (3, 1)
-#
-#    origin_heights = [0.0]
-#    scale = 1  # control length of arrow
-#    angle_list = [0]  # degrees: center, left, right
-#    color_map = {
-#        0: (255, 0, 255),  # magenta (center)
-#        -30: (0, 255, 0),  # green (left)
-#        30: (0, 165, 255),  # orange (right)
-#    }
-#
-#    for h in origin_heights:
-#        origin = np.array([[0], [0], [h]])
-#
-#        # base direction toward goal
-#        direction = goal - origin
-#
-#        for angle in angle_list:
-#            rotated_direction = rotate_vector_z(direction, angle)
-#            tip = origin + rotated_direction * scale
-#
-#            ox, oy = get_pixel(origin, R, T, fx, fy, cx, cy)
-#            tx, ty = get_pixel(tip, R, T, fx, fy, cx, cy)
-#
-#            # Flip image coordinate if needed
-#            H, W = rgb.shape[:2]
-#            ox = W - ox
-#            oy = H - oy
-#            tx = W - tx
-#            ty = H - ty
-#
-#            color = color_map[angle]
-#            cv2.arrowedLine(overlay, (ox, oy), (tx, ty), color, 20, tipLength=0.05)
-#
-#    # Overlay blending
-#    cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
-#
-#    # Draw goal dot (optional)
-#    gx, gy = get_pixel(goal, R, T, fx, fy, cx, cy)
-#    gx = rgb.shape[1] - gx
-#    gy = rgb.shape[0] - gy
-#    # cv2.circle(annotated_image, (gx, gy), 6, (0, 255, 0), -1)
-#
-#    cv2.imwrite("./data/annotated_image.png", annotated_image)
-#
-
-# def get_annotated_image(rgb, goal, R, T, fx, fy, cx, cy):
-#    annotated_image = rgb.copy()
-#    print("goal:", goal)
-#    #            point = np.array([[x], [y], [0]])
-#    goal = np.vstack((goal, np.array([[1]])))
-#    print("goal:", goal)
-#    origin = np.array([[0], [0], [0]])
-#    goal_x, goal_y = get_pixel(goal, R, T, fx, fy, cx, cy)
-#    goal_x, goal_y = rgb.shape[1] - goal_x, rgb.shape[0] - goal_y
-#    origin_x, origin_y = get_pixel(origin, R, T, fx, fy, cx, cy)
-#    origin_x, origin_y = rgb.shape[1] - origin_x, rgb.shape[0] - origin_y
-#    print("goal_x:", goal_x)
-#    print("goal_y:", goal_y)
-#    print("origin_x:", origin_x)
-#
-#    cv2.circle(annotated_image, (goal_x, goal_y), 5, (0, 255, 0), -1)
-#    # cv2.circle(annotated_image, (origin_x, origin_y), 5, (255, 0, 0), -1)
-#    cv2.line(
-#        annotated_image,
-#        (goal_x, goal_y),
-#        (origin_x, origin_y),
-#        (0, 0, 255),
-#        2,
-#    )
-#    # save the image
-#    cv2.imwrite("./data/annotated_image.png", annotated_image)
-#
-#
-##   #     a, b = self.get_pixel(affordance_point, R, T, fx, fy, cx, cy)
-##   #     b = rgb.shape[0] - b
-##   #     a = rgb.shape[1] - a
-
-
 def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
     config = {
         "device": "cuda" if torch.cuda.is_available() else "cpu",
@@ -759,8 +641,6 @@ def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
     color_mask = np.zeros((origin_h, origin_w, 3), dtype=np.uint8)
     color_mask[mask.astype(bool)] = colors[cluster_labels]
 
-    alpha = 0.1
-    # final_image = cv2.addWeighted(original_image, 1 - alpha, color_mask, alpha, 0)
     final_image = original_image.copy()
 
     # Update to find closest valid point within the mask for each centroid
@@ -804,14 +684,7 @@ def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
             continue
         centroid_points.append(centroid)
         number_list.append(number)
-        # cv2.circle(final_image, (centroid[1], centroid[0]), 10, (255, 255, 255), -1)
-        # cv2.circle(final_image, (centroid[1], centroid[0]), 10, (0, 0, 255), 1)
-        # text_width, text_height = cv2.getTextSize(f"{number}", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
-        # cv2.putText(final_image, f"{number}", (centroid[1] - text_width // 2, centroid[0] + text_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         y, x = centroid
-        # distance = np.linalg.norm(points - centroid, axis=1)
-        # closest_point = points[np.argmin(distance)]
-        # y, x = closest_point
         cv2.circle(final_image, (x, y), 15, (255, 255, 255), -1)
         cv2.circle(final_image, (x, y), 15, (0, 0, 255), 1)
         text_width, text_height = cv2.getTextSize(
@@ -852,18 +725,6 @@ def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
     if map is not None:
         cv2.imwrite("./data/map_clustter.png", map)
 
-    # if len(points) > 0:
-
-    #     # Find the closest point in the cluster to the computed centroid
-    #     distances = np.linalg.norm(points - centroid, axis=1)
-    #     closest_point = points[np.argmin(distances)]
-
-    #     y, x = closest_point
-    #     cv2.circle(final_image, (x, y), 3, (0, 0, 255), -1)
-    #     cv2.putText(final_image, f"{number}", (x - 25, y + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (170, 22, 219), 2)
-    #     number_list.append(number)
-    #     number += 1
-
     cv2.imwrite("./data/clustered_image.png", final_image)
     return cluster_points, cluster_labels, number_list
 
@@ -902,7 +763,7 @@ def get_rough_affann(target, instruction, R, T, fx, fy, cx, cy, map):
 def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     depth = np.load("./data/depth.npy")
     rgb = cv2.imread("./data/rgb.png")
-    detect_and_segment("./data/rgb.png", target)
+    detect_success = detect_and_segment("./data/rgb.png", target)
     cluster_points, cluster_labels, number_list = get_features(
         R, T, fx, fy, cx, cy, depth, 20, map
     )
@@ -986,8 +847,6 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
         cy,
     )
     # draw the affordance center on depth image
-    center_x = int(affordance_point[0] / cell_size) + map_size[0] // 2
-    center_y = int(affordance_point[1] / cell_size) + map_size[1] // 2
     # cvt map to rgb
     map_rgb = cv2.cvtColor(map, cv2.COLOR_GRAY2BGR)
     # scale to 1000 x 1000
@@ -999,28 +858,37 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
     mask_points = np.column_stack(np.where(mask))
 
     mask_points_list = []
-    for point in mask_points:
-        Z = depth[point[0], point[1]]
-        point_3d = get_3d_point(w - point[1], h - point[0], Z, R, T, fx, fy, cx, cy)
-        mask_points_list.append(point_3d)
+    if detect_success:
+        for point in mask_points:
+            Z = depth[point[0], point[1]]
+            point_3d = get_3d_point(w - point[1], h - point[0], Z, R, T, fx, fy, cx, cy)
+            mask_points_list.append(point_3d)
 
-        # convert to map point
-        map_x = int(point_3d[0] / cell_size) + map_size[0] // 2
-        map_y = int(point_3d[1] / cell_size) + map_size[1] // 2
+            # convert to map point
+            map_x = int(point_3d[0] / cell_size) + map_size[0] // 2
+            map_y = int(point_3d[1] / cell_size) + map_size[1] // 2
 
-        # draw the occupancy point on map
-        map_rgb[map_y, map_x] = (0, 255, 255)
+            # draw the occupancy point on map
+            map_rgb[map_y, map_x] = (0, 255, 255)
 
-    # caculate the mean of the mask points
-    mask_points_list = np.array(mask_points_list)
-    mask_points_mean = np.mean(mask_points_list, axis=0)
-    np.save("./data/mask_points_mean.npy", mask_points_mean)
+        # caculate the mean of the mask points
+        mask_points_list = np.array(mask_points_list)
+        mask_points_mean = np.mean(mask_points_list, axis=0)
+        np.save("./data/mask_points_mean.npy", mask_points_mean)
+    else:
+        mask_points_mean = np.zeros((3), dtype=np.float32)
+        mask_points_mean[0] = affordance_point[0]
+        mask_points_mean[1] = affordance_point[1]
+        mask_points_mean[2] = affordance_point[2]
 
     cv2.imwrite("./data/affann.png", map_rgb)
 
-    return (affordance_point[0], affordance_point[1]), (
-        affordance_center[0],
-        affordance_center[1],
+    return (
+        (affordance_point[0], affordance_point[1]),
+        (
+            affordance_center[0],
+            affordance_center[1],
+        ),
     )
 
 
@@ -1061,34 +929,10 @@ def sample_from_mask_gaussian(
 
     number_list = []
     coordinates = []
-    Continue = False
     depth = np.load("./data/depth.npy")
     for i in range(sampled_coords.shape[0]):
         y, x = sampled_coords[i]
         coordinates.append((y, x))
-        # if too close to the point in the list, then skip
-        # for j in number_list:
-        #    point = sampled_coords[j]
-        #    P = get_3d_point(W - x, H - y, depth[y, x], R, T, fx, fy, cx, cy)
-        #    Q = get_3d_point(
-        #        W - point[1],
-        #        H - point[0],
-        #        depth[point[0], point[1]],
-        #        R,
-        #        T,
-        #        fx,
-        #        fy,
-        #        cx,
-        #        cy,
-        #    )
-        #    # calculate the distance between the centroid and the point
-        #    distance = np.linalg.norm(P - Q)
-        #    if distance < 0.05:
-        #        Continue = True
-        #        break
-
-        # if Continue:
-        #    continue
         number_list.append(i)
         # daw the  point on the image like above
         cv2.circle(rgb, (x, y), 12, (255, 255, 255), -1)
@@ -1151,17 +995,3 @@ def sample_from_mask_gaussian(
     cv2.imwrite("./data/sample_map.png", map_color)
 
     return point_3d, coordinates
-
-
-# # get the mask of the count = 1
-# mask = np.zeros_like(mask)
-# points = cluster_points[cluster_labels == 0]
-# for point in points:
-#     mask[point[0], point[1]] = 255
-
-# #save the mask
-# cv2.imwrite('./data/mask.png', mask)
-
-# main = get_features
-# if __name__ == "__main__":
-#    main()

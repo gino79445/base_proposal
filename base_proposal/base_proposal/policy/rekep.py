@@ -143,4 +143,4 @@ class Policy:
         )
         print(f"Base point: {base_point}")
         self.des_idx += 1
-        return ["navigateNear_rrt", [base_point[0], base_point[1]]]
+        return ["navigateNear_astar", [base_point[0], base_point[1]]]

@@ -100,6 +100,21 @@ def detect_and_segment(
         cv2.imwrite(mask_output_path, mask.astype(np.uint8) * 255)
         print(f"✅ Mask saved to {mask_output_path}")
         break
+    success = True
+    if len(results) == 0:
+        success = False
+        print("❌ No objects detected.")
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        # small patch from the image center
+        center = (image.shape[1] // 2, image.shape[0] // 2)
+        size = 300
+        x1 = max(center[0] - size, 0)
+        y1 = max(center[1] - size, 0)
+        x2 = min(center[0] + size, image.shape[1])
+        y2 = min(center[1] + size, image.shape[0])
+        mask[y1:y2, x1:x2] = 1
+        mask_output_path = os.path.join(os.path.dirname(output_path), "mask.png")
+        cv2.imwrite(mask_output_path, mask.astype(np.uint8) * 255)
+        print(f"✅ Mask saved to {mask_output_path}")
 
-    return results
-
+    return success

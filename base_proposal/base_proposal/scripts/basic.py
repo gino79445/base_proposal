@@ -39,7 +39,7 @@ from base_proposal.envs.env import IsaacEnv
 
 # from base_proposal.policy.test
 from base_proposal.policy.pivot import Policy as pivot_Policy
-from base_proposal.policy.spaceAware_pivot import Policy as spaceAware_Policy
+from base_proposal.policy.sage import Policy as spaceAware_Policy
 from base_proposal.policy.rough_nav import Policy as rough_nav_Policy
 from base_proposal.policy.rekep import Policy as rekep_Policy
 
@@ -128,22 +128,22 @@ def parse_hydra_configs(cfg: DictConfig):
             #     local_nav="rekep",
             #     algo="astar_rough",
             # )
-            # pick_and_place(
-            #     env,
-            #     policy,
-            #     global_position,
-            #     local_nav="spaceAware_pivot",
-            #     algo="astar_rough",
-            # )
-            # pull(env, policy, global_position, local_nav="None", algo="astar")
-            #     pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
-            pull(
+            pick_and_place(
                 env,
                 policy,
                 global_position,
                 local_nav="spaceAware_pivot",
                 algo="astar_rough",
             )
+            # pull(env, policy, global_position, local_nav="None", algo="astar")
+            #     pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
+        #  pull(
+        #      env,
+        #      policy,
+        #      global_position,
+        #      local_nav="spaceAware_pivot",
+        #      algo="astar_rough",
+        #  )
         #     pull(
         #         env,
         #         policy,

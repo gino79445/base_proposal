@@ -223,7 +223,7 @@ def generate_yaml(
                         0,
                     ],
                     [
-                        round(random.uniform(1.2, 1.75), 4),
+                        round(random.uniform(1.2, 1.7), 4),
                         round(random.uniform(2.8, 3.8), 4),
                         0,
                     ],
@@ -361,15 +361,15 @@ def generate_yaml(
 #    random_base=False,  # ✅ 隨機 base 位置
 # )
 
-# generate_yaml(
-#    object_names=[""],
-#    yaml_path="base_proposal/cfg/env/pull_cabinet.yaml",
-#    output_dir="base_proposal/cfg/env/pull_cabinet",
-#    count=20,
-#    random_seed=1,  # ✅ 固定這個值就能重現結果
-#    category="pull_cabinet",
-#    random_base=True,  # ✅ 隨機 base 位置
-# )
+generate_yaml(
+    object_names=[""],
+    yaml_path="base_proposal/cfg/env/pull_cabinet.yaml",
+    output_dir="base_proposal/cfg/env/pull_cabinet",
+    count=20,
+    random_seed=1,  # ✅ 固定這個值就能重現結果
+    category="pull_cabinet",
+    random_base=True,  # ✅ 隨機 base 位置
+)
 # generate_yaml(
 #    object_names=["pot"],
 #    yaml_path="base_proposal/cfg/env/pickplace_pot_mug.yaml",
@@ -388,12 +388,12 @@ def generate_yaml(
 #    category="pickplace_can_bin",
 #    random_base=False,  # ✅ 隨機 base 位置
 # )
-generate_yaml(
-    object_names=[""],
-    yaml_path="base_proposal/cfg/env/pull_dishwasher.yaml",
-    output_dir="base_proposal/cfg/env/pull_dishwasher",
-    count=20,
-    random_seed=1,  # ✅ 固定這個值就能重現結果
-    category="pull_dishwasher",
-    random_base=True,  # ✅ 隨機 base 位置
-)
+# generate_yaml(
+#    object_names=[""],
+#    yaml_path="base_proposal/cfg/env/pull_dishwasher.yaml",
+#    output_dir="base_proposal/cfg/env/pull_dishwasher",
+#    count=20,
+#    random_seed=1,  # ✅ 固定這個值就能重現結果
+#    category="pull_dishwasher",
+#    random_base=True,  # ✅ 隨機 base 位置
+# )
