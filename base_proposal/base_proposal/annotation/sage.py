@@ -38,7 +38,7 @@ def sample_gaussian_actions_on_map(
     w, h = image_size
     i = 0
     preferred_dist = 0.7
-    dist_sigma = 0.1
+    dist_sigma = 0.06
     R = 1.2
 
     while i < num_samples:
@@ -93,7 +93,7 @@ def sample_gaussian_actions_on_map(
             if (
                 0 <= map_x < map_size[0]
                 and 0 <= map_y < map_size[1]
-                and astar_utils.is_valid2(map_y, map_x, obstacle_map)
+                and astar_utils.is_valid_des(map_y, map_x, obstacle_map)
             ):
                 if np.random.rand() < weight:
                     actions.append((map_x, map_y))
@@ -208,81 +208,174 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
         (map_size[1] - 1 - (int(destination[1] / cell_size) + map_size[1] // 2)) * 10,
         (map_size[0] - 1 - (int(destination[0] / cell_size) + map_size[0] // 2)) * 10,
     )
-    direction_2d = get_affordance_direction_pos(
-        mask_points_mean, direction_id, occupancy_2d_map
-    )
-    if direction_2d is not None:
-        direction_2d = (
-            int(map_size[1] - 1 - direction_2d[1]) * 10,
-            int(map_size[0] - 1 - direction_2d[0]) * 10,
-        )
-
-        # draw the arrow
-        vector = np.array([direction_2d[0] - mask_x, direction_2d[1] - mask_y])
-        norm = np.linalg.norm(vector)
-        if norm == 0:
-            norm = 1
+    # direction_2d = get_affordance_direction_pos(
+    #     mask_points_mean, direction_id, occupancy_2d_map
+    # )
+    if True:
+        end = (1000, 999)
+        start = (1000, 1000)
+        start = (mask_x, mask_y)
+        end = (mask_x, mask_y + 1)
+        vector = np.array([end[0] - start[0], end[1] - start[1]])
         vector = vector / np.linalg.norm(vector)  # 控制箭頭長度
-        arrow_length = 200
-        cv2.arrowedLine(
-            annotated_image,
-            (mask_x, mask_y),
-            (
-                int(mask_x + vector[0] * arrow_length),
-                int(mask_y + vector[1] * arrow_length),
-            ),
-            (0, 120, 255),
-            2,
-            tipLength=0.1,
-        )
-        center = (mask_x, mask_y)
-        axes = (arrow_length, arrow_length)  # 扇形半徑
-        angle = np.degrees(np.arctan2(vector[1], vector[0]))  # 箭頭方向的角度
-        start_angle = angle - 45  # 左右各45度
 
-        # cv2.ellipse(
-        #    overlay,
-        #    center,
-        #    axes,
-        #    0,  # ellipse rotation
-        #    0,
-        #    360,
-        #    (0, 180, 0),  # orange color
-        #    -1,  # -1 表示填滿扇形
-        # )
-        end_angle = angle + 45
+        color_map = {}
+        hue_order = [0, 6, 3, 9, 1, 7, 4, 10, 2, 8, 5, 11]
 
-        cv2.ellipse(
-            overlay,
-            center,
-            axes,
-            0,  # ellipse rotation
-            start_angle,
-            end_angle,
-            (0, 120, 255),  # orange color
-            -1,  # -1 表示填滿扇形
-        )
+        import colorsys
+
+        directions = list(range(-180, -540, -30))  # 0° 到 330°，每 30°
+        for i, angle in enumerate(directions):
+            hue = i / len(directions)  # 分布在 HSV 色環上（0~1）
+            hue = hue_order[i] / len(directions)  # 分布在 HSV 色環上（0~1）
+            r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+            color_map[angle] = (int(b * 255), int(g * 255), int(r * 255))  # BGR
+        origin_map = image.copy()
+        scale = 1000
+        step = 1
+
+        label_list = []
+        point_pos_list = []
+        angle_list = []
+
+        for i, angle in enumerate(directions):
+            rotated = rotate_vector_2d(vector, angle)
+            pt_prev = start
+
+            first_found = True
+            for s in np.arange(0.0, scale, step):
+                tip = start + rotated * s
+                # not in white area and yellow area
+                if (
+                    tip[0] < 0
+                    or tip[1] < 0
+                    or tip[0] >= origin_map.shape[1]
+                    or tip[1] >= origin_map.shape[0]
+                ):
+                    continue
+                b, g, r = origin_map[int(tip[1]), int(tip[0])]
+                if abs(b - 0) < 10 and abs(g - 0) < 10 and abs(r - 0) < 10:
+                    cv2.arrowedLine(
+                        overlay,
+                        (int(pt_prev[0]), int(pt_prev[1])),
+                        (int(tip[0]), int(tip[1])),
+                        color_map[angle],
+                        15,
+                        tipLength=0.001,
+                    )
+                    if first_found:
+                        point_pos_list.append((int(tip[0]), int(tip[1])))
+                        label_list.append(i)
+                        angle_list.append(angle)
+                    first_found = False
+
+                pt_prev = tip  # 更新前一點
+            for i, (tx_, ty_) in enumerate(point_pos_list):
+                L = chr(label_list[i] + 65)
+                angle = angle_list[i]
+                cv2.circle(annotated_image, (tx_, ty_), 17, (0, 0, 0), -1)
+                cv2.circle(overlay, (tx_, ty_), 17, (0, 0, 0), -1)
+                cv2.circle(annotated_image, (tx_, ty_), 17, color_map[angle], 2)
+                cv2.circle(overlay, (tx_, ty_), 17, color_map[angle], 2)
+                text_size = cv2.getTextSize(str(L), cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+                text_width, text_height = text_size
+                text_x = tx_ - text_width // 2
+                text_y = ty_ + text_height // 2
+
+                cv2.putText(
+                    annotated_image,
+                    str(L),
+                    (text_x, text_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    color_map[angle],
+                    2,
+                    cv2.LINE_AA,
+                )
+                cv2.putText(
+                    overlay,
+                    str(L),
+                    (text_x, text_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 0, 0),
+                    2,
+                    cv2.LINE_AA,
+                )
+
         cv2.addWeighted(overlay, 0.4, annotated_image, 1, 0, annotated_image)
-        cv2.circle(
-            annotated_image, (direction_2d[0], direction_2d[1]), 17, (0, 0, 0), -1
-        )
-        cv2.circle(
-            annotated_image, (direction_2d[0], direction_2d[1]), 17, (0, 120, 255), 3
-        )
-        text_size = cv2.getTextSize("A", cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-        text_width, text_height = text_size
-        text_x = direction_2d[0] - text_width // 2
-        text_y = direction_2d[1] + text_height // 2
+    #       direction_2d = (
+    #           int(map_size[1] - 1 - direction_2d[1]) * 10,
+    #           int(map_size[0] - 1 - direction_2d[0]) * 10,
+    #       )
 
-        cv2.putText(
-            annotated_image,
-            "A",
-            (text_x, text_y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 120, 255),
-            2,
-        )
+    #       # draw the arrow
+    #       vector = np.array([direction_2d[0] - mask_x, direction_2d[1] - mask_y])
+    #       norm = np.linalg.norm(vector)
+    #       if norm == 0:
+    #           norm = 1
+    #       vector = vector / np.linalg.norm(vector)  # 控制箭頭長度
+    #       arrow_length = 200
+    #       cv2.arrowedLine(
+    #           annotated_image,
+    #           (mask_x, mask_y),
+    #           (
+    #               int(mask_x + vector[0] * arrow_length),
+    #               int(mask_y + vector[1] * arrow_length),
+    #           ),
+    #           (0, 120, 255),
+    #           2,
+    #           tipLength=0.1,
+    #       )
+    #       center = (mask_x, mask_y)
+    #       axes = (arrow_length, arrow_length)  # 扇形半徑
+    #       angle = np.degrees(np.arctan2(vector[1], vector[0]))  # 箭頭方向的角度
+    #       start_angle = angle - 45  # 左右各45度
+
+    #       # cv2.ellipse(
+    #       #    overlay,
+    #       #    center,
+    #       #    axes,
+    #       #    0,  # ellipse rotation
+    #       #    0,
+    #       #    360,
+    #       #    (0, 180, 0),  # orange color
+    #       #    -1,  # -1 表示填滿扇形
+    #       # )
+    #       end_angle = angle + 45
+
+    #       cv2.ellipse(
+    #           overlay,
+    #           center,
+    #           axes,
+    #           0,  # ellipse rotation
+    #           start_angle,
+    #           end_angle,
+    #           (0, 120, 255),  # orange color
+    #           -1,  # -1 表示填滿扇形
+    #       )
+
+    #       cv2.addWeighted(overlay, 0.4, annotated_image, 1, 0, annotated_image)
+    #       cv2.circle(
+    #           annotated_image, (direction_2d[0], direction_2d[1]), 17, (0, 0, 0), -1
+    #       )
+    #       cv2.circle(
+    #           annotated_image, (direction_2d[0], direction_2d[1]), 17, (0, 120, 255), 3
+    #       )
+    #       text_size = cv2.getTextSize("A", cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+    #       text_width, text_height = text_size
+    #       text_x = direction_2d[0] - text_width // 2
+    #       text_y = direction_2d[1] + text_height // 2
+
+    #       cv2.putText(
+    #           annotated_image,
+    #           "A",
+    #           (text_x, text_y),
+    #           cv2.FONT_HERSHEY_SIMPLEX,
+    #           0.7,
+    #           (0, 120, 255),
+    #           2,
+    #       )
 
     for i, (x, y) in enumerate(actions):
         x, y = (map_size[1] - y) * 10, (map_size[0] - x) * 10
@@ -356,7 +449,7 @@ def get_dynamic_alpha(i, total_iterations=6, max_alpha=0.6):
 
 
 def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
-    iterations = 4
+    iterations = 3
     parallel = 1
     final_actions = []
     std_dev = 1.0
@@ -364,7 +457,7 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     for p in range(parallel):
         num_samples = 15
         preferred_mean = None
-        bias_sigma = 0.2
+        bias_sigma = 0.15
         alpha = 0.0
 
         affordance_point, affordance_pixel = get_affordance_point(
@@ -593,7 +686,7 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     # check if the base is colliding with the obstacle
     map_x = base[0]
     map_y = base[1]
-    if astar_utils.is_valid2(map_y, map_x, occupancy_2d_map):
+    if astar_utils.is_valid_des(map_y, map_x, occupancy_2d_map):
         print("Base Position is valid")
     else:
         print("Base Position is invalid")

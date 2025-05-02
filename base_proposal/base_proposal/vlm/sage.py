@@ -67,6 +67,9 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                 
                                 Important:
                                     You must use both the onboard RGB image and the top-down map together.
+                                    Each line on the ground with the same color in both the RGB image and the top-down map represents the same direction.
+                                    These lines are centered around the object, with one line drawn every 30 degrees.
+                                    Use these lines to align the both images.
                                     The floor point "A" in the top-down map is the same as the floor point "A" in the RGB image.
                                     The floor point 'A' near the obstacle or target edge points in the same direction as the object's operable part, 
                                     guiding the optimal way to interact with it. 
@@ -75,13 +78,14 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                     so the candidate base position is likely to be within or close to the orange sector centered on that direction, spanning 90 degrees. 
                                     If point 'A' is not visible, it might be because the RGB camera does not capture the floor area,
                                     or the key part of the target is occluded.You need to determine this condition autonomously.
+                                    
 
                                 Your task:
                                 Given the instruction: "{INSTRUCTION}", choose {K} that best allow you to:
                                 - Please determine which key part (e.g., the mug handle) of the object should be manipulated
                                 - Clearly observe the **key part of the object required for the task** 
                                    when you are in the candidate base position and facing the target. 
-                                - Easily finish the task when you are in the candidate base position and facing the target.
+                                - Align the robot to face the primary interaction side of the affordance, based on the affordance’s functional geometry.
 
                                 At the end, directly return your answer as a JSON in the following format: {{ "points": [] }}
                                 Only return the JSON. Do not include explanation or reasoning.
@@ -105,159 +109,10 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
     return target_object
 
 
-# def get_point(image_path1, image_path2, INSTRUCTION, K):
-#    """Determines which part to grab when picking up the target object."""
-#    #  and there is a red point mrked on the {part} of the target object.
-#    #
-#    #            Step 1: Understand the target and its position
-#    #            Identify the {part} of the target object in the red frame and note its location in the image relative to the grid and candidate points.
-#
-#    base64_image1 = encode_image_to_base64(image_path1)
-#    base64_image2 = encode_image_to_base64(image_path2)
-#    response = create_chat_completion(
-#        model=MODEL,
-#        messages=[
-#            {
-#                "role": "system",
-#                "content": "You are a left-hand robot capable of manipulating objects and moving.",
-#            },
-#            {
-#                "role": "user",
-#                "content": [
-#                    {
-#                        "type": "text",
-#                        "text": f"""
-#                                You are a professional mobile robot agent.
-#                                You are given two images:
-#                                1. The first image is an RGB image showing the current scene from your onboard camera.
-#
-#                                2. The second image is a top-down 2D map. The map contains:
-#                                    - A blue circle: your current base position.
-#                                    - black part of the map: the free space.
-#                                    - white part of the map: the occupied space.
-#                                    - yellow part of the map: Roughly indicates the target object area  that appears in the RGB image.
-#                                    - Several numbered white circles with a blue outline labeled IDs(0~14): candidate base positions (obstacle-free) for you to move to.
-#
-#                                Important:
-#                                - clolored arrows on the ground:
-#                                    Each line on the ground with the same color in both the RGB image and the top-down map represents the same direction.
+"""
+Each line on the ground with the same color in both the RGB image and the top-down map represents the same direction.
 #                                    These lines are centered around the object, with one line drawn every 30 degrees.
 #                                    Use these lines to reason about the candidate base positions and the relationship to the target object.
-#
-#                                    You must use both the onboard RGB image and the top-down map together.
-#                                    Each point only has an ID in a white circle . You must only select IDs (0~14) that are visible and appear in the top-down map.
-#
-#
-#
-#                                Your task:
-#                                Given the instruction: "{INSTRUCTION}", choose {K} that best allow you to:
-#                                - Please determine which key part (e.g., the mug handle) of the object should be manipulated
-#                                - Clearly observe the **key part of the object required for the task**
-#                                   when you are in the candidate base position and facing the target.
-#                                - Easily finish the task when you are in the candidate base position and facing the target.
-#
-#                                At the end, directly return your answer as a JSON in the following format: {{ "points": [] }}
-#                                Only return the JSON. Do not include explanation or reasoning.
-#                                """,
-#                    },
-#                    {
-#                        "type": "image_url",
-#                        "image_url": {"url": f"data:image/png;base64,{base64_image1}"},
-#                    },
-#                    {
-#                        "type": "image_url",
-#                        "image_url": {"url": f"data:image/png;base64,{base64_image2}"},
-#                    },
-#                ],
-#            },
-#        ],
-#    )
-#    response_text = response.choices[0].message.content
-#    cleaned_text = re.sub(r"```json\n?|```", "", response_text).strip()
-#    target_object = json.loads(cleaned_text)["points"]
-#    return target_object
-#
-#
 
-
-# def get_point(image_path1, image_path2, INSTRUCTION, K):
-#    """Determines which part to grab when picking up the target object."""
-#    #  and there is a red point mrked on the {part} of the target object.
-#    #
-#    #            Step 1: Understand the target and its position
-#    #            Identify the {part} of the target object in the red frame and note its location in the image relative to the grid and candidate points.
-#
-#    base64_image1 = encode_image_to_base64(image_path1)
-#    base64_image2 = encode_image_to_base64(image_path2)
-#    response = create_chat_completion(
-#        model=MODEL,
-#        messages=[
-#            {
-#                "role": "system",
-#                "content": "You are a robot capable of manipulating objects and moving.",
-#            },
-#            {
-#                "role": "user",
-#                "content": [
-#                    {
-#                        "type": "text",
-#                        "text": f"""
-#                                You are a professional mobile robot agent.
-#                                You are given two images:
-#                                1. The first image is an RGB image showing the current scene from your onboard camera.
-#                                    - The black point outlined in orange "A": This floor point is likely the affordance direction for the task.
-#
-#
-#                                2. The second image is a top-down 2D map. The map contains:
-#                                    - A blue circle: your current base position.
-#                                    - black part of the map: the free space.
-#                                    - white part of the map: the occupied space.
-#                                    - yellow part of the map: Roughly indicates the target object area  that appears in the RGB image.
-#                                    - Several numbered white circles with a blue outline labeled IDs(0~14): candidate base positions (obstacle-free) for you to move to.
-#                                    - The black point outlined in orange "A": This floor point is likely the affordance direction for the task.
-#                                    - The orange arrow on the balck point "A": The direction of the affordance point "A" in the top-down map.
-#                                    - The green circle: within a 1 meter radius from the center of the target object.
-#
-#                                Important:
-#                                    You must use both the onboard RGB image and the top-down map together.
-#                                    The floor point "A" in the top-down map is the same as the floor point "A" in the RGB image.
-#                                    The floor point 'A' near the obstacle or target edge points in the same direction as the object's operable part,
-#                                    guiding the optimal way to interact with it.
-#                                    Prioritize the point 'A' and the orange sector if visible, as it is likely favorable—the target’s key affordance is generally in that direction.
-#                                    The orange arrow on the point 'A' is likely to indicate the rough direction of the target object,
-#                                    so the candidate base position is likely to be within the orange sector centered on that direction, spanning 90 degrees
-#                                    and within a 1-meter radius centered on the target object.
-#                                    The candidate base position that is close or within the orange sector is likely to be the good candidate base position.
-#                                    The length of the arm is 0.9m, please consider the distance between the candidate base position and the target object.
-#                                    If point 'A' is not visible, it might be because the RGB camera does not capture the floor area,
-#                                    or the key part of the target is occluded.You need to determine this condition autonomously.
-#
-#                                Your task:
-#                                Given the instruction: "{INSTRUCTION}", choose {K} that best allow you to:
-#                                - Please determine which key part (e.g., the mug handle) of the object should be manipulated
-#                                - Clearly observe the **key part of the object required for the task**
-#                                   when you are in the candidate base position and facing the target.
-#                                - Easily finish the task when you are in the candidate base position and facing the target.
-#
-#                                At the end, directly return your answer as a JSON in the following format: {{ "points": [] }}
-#                                Only return the JSON. Do not include explanation or reasoning.
-#                                """,
-#                    },
-#                    {
-#                        "type": "image_url",
-#                        "image_url": {"url": f"data:image/png;base64,{base64_image1}"},
-#                    },
-#                    {
-#                        "type": "image_url",
-#                        "image_url": {"url": f"data:image/png;base64,{base64_image2}"},
-#                    },
-#                ],
-#            },
-#        ],
-#    )
-#    response_text = response.choices[0].message.content
-#    cleaned_text = re.sub(r"```json\n?|```", "", response_text).strip()
-#    target_object = json.loads(cleaned_text)["points"]
-#    return target_object
-#
-#
+#                                   - Several numbered white circles with a blue outline labeled IDs(0~14): candidate base positions (obstacle-free) for you to move to.
+"""

@@ -108,6 +108,8 @@ def rotate_vector_z(vec, angle_deg):
 def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
     annotated_image = rgb.copy()
     overlay = rgb.copy()
+    origin_rgb = rgb.copy()
+    overlay2 = rgb.copy()
 
     if isinstance(goal, tuple) or isinstance(goal, list):
         goal = np.array([[goal[0][0]], [goal[1][0]], [goal[2][0]]])
@@ -135,6 +137,8 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
 
     label_list = []
     pixel_list = []
+    label_pixel = []
+    angle_list = []
     for angle in directions:
         direction = np.array([[1], [0], [0]])  # 正前方
         rotated = rotate_vector_z(direction, angle)
@@ -179,52 +183,58 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
                 cv2.arrowedLine(
                     overlay, (ox, oy), (tx, ty), color_map[angle], 20, tipLength=0.02
                 )
+                cv2.arrowedLine(
+                    overlay2, (ox, oy), (tx, ty), color_map[angle], 20, tipLength=0.02
+                )
                 if angle not in annotated_angles:
-                    tx_ = ox + (tx - ox) * 9
-                    ty_ = oy + (ty - oy) * 9
-                    ox_ = ox + (tx - ox) * 8
-                    oy_ = oy + (ty - oy) * 8
-                    cv2.arrowedLine(
-                        annotated_image,
-                        (ox_, oy_),
-                        (tx_, ty_),
-                        (0, 0, 0),
-                        7,
-                        tipLength=5,
-                    )
-                    cv2.circle(annotated_image, (tx, ty), 17, (0, 0, 0), -1)  # 畫圓圈
-                    cv2.circle(
-                        annotated_image, (tx, ty), 17, color_map[angle], 2
-                    )  # 畫圓圈
-                    cv2.circle(overlay, (tx, ty), 17, color_map[angle], 2)  # 畫圓圈
-                    text_size = cv2.getTextSize(
-                        str(label), cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
-                    )[0]
-                    text_width, text_height = text_size
+                    tx_ = ox + (tx - ox) * 5
+                    ty_ = oy + (ty - oy) * 5
+                    ox_ = ox + (tx - ox) * 4
+                    oy_ = oy + (ty - oy) * 4
+                    label_pixel.append((ox_, oy_, tx_, ty_))
+                    angle_list.append(angle)
+                    #     cv2.arrowedLine(
+                    #         annotated_image,
+                    #         (ox_, oy_),
+                    #         (tx_, ty_),
+                    #         (0, 0, 0),
+                    #         7,
+                    #         tipLength=5,
+                    #     )
+                    #     cv2.circle(annotated_image, (tx, ty), 17, (0, 0, 0), -1)  # 畫圓圈
+                    #     cv2.circle(
+                    #         annotated_image, (tx, ty), 17, color_map[angle], 2
+                    #     )  # 畫圓圈
+                    #     cv2.circle(overlay, (tx, ty), 17, color_map[angle], 2)  # 畫圓圈
+                    #     L = chr(65 + label)
+                    #     text_size = cv2.getTextSize(
+                    #         str(L), cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+                    #     )[0]
+                    #     text_width, text_height = text_size
 
-                    text_x = tx - text_width // 2
-                    text_y = ty + text_height // 2
+                    #     text_x = tx - text_width // 2
+                    #     text_y = ty + text_height // 2
 
-                    cv2.putText(
-                        annotated_image,
-                        str(label),
-                        (text_x, text_y),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.7,
-                        color_map[angle],
-                        2,
-                        cv2.LINE_AA,
-                    )
-                    cv2.putText(
-                        overlay,
-                        str(label),
-                        (text_x, text_y),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.7,
-                        (0, 0, 0),
-                        2,
-                        cv2.LINE_AA,
-                    )
+                    #     cv2.putText(
+                    #         annotated_image,
+                    #         str(L),
+                    #         (text_x, text_y),
+                    #         cv2.FONT_HERSHEY_SIMPLEX,
+                    #         0.7,
+                    #         color_map[angle],
+                    #         2,
+                    #         cv2.LINE_AA,
+                    #     )
+                    #     cv2.putText(
+                    #         overlay,
+                    #         str(L),
+                    #         (text_x, text_y),
+                    #         cv2.FONT_HERSHEY_SIMPLEX,
+                    #         0.7,
+                    #         (0, 0, 0),
+                    #         2,
+                    #         cv2.LINE_AA,
+                    #     )
                     label_list.append(label)
                     pixel_list.append((tx, ty))
                     annotated_angles.add(angle)  # 記錄這個方向已經加過編號了
@@ -232,19 +242,64 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
             pt_prev = tip  # 更新前一點
         label += 1
 
-    cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
+        for i, (ox_, oy_, tx_, ty_) in enumerate(label_pixel):
+            L = chr(65 + label_list[i])
+            angle = angle_list[i]
+            #  cv2.arrowedLine(
+            #      annotated_image,
+            #      (ox_, oy_),
+            #      (tx_, ty_),
+            #      (0, 0, 0),
+            #      10,
+            #      tipLength=5,
+            #  )
+            cv2.circle(annotated_image, (tx_, ty_), 17, (0, 0, 0), -1)
+            cv2.circle(overlay, (tx_, ty_), 17, (0, 0, 0), -1)
+            cv2.circle(annotated_image, (tx_, ty_), 17, color_map[angle], 2)
+            cv2.circle(overlay, (tx_, ty_), 17, color_map[angle], 2)
+            text_size = cv2.getTextSize(str(L), cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+            text_width, text_height = text_size
+            text_x = tx_ - text_width // 2
+            text_y = ty_ + text_height // 2
+
+            cv2.putText(
+                annotated_image,
+                str(L),
+                (text_x, text_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                color_map[angle],
+                2,
+                cv2.LINE_AA,
+            )
+            cv2.putText(
+                overlay,
+                str(L),
+                (text_x, text_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 0, 0),
+                2,
+                cv2.LINE_AA,
+            )
+
+    cv2.addWeighted(overlay2, 0.5, origin_rgb, 0.5, 0, origin_rgb)
+    cv2.addWeighted(overlay, 0.5, annotated_image, 0.7, 0, annotated_image)
 
     gx, gy = get_pixel(goal, R, T, fx, fy, cx, cy)
     gx = rgb.shape[1] - gx
     gy = rgb.shape[0] - gy
 
+    cv2.imwrite("./data/annotated_rgb_line.png", origin_rgb)
     cv2.imwrite("./data/annotated_rgb1.png", annotated_image)
+    cv2.imwrite("./data/annotated_image.png", annotated_image)
     return label_list, pixel_list
 
 
 def get_affordance_direction_id(
     rgb, goal, instruction, R, T, fx, fy, cx, cy, obstacle_map
 ):
+    return -1, None
     IDs = []
     # run 3 times select the most common
     for i in range(3):
@@ -324,48 +379,73 @@ def annotate_rgb(
 ):
     annotated_image = rgb.copy()
     overlay = rgb.copy()
-    get_annotated_rgb2(rgb, pixel)
+    # rgb = cv2.imread("./data/annotated_rgb_line.png")
+    get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map)  # 這邊會畫出箭頭
+    # get_annotated_rgb2(rgb, pixel)
 
+    # annotated_image = cv2.imread("./data/annotated_image.png")
     # === 畫點位與 index ===
-    #  actions_3d = []
-    #  for action in actions:
-    #      map_x = action[0]
-    #      map_y = action[1]
-    #      x = (map_x - 100) * 0.05
-    #      y = (map_y - 100) * 0.05
-    #      actions_3d.append((x, y, 0))
+    #   actions_3d = []
+    #   for action in actions:
+    #       map_x = action[0]
+    #       map_y = action[1]
+    #       x = (map_x - 100) * 0.05
+    #       y = (map_y - 100) * 0.05
+    #       actions_3d.append((x, y, 0))
 
-    #  for i, action in enumerate(actions_3d):
-    #      if isinstance(action, tuple) or isinstance(action, list):
-    #          action = np.array([[action[0]], [action[1]], [0.0]])
-    #      pixel_x, pixel_y = get_pixel(action, R, T, fx, fy, cx, cy)
-    #      pixel_x = rgb.shape[1] - pixel_x
-    #      pixel_y = rgb.shape[0] - pixel_y
+    #   for i, action in enumerate(actions_3d):
+    #       if isinstance(action, tuple) or isinstance(action, list):
+    #           action = np.array([[action[0]], [action[1]], [0.0]])
+    #       pixel_x, pixel_y = get_pixel(action, R, T, fx, fy, cx, cy)
+    #       if (
+    #           pixel_x < 0
+    #           or pixel_y < 0
+    #           or pixel_x >= rgb.shape[1]
+    #           or pixel_y >= rgb.shape[0]
+    #       ):
+    #           continue
+    #       depth = np.load("./data/depth.npy")
+    #       point_3d = get_3d_point(
+    #           pixel_x,
+    #           pixel_y,
+    #           depth[rgb.shape[0] - pixel_y, rgb.shape[1] - pixel_x],
+    #           R,
+    #           T,
+    #           fx,
+    #           fy,
+    #           cx,
+    #           cy,
+    #       )
+    #       pixel_x = rgb.shape[1] - pixel_x
+    #       pixel_y = rgb.shape[0] - pixel_y
+    #       # get poit 3d
+    #       if point_3d[2] > 0.03:
+    #           continue
 
-    #      cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (255, 255, 255), -1)
-    #      cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (225, 0, 0), 2)
-    #      text_width, text_height = cv2.getTextSize(
-    #          f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
-    #      )[0]
-    #      cv2.putText(
-    #          annotated_image,
-    #          f"{i}",
-    #          (pixel_x - text_width // 2, pixel_y + text_height // 2),
-    #          cv2.FONT_HERSHEY_SIMPLEX,
-    #          0.6,
-    #          (0, 100, 150),
-    #          2,
-    #      )
-    # save
-    # cv2.imwrite("./data/annotated_image.png", annotated_image)
+    #       cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (255, 255, 255), -1)
+    #       cv2.circle(annotated_image, (pixel_x, pixel_y), 15, (225, 0, 0), 2)
+    #       text_width, text_height = cv2.getTextSize(
+    #           f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+    #       )[0]
+    #       cv2.putText(
+    #           annotated_image,
+    #           f"{i}",
+    #           (pixel_x - text_width // 2, pixel_y + text_height // 2),
+    #           cv2.FONT_HERSHEY_SIMPLEX,
+    #           0.6,
+    #           (0, 100, 150),
+    #           2,
+    #       )
+    #   # save
+    #   cv2.imwrite("./data/annotated_image.png", annotated_image)
 
     # === 處理 goal 格式 ===
-    if isinstance(goal, tuple) or isinstance(goal, list):
-        goal = np.array([[goal[0][0]], [goal[1][0]], [goal[2][0]]])
-        print("goal:", goal)
-    # goal = np.vstack((goal, np.array([[0.0]])))  # shape: (3, 1)
-    # 假設 goal 已經是 (3, 1) 形狀的 np.array 了
-    # goal = np.array([[goal[0][0]], [goal[1][0]], [0.0]])  # shape: (3, 1)
+    #  if isinstance(goal, tuple) or isinstance(goal, list):
+    #      goal = np.array([[goal[0][0]], [goal[1][0]], [goal[2][0]]])
+    #      print("goal:", goal)
+    #  goal = np.vstack((goal, np.array([[0.0]])))  # shape: (3, 1)
+    #  # 假設 goal 已經是 (3, 1) 形狀的 np.array 了
+    #  goal = np.array([[goal[0][0]], [goal[1][0]], [0.0]])  # shape: (3, 1)
     #  origin = goal
     #  scale = 1000
     #  # scale = 2
@@ -574,7 +654,7 @@ def annotate_rgb(
     # 混合 overlay 到原圖
     cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
 
-    # cv2.imwrite("./data/annotated_image.png", annotated_image)
+    cv2.imwrite("./data/annotated_image.png", annotated_image)
 
 
 def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):
