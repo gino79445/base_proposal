@@ -51,42 +51,40 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                         "type": "text",
                         "text": f"""
                                 You are a professional mobile robot agent.
-                                You are given two images:
-                                1. The first image is an RGB image showing the current scene from your onboard camera. 
-                                    - The black point outlined in orange "A": This floor point is likely the affordance direction for the task.
-
-
-                                2. The second image is a top-down 2D map. The map contains:
-                                    - A blue circle: your current base position.
-                                    - black part of the map: the free space.
-                                    - white part of the map: the occupied space.
-                                    - yellow part of the map: Roughly indicates the target object area  that appears in the RGB image.
-                                    - Several numbered white circles with a blue outline labeled IDs(0~14): candidate base positions (obstacle-free) for you to move to.
-                                    - The black point outlined in orange "A": This floor point is likely the affordance direction for the task.
-                                    - The orange arrow on the balck point "A": The direction of the affordance point "A" in the top-down map.
+                                You are provided with two images:
+                                1. RGB image from the onboard camera:
+                                    - Black point outlined in orange labeled "A": marks a floor point likely indicating the affordance direction.
+                                    - Colored lines on the ground: Outward vectors from the target object center; the line marked "A" is the affordance direction.
+                                2. Top-down 2D map:
+                                    - Blue circle: your current base position.
+                                    - Black areas: free space.
+                                    - White areas: occupied space.
+                                    - Yellow area: approximate target object area (matching the RGB image).
+                                    - Numbered white circles with blue outlines (IDs 0–19): candidate base positions (obstacle-free).
+                                    - Black point outlined in orange "A": same affordance point as in the RGB image.
+                                    - Orange arrow at "A": affordance direction on the map.
+                                    - Colored lines on the ground: match the directions seen in the RGB image (each drawn every 30°).
+                                Important: You must use both the onboard RGB image and the top-down map together.
+                                            There is only one number for each numbered white circle with blue outlines on the top-down map.
                                 
-                                Important:
-                                    You must use both the onboard RGB image and the top-down map together.
-                                    Each line on the ground with the same color in both the RGB image and the top-down map represents the same direction.
-                                    These lines are centered around the object, with one line drawn every 30 degrees.
-                                    Use these lines to align the both images.
-                                    The floor point "A" in the top-down map is the same as the floor point "A" in the RGB image.
-                                    The floor point 'A' near the obstacle or target edge points in the same direction as the object's operable part, 
-                                    guiding the optimal way to interact with it. 
-                                    Prioritize the point 'A' and the orange sector if visible, as it is likely favorable—the target’s key affordance is generally in that direction. 
-                                    The orange arrow on the point 'A' is likely to indicate the rough direction of the target object, 
-                                    so the candidate base position is likely to be within or close to the orange sector centered on that direction, spanning 90 degrees. 
-                                    If point 'A' is not visible, it might be because the RGB camera does not capture the floor area,
-                                    or the key part of the target is occluded.You need to determine this condition autonomously.
-                                    
-
                                 Your task:
-                                Given the instruction: "{INSTRUCTION}", choose {K} that best allow you to:
-                                - Please determine which key part (e.g., the mug handle) of the object should be manipulated
-                                - Clearly observe the **key part of the object required for the task** 
-                                   when you are in the candidate base position and facing the target. 
-                                - Align the robot to face the primary interaction side of the affordance, based on the affordance’s functional geometry.
-
+                                    Given the instruction "{INSTRUCTION}", select the {K} candidate base positions that best:
+                                        - Allow you to clearly observe the key part of the object required for the task when positioned there, facing the target.
+                                        - Align the robot to face the primary interaction side based on the affordance’s functional geometry.
+                                Steps:
+                                    1. Identify the key part of the target object that needs to be manipulated (e.g., mug handle).
+                                    2. Align the RGB image and top-down map using the colored lines (same colors,same order, centered on the object, every 30°).
+                                    3. Select the best candidate base positions:
+                                        - Use the direction marked at point "A" to understand the relationship between the rgb image and the top-down map. they are the same.
+                                        - Prioritize point "A" and the vectors near the orange sector on the top-down 2d map, as they are likely 
+                                        the best directions for the task.
+                                        - The direction marked at point "A" roughly indicates the main reference direction
+                                        and good base positions typically lie within or near the orange sector, 
+                                        so you should select the candidate base positions that are close to the orange sector.
+                                        If you believe the direction of point A is not a good direction,
+                                        please autonomously determine and select a more suitable direction.
+                                        If point A is not visible, this may be because the RGB camera does not capture the floor or 
+                                        the key part of the target is occluded — you must autonomously determine this condition.
                                 At the end, directly return your answer as a JSON in the following format: {{ "points": [] }}
                                 Only return the JSON. Do not include explanation or reasoning.
                                 """,

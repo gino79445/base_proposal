@@ -137,13 +137,13 @@ def parse_hydra_configs(cfg: DictConfig):
             )
             # pull(env, policy, global_position, local_nav="None", algo="astar")
             #     pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
-        #  pull(
-        #      env,
-        #      policy,
-        #      global_position,
-        #      local_nav="spaceAware_pivot",
-        #      algo="astar_rough",
-        #  )
+            # pull(
+            #    env,
+            #    policy,
+            #    global_position,
+            #    local_nav="spaceAware_pivot",
+            #    algo="astar_rough",
+            # )
         #     pull(
         #         env,
         #         policy,

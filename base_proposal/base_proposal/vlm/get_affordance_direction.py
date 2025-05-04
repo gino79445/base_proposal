@@ -21,7 +21,7 @@ def encode_image_to_base64(image_path):
         return base64.b64encode(image_file.read()).decode("utf-8")
 
 
-def create_chat_completion(model, messages, temperature=0):
+def create_chat_completion(model, messages, temperature=0.0):
     """Creates a chat completion request to OpenAI."""
     return openai.chat.completions.create(
         model=model, messages=messages, temperature=temperature
@@ -51,16 +51,17 @@ def get_affordance_direction(image_path, INSTRUCTION, IDs):
                         "text": f"""
                                 You are a professional mobile robot agent.
                                 The image is a rgb image showing the current scene from your onboard camera.
-                                Numbered lines radiating outward from the target object,
-                                with each line pointing in a different direction on the floor relative to the target. 
+                                Numbered lines radiate outward from the target object, with the circle mark indicating the starting point,
+                                and each line points in a different direction on the floor relative to the target.
                                 The directions are labeled with the numbers: {IDs}.
 
                                 Given the instruction: {INSTRUCTION},
                                 step 1: Determine which key part of the object should be manipulated.
-                                step 2: Identify the direction of this key part relative to the main body of the object.
-                                        (eg., the handle of the mug is on the right side of the mug, the open side of the box is on the left side of the box, etc.)
+                                step 2: 
+                                        Directly use the direction markers on the floor 
+                                        to identify the direction of this key part relative to the main body of the object.
                                         If the key part is not visible, please try to infer the direction based on the image.
-                                        Please do not give me the direction of the target object relative to the robot,
+                                        Please do not give me the direction of the target object relative to the current position,
                                         but rather the direction of the key part relative to the main body.
                                 step 3: Provide me with a most likely suitable direction number.
 

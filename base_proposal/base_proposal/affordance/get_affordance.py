@@ -243,7 +243,7 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
         label += 1
 
         for i, (ox_, oy_, tx_, ty_) in enumerate(label_pixel):
-            L = chr(65 + label_list[i])
+            L = label_list[i]
             angle = angle_list[i]
             #  cv2.arrowedLine(
             #      annotated_image,
@@ -292,14 +292,12 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
 
     cv2.imwrite("./data/annotated_rgb_line.png", origin_rgb)
     cv2.imwrite("./data/annotated_rgb1.png", annotated_image)
-    cv2.imwrite("./data/annotated_image.png", annotated_image)
     return label_list, pixel_list
 
 
 def get_affordance_direction_id(
     rgb, goal, instruction, R, T, fx, fy, cx, cy, obstacle_map
 ):
-    return -1, None
     IDs = []
     # run 3 times select the most common
     for i in range(3):
@@ -379,9 +377,9 @@ def annotate_rgb(
 ):
     annotated_image = rgb.copy()
     overlay = rgb.copy()
-    # rgb = cv2.imread("./data/annotated_rgb_line.png")
     get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map)  # 這邊會畫出箭頭
-    # get_annotated_rgb2(rgb, pixel)
+    rgb = cv2.imread("./data/annotated_rgb_line.png")
+    get_annotated_rgb2(rgb, pixel)
 
     # annotated_image = cv2.imread("./data/annotated_image.png")
     # === 畫點位與 index ===
@@ -654,7 +652,7 @@ def annotate_rgb(
     # 混合 overlay 到原圖
     cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
 
-    cv2.imwrite("./data/annotated_image.png", annotated_image)
+    # cv2.imwrite("./data/annotated_image.png", annotated_image)
 
 
 def get_features(R, T, fx, fy, cx, cy, depth_image, K, map=None):

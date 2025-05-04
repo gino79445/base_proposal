@@ -181,8 +181,8 @@ def generate_yaml(
         zones = [
             {"name": "long_table", "x": (0.0, -0.2), "y": (-2.0, -1.4), "z": 0.57},
             {"name": "tv_table", "x": (1.75, 1.85), "y": (-2.6, -2.3), "z": 0.99},
-            {"name": "big_table", "x": (1.42, 1.5), "y": (0.84, 0.9), "z": 0.99},
-            {"name": "cabinet", "x": (-0.35, -0.6), "y": (-4.5, -4.3), "z": 1.01},
+            #  {"name": "big_table", "x": (1.42, 1.5), "y": (0.84, 0.9), "z": 0.99},
+            {"name": "cabinet", "x": (-0.35, -0.5), "y": (-4.4, -4.3), "z": 1.01},
         ]
 
     if category == "pickplace_pot_mug":
@@ -283,11 +283,21 @@ def generate_yaml(
             y = round(random.uniform(*sorted(zone["y"])), 4)
             z = zone["z"]
 
-            if category == "pickplace_mug_shelf" or category == "pickplace_can_bin":
+            if category == "pickplace_can_bin":
                 if zone["name"] == "long_table":
                     rz = round(random.uniform(np.pi / 2, 3 * np.pi / 4), 4)
                 elif zone["name"] == "tv_table":
                     rz = round(random.uniform(0, np.pi / 2), 4)
+                elif zone["name"] == "big_table":
+                    rz = round(random.uniform(-np.pi / 2, np.pi / 2), 4)
+                elif zone["name"] == "cabinet":
+                    rz = round(random.uniform(np.pi / 2, 3 * np.pi / 4), 4)
+
+            if category == "pickplace_mug_shelf":
+                if zone["name"] == "long_table":
+                    rz = round(random.uniform(np.pi / 2, 3 * np.pi / 4), 4)
+                elif zone["name"] == "tv_table":
+                    rz = round(random.uniform(np.pi / 4, 1.2 * np.pi / 2), 4)
                 elif zone["name"] == "big_table":
                     rz = round(random.uniform(-np.pi / 2, np.pi / 2), 4)
                 elif zone["name"] == "cabinet":

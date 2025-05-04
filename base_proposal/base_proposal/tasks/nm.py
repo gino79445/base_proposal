@@ -1017,9 +1017,8 @@ class NMTask(Task):
         if self.check_robot_collisions() and actions != "move_ee":
             print("Collision detected")
             self.collision_time += 1
-            self._collided[0] = 1
+            #self._collided[0] = 1
         if self.collision_time > 4:
-            self._is_failure[0] = 1
             return
 
         if self.gripper_closed == 1:
@@ -1427,7 +1426,7 @@ class NMTask(Task):
                 torch.tensor(curr_pose[0][:3])
                 - torch.tensor(self.obj_origin_pose[0][:3])
             )
-            if dis >= 0.25:
+            if dis >= 0.2:
                 print("pull success")
                 self.success_num += 1
             else:
