@@ -40,7 +40,7 @@ def sample_gaussian_actions_on_map(
     preferred_dist = 0.7
     dist_sigma = 0.1
     R = 1
-
+    heatmap = np.zeros(map_size, dtype=np.float32)
     while i < num_samples:
         t = 0
         while True:
@@ -95,6 +95,7 @@ def sample_gaussian_actions_on_map(
                 and 0 <= map_y < map_size[1]
                 and astar_utils.is_valid_des(map_y, map_x, obstacle_map)
             ):
+                heatmap[map_y, map_x] = max(heatmap[map_y, map_x], weight)
                 if np.random.rand() < weight:
                     actions.append((map_x, map_y))
                     #    print(
@@ -121,6 +122,51 @@ def sample_gaussian_actions_on_map(
         # save the map with the mean
         cv2.imwrite("./data/mean_map.png", map)
 
+    normalized_heatmap = cv2.normalize(heatmap, None, 0, 255, cv2.NORM_MINMAX)
+    colored_heatmap = cv2.applyColorMap(
+        normalized_heatmap.astype(np.uint8), cv2.COLORMAP_JET
+    )
+
+    # 將 obstacle_map 處理成 3 通道灰階圖
+    if len(obstacle_map.shape) == 2:
+        base_map = cv2.cvtColor(obstacle_map, cv2.COLOR_GRAY2BGR)
+    else:
+        base_map = obstacle_map.copy()
+
+    # 縮放 heatmap 和 map 一樣大
+    colored_heatmap = cv2.resize(
+        colored_heatmap, (base_map.shape[1], base_map.shape[0])
+    )
+
+    # 疊加 heatmap 到 map 上
+    overlayed = cv2.addWeighted(base_map, 0.5, colored_heatmap, 0.5, 0)
+    # reshape  map
+    overlayed = np.flipud(overlayed)
+    overlayed = np.rot90(overlayed)
+    overlayed = cv2.resize(
+        overlayed,
+        (map_size[0] * 10, map_size[1] * 10),
+        interpolation=cv2.INTER_NEAREST,
+    )
+
+    # crop the map
+    crop_size = 400
+    center = (
+        int(map_size[1] - 1 - (int(center[0] / cell_size) + map_size[1] // 2)) * 10,
+        int(map_size[0] - 1 - (int(center[1] / cell_size) + map_size[0] // 2)) * 10,
+    )
+    x_min = int(max(0, center[1] - crop_size))
+    x_max = int(min(overlayed.shape[1], center[1] + crop_size))
+    y_min = int(max(0, center[0] - crop_size))
+    y_max = int(min(overlayed.shape[0], center[0] + crop_size))
+    cropped_map = overlayed[y_min:y_max, x_min:x_max]
+    cropped_map = cv2.resize(cropped_map, (2000, 2000))
+
+    import time
+
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"./heatmap/w_distribution_alpha_map_{timestamp}.png"
+    cv2.imwrite(filename, cropped_map)
     return actions
 
 
@@ -484,7 +530,9 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
         )
 
         for i in range(iterations):
+            print(f"bias_sigma: {bias_sigma:.2f}")
             alpha = get_dynamic_alpha(i, iterations, max_alpha=0.3)
+            alpha = 1
             print(f"Iteration {i + 1}/{iterations}, alpha: {alpha:.2f}")
             while True:
                 actions = sample_gaussian_actions_on_map(
@@ -564,8 +612,8 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
             # idx have to in range of actions
             result = [idx for idx in result if idx < len(actions)]
             best_actions_positions = [actions[idx] for idx in result]
-            preferred_mean, std_dev = update_gaussian_distribution(
-                best_actions_positions, std_dev, destination
+            preferred_mean, bias_sigma = update_gaussian_distribution(
+                best_actions_positions, bias_sigma, destination
             )
 
         for action in best_actions_positions:

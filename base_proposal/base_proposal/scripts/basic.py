@@ -109,9 +109,9 @@ def parse_hydra_configs(cfg: DictConfig):
         try:
             destinations = env.get_destination()
             global_position = [destination[0] for destination in destinations]
-            # pick_and_place(
-            #     env, policy, global_position, local_nav="pivot", algo="rrt_rough"
-            # )
+            #    pick_and_place(
+            #        env, policy, global_position, local_nav="pivot", algo="astar_rough"
+            #    )
             # pick_and_place(env, policy, global_position, local_nav="None", algo="astar")
             # pick_and_place(
             #     env,
@@ -128,22 +128,22 @@ def parse_hydra_configs(cfg: DictConfig):
             #     local_nav="rekep",
             #     algo="astar_rough",
             # )
-            pick_and_place(
+            #  pick_and_place(
+            #      env,
+            #      policy,
+            #      global_position,
+            #      local_nav="spaceAware_pivot",
+            #      algo="astar_rough",
+            #  )
+            # pull(env, policy, global_position, local_nav="None", algo="astar")
+            # pull(env, policy, global_position, local_nav="pivot", algo="astar_rough")
+            pull(
                 env,
                 policy,
                 global_position,
                 local_nav="spaceAware_pivot",
                 algo="astar_rough",
             )
-            # pull(env, policy, global_position, local_nav="None", algo="astar")
-            #     pull(env, policy, global_position, local_nav="pivot", algo="rrt_rough")
-            # pull(
-            #    env,
-            #    policy,
-            #    global_position,
-            #    local_nav="spaceAware_pivot",
-            #    algo="astar_rough",
-            # )
         #     pull(
         #         env,
         #         policy,

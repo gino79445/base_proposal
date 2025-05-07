@@ -1017,7 +1017,7 @@ class NMTask(Task):
         if self.check_robot_collisions() and actions != "move_ee":
             print("Collision detected")
             self.collision_time += 1
-            #self._collided[0] = 1
+            # self._collided[0] = 1
         if self.collision_time > 4:
             return
 

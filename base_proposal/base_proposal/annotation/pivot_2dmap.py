@@ -25,7 +25,6 @@ def process_2d_map(occupancy_2d_map):
 
 
 def sample_gaussian_actions_on_map(
-    center,
     std_dev,
     num_samples,
     image_size,
@@ -37,80 +36,33 @@ def sample_gaussian_actions_on_map(
     actions = []
     w, h = image_size
     i = 0
-    preferred_dist = 0.7
-    dist_sigma = 0.1
-    R = 1
-
+    R = 4
     while i < num_samples:
         t = 0
         while True:
             t += 1
             x = np.clip(
-                np.random.normal(center[0], std_dev), center[0] - R, center[0] + R
+                np.random.normal(preferred_mean[0], bias_sigma),
+                -R,
+                R,
             )
             y = np.clip(
-                np.random.normal(center[1], std_dev), center[1] - R, center[1] + R
+                np.random.normal(preferred_mean[1], bias_sigma),
+                -R,
+                R,
             )
-
-            dist_to_goal = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
-            if dist_to_goal < 0.4 or dist_to_goal > R:
-                continue
-
-            #   weight_to_goal = np.exp(
-            #       -0.5 * ((dist_to_goal - preferred_dist) / dist_sigma) ** 2
-            #   )
-            from scipy.stats import norm
-
-            dis_cdf = norm(loc=preferred_dist, scale=dist_sigma)
-            prob_dis = dis_cdf.cdf(dist_to_goal + 0.05) - dis_cdf.cdf(
-                dist_to_goal - 0.05
-            )
-            if preferred_mean is not None:
-                semantic_mean = np.linalg.norm(
-                    [x - preferred_mean[0], y - preferred_mean[1]]
-                )
-                mean_cdf = norm(loc=0, scale=bias_sigma)
-                prob_semantic = mean_cdf.cdf(semantic_mean + 0.05) - mean_cdf.cdf(
-                    semantic_mean - 0.05
-                )
-            else:
-                prob_semantic = 1.0
-
-            weight = alpha * prob_dis + (1 - alpha) * prob_semantic
-
-            # weight_to_mean = 1.0
-            # if preferred_mean is not None:
-            #     dist_to_mean = np.linalg.norm(
-            #         [x - preferred_mean[0], y - preferred_mean[1]]
-            #     )
-            #     weight_to_mean = np.exp(-0.5 * (dist_to_mean / bias_sigma) ** 2)
-            # # alpha = 0.5
-            # weight = alpha * weight_to_goal + (1 - alpha) * weight_to_mean
 
             map_x = int(x / cell_size) + map_size[0] // 2
             map_y = int(y / cell_size) + map_size[1] // 2
 
             if (
-                0 <= map_x < map_size[0]
+                map_size[0] // 2 <= map_x < map_size[0]
                 and 0 <= map_y < map_size[1]
                 and astar_utils.is_valid_des(map_y, map_x, obstacle_map)
             ):
-                if np.random.rand() < weight:
-                    actions.append((map_x, map_y))
-                    #    print(
-                    #        f"weight: {weight}, "
-                    #        f"weight_to_goal: {prob_dis}, "
-                    #        f"weight_to_mean: {prob_semantic}, "
-                    #    )
-                    i += 1
-                    break
-
-            if t > 10000:
-                if R > 2:
-                    i += 1
-                    break
-                R += 0.2
-                dist_sigma += 0.2
+                actions.append((map_x, map_y))
+                i += 1
+                break
 
     if preferred_mean is not None:
         map = obstacle_map.copy()
@@ -121,6 +73,82 @@ def sample_gaussian_actions_on_map(
         # save the map with the mean
         cv2.imwrite("./data/mean_map.png", map)
 
+    heatmap = np.zeros(map_size, dtype=np.float32)
+    while i < 1000:
+        t = 0
+        while True:
+            t += 1
+            x = np.clip(
+                np.random.normal(preferred_mean[0], bias_sigma),
+                -R,
+                R,
+            )
+            y = np.clip(
+                np.random.normal(preferred_mean[1], bias_sigma),
+                -R,
+                R,
+            )
+
+            map_x = int(x / cell_size) + map_size[0] // 2
+            map_y = int(y / cell_size) + map_size[1] // 2
+
+            if (
+                map_size[0] // 2 <= map_x < map_size[0]
+                and 0 <= map_y < map_size[1]
+                and astar_utils.is_valid_des(map_y, map_x, obstacle_map)
+            ):
+                weight = (
+                    1.0  # 或依據你設計的分佈邏輯（此範例沒 alpha 但可先視為全機率）
+                )
+                heatmap[map_y, map_x] += weight
+                i += 1
+                break
+
+    normalized_heatmap = cv2.normalize(heatmap, None, 0, 255, cv2.NORM_MINMAX)
+    colored_heatmap = cv2.applyColorMap(
+        normalized_heatmap.astype(np.uint8), cv2.COLORMAP_JET
+    )
+
+    # 將 obstacle_map 處理成 3 通道灰階圖
+    if len(obstacle_map.shape) == 2:
+        base_map = cv2.cvtColor(obstacle_map, cv2.COLOR_GRAY2BGR)
+    else:
+        base_map = obstacle_map.copy()
+
+    # 縮放 heatmap 和 map 一樣大
+    colored_heatmap = cv2.resize(
+        colored_heatmap, (base_map.shape[1], base_map.shape[0])
+    )
+
+    # 疊加 heatmap 到 map 上
+    overlayed = cv2.addWeighted(base_map, 0.5, colored_heatmap, 0.5, 0)
+    # reshape  map
+    overlayed = np.flipud(overlayed)
+    overlayed = np.rot90(overlayed)
+    overlayed = cv2.resize(
+        overlayed,
+        (map_size[0] * 10, map_size[1] * 10),
+        interpolation=cv2.INTER_NEAREST,
+    )
+
+    # crop the map
+    # crop_size = 400
+    # center = (
+    #     int(map_size[1] - 1 - (int(center[0] / cell_size) + map_size[1] // 2)) * 10,
+    #     int(map_size[0] - 1 - (int(center[1] / cell_size) + map_size[0] // 2)) * 10,
+    # )
+    # x_min = int(max(0, center[1] - crop_size))
+    # x_max = int(min(overlayed.shape[1], center[1] + crop_size))
+    # y_min = int(max(0, center[0] - crop_size))
+    # y_max = int(min(overlayed.shape[0], center[0] + crop_size))
+    # cropped_map = overlayed[y_min:y_max, x_min:x_max]
+    # cropped_map = cv2.resize(cropped_map, (2000, 2000))
+
+    import time
+
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"./heatmap/w_distribution_alpha_map_{timestamp}.png"
+    cv2.imwrite(filename, overlayed)
     return actions
 
 
@@ -215,40 +243,6 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
         scale = 1000
         step = 1
 
-        # for i, (tx_, ty_) in enumerate(point_pos_list):
-        #     L = chr(label_list[i] + 65)
-        #     angle = angle_list[i]
-        #     cv2.circle(annotated_image, (tx_, ty_), 17, (0, 0, 0), -1)
-        #     cv2.circle(overlay, (tx_, ty_), 17, (0, 0, 0), -1)
-        #     cv2.circle(annotated_image, (tx_, ty_), 17, color_map[angle], 2)
-        #     cv2.circle(overlay, (tx_, ty_), 17, color_map[angle], 2)
-        #     text_size = cv2.getTextSize(str(L), cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-        #     text_width, text_height = text_size
-        #     text_x = tx_ - text_width // 2
-        #     text_y = ty_ + text_height // 2
-
-        #     cv2.putText(
-        #         annotated_image,
-        #         str(L),
-        #         (text_x, text_y),
-        #         cv2.FONT_HERSHEY_SIMPLEX,
-        #         0.7,
-        #         color_map[angle],
-        #         2,
-        #         cv2.LINE_AA,
-        #     )
-        #     cv2.putText(
-        #         overlay,
-        #         str(L),
-        #         (text_x, text_y),
-        #         cv2.FONT_HERSHEY_SIMPLEX,
-        #         0.7,
-        #         (0, 0, 0),
-        #         2,
-        #         cv2.LINE_AA,
-        #     )
-
-        #    cv2.addWeighted(overlay, 0.4, annotated_image, 1, 0, annotated_image)
         direction_2d = (
             int(map_size[1] - 1 - direction_2d[1]) * 10,
             int(map_size[0] - 1 - direction_2d[0]) * 10,
@@ -265,16 +259,6 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
         axes = (arrow_length, arrow_length)  # 扇形半徑
         angle = np.degrees(np.arctan2(vector[1], vector[0]))  # 箭頭方向的角度
 
-        # cv2.ellipse(
-        #    overlay,
-        #    center,
-        #    axes,
-        #    0,  # ellipse rotation
-        #    0,
-        #    360,
-        #    (0, 180, 0),  # orange color
-        #    -1,  # -1 表示填滿扇形
-        # )
         start_angle = angle - 45  # 左右各45度
         end_angle = angle + 45
 
@@ -417,7 +401,7 @@ def update_gaussian_distribution(
     bias_sigma,
     destination=None,
     max_drift=1,
-    std_dev_decay=0.9,
+    std_dev_decay=0.4,
 ):
     if not best_actions_positions:
         return None, bias_sigma
@@ -426,11 +410,6 @@ def update_gaussian_distribution(
     mean_y = np.mean([y for x, y in best_actions_positions])
     mean_x = (mean_x - map_size[0] // 2) * cell_size
     mean_y = (mean_y - map_size[1] // 2) * cell_size
-    if destination is not None:
-        dx = destination[0]
-        dy = destination[1]
-        mean_x = np.clip(mean_x, dx - max_drift, dx + max_drift)
-        mean_y = np.clip(mean_y, dy - max_drift, dy + max_drift)
     bias_sigma = max(0.01, std_dev_decay * bias_sigma)
 
     return (mean_x, mean_y), bias_sigma
@@ -447,12 +426,12 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     iterations = 3
     parallel = 1
     final_actions = []
-    std_dev = 1.0
+    std_dev = 0.0
 
+    preferred_mean = np.zeros(2)
     for p in range(parallel):
         num_samples = 20
-        preferred_mean = None
-        bias_sigma = 0.2
+        bias_sigma = 2.5
         alpha = 0.0
 
         affordance_point, affordance_pixel = get_affordance_point(
@@ -486,9 +465,10 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
         for i in range(iterations):
             alpha = get_dynamic_alpha(i, iterations, max_alpha=0.3)
             print(f"Iteration {i + 1}/{iterations}, alpha: {alpha:.2f}")
+            print(f"Bias Sigma: {bias_sigma}")
+            print(f"preferred_mean: {preferred_mean}")
             while True:
                 actions = sample_gaussian_actions_on_map(
-                    center=destination,
                     std_dev=std_dev,
                     num_samples=num_samples,
                     image_size=map_size,
@@ -564,8 +544,8 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
             # idx have to in range of actions
             result = [idx for idx in result if idx < len(actions)]
             best_actions_positions = [actions[idx] for idx in result]
-            preferred_mean, std_dev = update_gaussian_distribution(
-                best_actions_positions, std_dev, destination
+            preferred_mean, bias_sigma = update_gaussian_distribution(
+                best_actions_positions, bias_sigma, destination
             )
 
         for action in best_actions_positions:
@@ -585,13 +565,12 @@ def get_base(occupancy_2d_map, target, instruction, R, T, fx, fy, cx, cy, K=3):
     cv2.imwrite("./data/preferred_mean_map.png", preferred_mean_map)
     while True:
         final_actions = sample_gaussian_actions_on_map(
-            center=destination,
             std_dev=std_dev,
             num_samples=20,
             image_size=map_size,
             obstacle_map=occupancy_2d_map,
             preferred_mean=preferred_mean,
-            bias_sigma=bias_sigma,
+            bias_sigma=0.3,
             alpha=0.0,
         )
         if len(final_actions) >= 5:
