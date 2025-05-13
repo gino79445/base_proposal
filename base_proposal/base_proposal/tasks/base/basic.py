@@ -283,7 +283,42 @@ class Task(BaseTask):
         #
         self.ego_viewport = get_active_viewport()
         self.ego_viewport.camera_path = str(camera_prim.GetPath())
-        vp_window = vp_utils.create_viewport_window("viewport")
+        # vp_window = vp_utils.create_viewport_window("viewport")
+        from pxr import Sdf
+
+        # 1. 取得 Stage
+        stage = omni.usd.get_context().get_stage()
+
+        # 2. 建立或取得自定義攝影機 prim
+        camera_path = Sdf.Path("/World/MyCustomCamera")
+        if not stage.GetPrimAtPath(camera_path).IsValid():
+            camera_prim = UsdGeom.Camera.Define(stage, camera_path)
+        else:
+            camera_prim = UsdGeom.Camera(stage.GetPrimAtPath(camera_path))
+
+        camera = UsdGeom.Camera(camera_prim)
+        camera.GetFocalLengthAttr().Set(20.0)  # 更窄視角、拉近感
+
+        # 3. 設定 camera 的位置與旋轉
+        xform = UsdGeom.Xformable(camera_prim)
+        xform.ClearXformOpOrder()  # 清除舊的 transform（避免疊加）
+
+        # 位置與旋轉（你可以自由修改）
+        position = Gf.Vec3d(-1, -2, 2)
+        rotation1 = Gf.Rotation(Gf.Vec3d(0, 0, 1), -90)
+        rotation2 = Gf.Rotation(Gf.Vec3d(0, 1, 0), -60)
+        rotation = rotation1 * rotation2
+
+        # 設定 Transform
+        transform = Gf.Matrix4d().SetRotate(rotation) * Gf.Matrix4d().SetTranslate(
+            position
+        )
+        xform.AddTransformOp().Set(transform)
+        vp_utils.create_viewport_window("viewport")  # 如果還沒建立
+        vp = vp_utils.get_viewport_from_window_name("viewport")
+
+        # 套用你的攝影機
+        vp.set_active_camera(camera_path)
 
     def get_depth_data(self):
         """Retrieves observations from the environment."""

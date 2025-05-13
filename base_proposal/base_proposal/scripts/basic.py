@@ -128,22 +128,22 @@ def parse_hydra_configs(cfg: DictConfig):
             #     local_nav="rekep",
             #     algo="astar_rough",
             # )
-            #  pick_and_place(
-            #      env,
-            #      policy,
-            #      global_position,
-            #      local_nav="spaceAware_pivot",
-            #      algo="astar_rough",
-            #  )
-            # pull(env, policy, global_position, local_nav="None", algo="astar")
-            # pull(env, policy, global_position, local_nav="pivot", algo="astar_rough")
-            pull(
+            pick_and_place(
                 env,
                 policy,
                 global_position,
                 local_nav="spaceAware_pivot",
                 algo="astar_rough",
             )
+            # pull(env, policy, global_position, local_nav="None", algo="astar")
+            # pull(env, policy, global_position, local_nav="pivot", algo="astar_rough")
+            # pull(
+            #    env,
+            #    policy,
+            #    global_position,
+            #    local_nav="spaceAware_pivot",
+            #    algo="astar_rough",
+            # )
         #     pull(
         #         env,
         #         policy,
@@ -154,6 +154,9 @@ def parse_hydra_configs(cfg: DictConfig):
         except Exception as e:
             print(e)
             print("Error")
+            import traceback
+
+            traceback.print_exc()
 
         env.step(["open_gripper"])
         env.step(["reset_arm"])

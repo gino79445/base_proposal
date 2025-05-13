@@ -157,6 +157,7 @@ class NMTask(Task):
             _isaac_sensor.acquire_contact_sensor_interface()
         )
 
+        self.distance = 0
         self._move_group = self._task_cfg["env"]["move_group"]
         self._use_torso = self._task_cfg["env"]["use_torso"]
         # Position control. Actions are base SE2 pose (3) and discrete arm activation (2)
@@ -196,6 +197,7 @@ class NMTask(Task):
         #  self.instruction = self._task_cfg["env"]["instruction"]
         self.arm = self._task_cfg["env"]["move_group"]
         self.env_count = 0
+        self.time = 0
 
         #    self.targets_position = self._task_cfg["env"]["targets_position"]
         #    self.targets_se3 = self._task_cfg["env"]["targets_se3"]
@@ -1249,6 +1251,11 @@ class NMTask(Task):
                     break
                 t += 1
                 total += i
+            dis = torch.linalg.norm(self._curr_goal_tf[total, 0:2, 3])
+            self.distance += dis
+            self.time += 1
+            print(f"Distance: {dis} Avg: {self.distance / self.time}")
+
             for i in range(num):
                 idx = total + i
                 curr_goal_pos = self._curr_goal_tf[idx, 0:3, 3]

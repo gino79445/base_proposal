@@ -51,8 +51,8 @@ def get_affordance_direction(image_path, INSTRUCTION, IDs):
                         "text": f"""
                                 You are a professional mobile robot agent.
                                 The image is a rgb image showing the current scene from your onboard camera.
-                                Numbered lines radiate outward from the target object, with the circle mark indicating the starting point,
-                                and each line points in a different direction on the floor relative to the target.
+                                Numbered lines radiate outward from the target object, with the circle mark indicating the starting point.
+                                The black arrows indicate the direction of the direction vectors.
                                 The directions are labeled with the numbers: {IDs}.
 
                                 Given the instruction: {INSTRUCTION},
@@ -66,6 +66,7 @@ def get_affordance_direction(image_path, INSTRUCTION, IDs):
                                 step 3: Provide me with a most likely suitable direction number.
 
 
+                                Note: You can only choose the direction number in the image.
                                 At the end, directly return your answer as a JSON in the following format: {{ "points": [] }}
                                 Only return the JSON. Do not include explanation or reasoning.
                                 """,

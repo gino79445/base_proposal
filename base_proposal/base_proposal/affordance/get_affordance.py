@@ -128,6 +128,8 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
     for i, angle in enumerate(directions):
         hue = i / len(directions)  # 分布在 HSV 色環上（0~1）
         hue = hue_order[i] / len(directions)  # 分布在 HSV 色環上（0~1）
+        if 0.05 < hue < 0.12:
+            hue -= 0.04
         r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
         color_map[angle] = (int(b * 255), int(g * 255), int(r * 255))  # BGR
     depth = np.load("./data/depth.npy")
@@ -187,10 +189,10 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
                     overlay2, (ox, oy), (tx, ty), color_map[angle], 20, tipLength=0.02
                 )
                 if angle not in annotated_angles:
-                    tx_ = ox + (tx - ox) * 5
-                    ty_ = oy + (ty - oy) * 5
-                    ox_ = ox + (tx - ox) * 4
-                    oy_ = oy + (ty - oy) * 4
+                    tx_ = ox + (tx - ox) * 4
+                    ty_ = oy + (ty - oy) * 4
+                    ox_ = ox + (tx - ox) * 3
+                    oy_ = oy + (ty - oy) * 3
                     label_pixel.append((ox_, oy_, tx_, ty_))
                     angle_list.append(angle)
                     #     cv2.arrowedLine(
@@ -245,14 +247,27 @@ def get_annotated_rgb1(rgb, goal, R, T, fx, fy, cx, cy, obstacle_map):
         for i, (ox_, oy_, tx_, ty_) in enumerate(label_pixel):
             L = label_list[i]
             angle = angle_list[i]
-            #  cv2.arrowedLine(
-            #      annotated_image,
-            #      (ox_, oy_),
-            #      (tx_, ty_),
-            #      (0, 0, 0),
-            #      10,
-            #      tipLength=5,
-            #  )
+            tx2 = ox_ + (tx_ - ox_) * 8
+            ty2 = oy_ + (ty_ - oy_) * 8
+            ox2 = ox_ + (tx_ - ox_) * 7
+            oy2 = oy_ + (ty_ - oy_) * 7
+
+            cv2.arrowedLine(
+                annotated_image,
+                (ox2, oy2),
+                (tx2, ty2),
+                (0, 0, 0),
+                6,
+                tipLength=8,
+            )
+            cv2.arrowedLine(
+                overlay,
+                (ox2, oy2),
+                (tx2, ty2),
+                (0, 0, 0),
+                6,
+                tipLength=8,
+            )
             cv2.circle(annotated_image, (tx_, ty_), 17, (0, 0, 0), -1)
             cv2.circle(overlay, (tx_, ty_), 17, (0, 0, 0), -1)
             cv2.circle(annotated_image, (tx_, ty_), 17, color_map[angle], 2)
@@ -325,9 +340,14 @@ def get_affordance_direction_id(
             IDs.append(ID[0])  # or apply a strategy to select one
         else:
             IDs.append(ID)
-    # return the most common ID
+
     ID = max(set(IDs), key=IDs.count)
     print(f"IDs : {IDs}, ID : {ID}")
+    num_ID = IDs.count(ID)
+    if num_ID < 2:
+        for i in range(len(IDs)):
+            if abs(IDs[i] - ID) > 1:
+                return -1, None
     H = rgb.shape[0] - 1
     W = rgb.shape[1] - 1
     if ID != -1:
@@ -838,7 +858,7 @@ def get_rough_affann(target, instruction, R, T, fx, fy, cx, cy, map):
     cv2.imwrite("./data/rough_affann.png", map_rgb)
 
 
-def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
+def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map, destination):
     depth = np.load("./data/depth.npy")
     rgb = cv2.imread("./data/rgb.png")
     detect_success = detect_and_segment("./data/rgb.png", target)
@@ -955,9 +975,11 @@ def get_affordance_point(target, instruction, R, T, fx, fy, cx, cy, map):
         np.save("./data/mask_points_mean.npy", mask_points_mean)
     else:
         mask_points_mean = np.zeros((3), dtype=np.float32)
-        mask_points_mean[0] = affordance_point[0]
-        mask_points_mean[1] = affordance_point[1]
-        mask_points_mean[2] = affordance_point[2]
+        mask_points_mean[0] = destination[0]
+        mask_points_mean[1] = destination[1]
+        mask_points_mean[2] = 0
+        mask_points_mean = np.array(mask_points_mean).reshape(3, 1)
+        np.save("./data/mask_points_mean.npy", mask_points_mean)
 
     cv2.imwrite("./data/affann.png", map_rgb)
 

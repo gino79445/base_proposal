@@ -62,10 +62,11 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                     - Yellow area: approximate target object area (matching the RGB image).
                                     - Numbered white circles with blue outlines (IDs 0–19): candidate base positions (obstacle-free).
                                     - Black point outlined in orange "A": same affordance point as in the RGB image.
-                                    - Orange arrow at "A": affordance direction on the map.
+                                    - Orange arrow at "A": indicates the affordance direction on the map.
+                                    - The orange region near the arrow at "A": indicates an area with good candidate base positions.
                                     - Colored lines on the ground: match the directions seen in the RGB image (each drawn every 30°).
-                                Important: You must use both the onboard RGB image and the top-down map together.
-                                            There is only one number for each numbered white circle with blue outlines on the top-down map.
+
+                                Important:There is only one number for each numbered white circle with blue outlines on the top-down map.
                                 
                                 Your task:
                                     Given the instruction "{INSTRUCTION}", select the {K} candidate base positions that best:
@@ -75,16 +76,15 @@ def get_point(image_path1, image_path2, INSTRUCTION, K):
                                     1. Identify the key part of the target object that needs to be manipulated (e.g., mug handle).
                                     2. Align the RGB image and top-down map using the colored lines (same colors,same order, centered on the object, every 30°).
                                     3. Select the best candidate base positions:
-                                        - Use the direction marked at point "A" to understand the relationship between the rgb image and the top-down map. they are the same.
-                                        - Prioritize point "A" and the vectors near the orange sector on the top-down 2d map, as they are likely 
-                                        the best directions for the task.
                                         - The direction marked at point "A" roughly indicates the main reference direction
-                                        and good base positions typically lie within or near the orange sector, 
-                                        so you should select the candidate base positions that are close to the orange sector.
-                                        If you believe the direction of point A is not a good direction,
-                                        please autonomously determine and select a more suitable direction.
-                                        If point A is not visible, this may be because the RGB camera does not capture the floor or 
-                                        the key part of the target is occluded — you must autonomously determine this condition.
+                                        and good base positions typically lie within the orange area on the top-down map.
+                                        - Please select the candidate base positions that are in the orange area on the top-down map.
+                                        - If the orange area on the top-down map is not visible, you should first understand from the RGB image. 
+                                        which direction line on the floor corresponds to the color that allows the robot to clearly see the key part 
+                                        Once the color is determined, use the top-down map to find the corresponding directional line. 
+                                        Good candidate points should be near the directional line.
+                                    4. Return the selected candidate base positions and make sure the number is only one 
+                                    for each numbered white circle with blue outlines on the top-down map.
                                 At the end, directly return your answer as a JSON in the following format: {{ "points": [] }}
                                 Only return the JSON. Do not include explanation or reasoning.
                                 """,
@@ -112,5 +112,10 @@ Each line on the ground with the same color in both the RGB image and the top-do
 #                                    These lines are centered around the object, with one line drawn every 30 degrees.
 #                                    Use these lines to reason about the candidate base positions and the relationship to the target object.
 
+                                        - The direction marked at point "A" roughly indicates the main reference direction
+                                        and good base positions typically lie within or near the orange area on the top-down map,
+                                        so you sould select the candidate base positions that are closest to the orange area on the top-down map.
+                                        If the orange area on the top-down map is not visible, this may be because the RGB camera does not capture the floor or 
+                                        the key part of the target is occluded — you must autonomously determine this condition.
 #                                   - Several numbered white circles with a blue outline labeled IDs(0~14): candidate base positions (obstacle-free) for you to move to.
 """

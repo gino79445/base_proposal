@@ -271,6 +271,7 @@ class Policy:
             self.fy,
             self.cx,
             self.cy,
+            self.global2local(self.destination[self.des_idx]),
         )
         print(f"Base point: {base_point}")
         self.des_idx += 1
