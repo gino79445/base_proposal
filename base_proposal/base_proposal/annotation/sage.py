@@ -173,6 +173,21 @@ def sample_gaussian_actions_on_map(
     filename = f"./heatmap/w_distribution_alpha_map_{timestamp}.png"
     cv2.imwrite(filename, cropped_map)
 
+    base_map = np.flipud(base_map)
+    base_map = np.rot90(base_map)
+    base_map = cv2.resize(
+        base_map, (map_size[0] * 10, map_size[1] * 10), interpolation=cv2.INTER_NEAREST
+    )
+    # 裁切出中心區域
+    x_min = int(max(0, center_px[1] - crop_size))
+    x_max = int(min(base_map.shape[1], center_px[1] + crop_size))
+    y_min = int(max(0, center_px[0] - crop_size))
+    y_max = int(min(base_map.shape[0], center_px[0] + crop_size))
+    cropped_map = base_map[y_min:y_max, x_min:x_max]
+    cropped_map = cv2.resize(cropped_map, (2000, 2000))
+    # 儲存圖片
+    cv2.imwrite("./heatmap/base_map.png", cropped_map)
+
     return actions
 
 
@@ -752,6 +767,7 @@ def get_base(
         for i in range(iterations):
             print(f"bias_sigma: {bias_sigma:.2f} dist_sigma: {dist_sigma:.2f}")
             alpha = get_dynamic_alpha(i, iterations, max_alpha=0.5)
+            alpha = 0.5
             print(f"Iteration {i + 1}/{iterations}, alpha: {alpha:.2f}")
             while True:
                 actions = sample_gaussian_actions_on_map(

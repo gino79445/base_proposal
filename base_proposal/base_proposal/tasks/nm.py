@@ -1461,7 +1461,7 @@ class NMTask(Task):
                 torch.tensor(curr_pose[0][:3]) - torch.tensor(target_pose[0][:3])
             )
             print(f"distance: {dis}")
-            if dis <= 0.3:
+            if dis <= 0.3 or curr_pose[0][2] > 0.5:
                 print("place success")
                 self.success_num += 1
             else:

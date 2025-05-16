@@ -26,18 +26,19 @@ env:
   se3_vis: False
 
   #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pull_cabinet_1.yaml"
-  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_mug_shelf/04_dataset.yaml"
+  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_mug_shelf/06_dataset.yaml"
   #  object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/demo/01_dataset.yaml"
+  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pull_cabinet/05_dataset.yaml"
   #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pull_cabinet/01_dataset.yaml"
-  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pull_cabinet/01_dataset.yaml"
-  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_pot_mug/01_dataset.yaml"
+  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_pot_mug/06_dataset.yaml"
   # object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_can_bin/02_dataset.yaml"
   #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_pot_mug.yaml"
+  #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_mug_shelf.yaml"
   #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pickplace_can_bin.yaml"
   object_config: null
   #object_config: "/home/zrl/Desktop/research/base_proposal/base_proposal/base_proposal/cfg/env/pull_dishwasher.yaml"
 
-  env_folder: "base_proposal/cfg/env/pickplace_mug_shelf"
+  env_folder: "base_proposal/cfg/env/pull_cabinet"
   house: True
   plane: True
 
