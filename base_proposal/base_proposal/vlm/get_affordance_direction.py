@@ -63,7 +63,7 @@ def get_affordance_direction(image_path, INSTRUCTION, IDs):
                                         If the key part is not visible, please try to infer the direction based on the image.
                                         Please do not give me the direction of the target object relative to the current position,
                                         but rather the direction of the key part relative to the main body.
-                                step 3: Provide me with a most likely suitable direction number.
+                                step 3: Provide me with a most likely suitable direction number. If you believe none of the options are appropriate, return -1.
 
 
                                 Note: You can only choose the direction number in the image.

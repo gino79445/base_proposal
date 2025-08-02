@@ -825,16 +825,16 @@ class NMTask(Task):
         # save the depth np
         np.save("./data/depth.npy", self.depth_data)
 
-        r = self.rgb_data.copy()
-        pos = self._curr_goal_tf[5, 0:3, 3]
-        point3d = np.array([[pos[0]], [pos[1]], [pos[2]]])
-        a, b = self.get_pixel(point3d, R, T, fx, fy, cx, cy)
-        b = self.rgb_data.shape[0] - b
-        a = self.rgb_data.shape[1] - a
-        cv2.circle(r, (a, b), 10, (255, 0, 255), 3)
-        # save
-        im = Image.fromarray(r)
-        cv2.imwrite("./data/robot.png", r)
+   #     r = self.rgb_data.copy()
+   #     pos = self._curr_goal_tf[5, 0:3, 3]
+   #     point3d = np.array([[pos[0]], [pos[1]], [pos[2]]])
+   #     a, b = self.get_pixel(point3d, R, T, fx, fy, cx, cy)
+   #     b = self.rgb_data.shape[0] - b
+   #     a = self.rgb_data.shape[1] - a
+   #     cv2.circle(r, (a, b), 10, (255, 0, 255), 3)
+   #     # save
+   #     im = Image.fromarray(r)
+   #     cv2.imwrite("./data/robot.png", r)
 
         #   #     a, b = self.get_pixel(affordance_point, R, T, fx, fy, cx, cy)
         #   #     b = rgb.shape[0] - b

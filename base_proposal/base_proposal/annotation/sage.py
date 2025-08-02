@@ -526,37 +526,37 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
             r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
             color_map[angle] = (int(b * 255), int(g * 255), int(r * 255))  # BGR
         origin_map = image.copy()
-        for i, angle in enumerate(directions):
-            rotated = rotate_vector_2d(v, angle)
-            pt_prev = start
+        # for i, angle in enumerate(directions):
+        #    rotated = rotate_vector_2d(v, angle)
+        #    pt_prev = start
 
-            for s in np.arange(0.0, scale, step):
-                tip = start + rotated * s
-                # not in white area and yellow area
-                if (
-                    tip[0] < 0
-                    or tip[1] < 0
-                    or tip[0] >= origin_map.shape[1]
-                    or tip[1] >= origin_map.shape[0]
-                ):
-                    continue
-                b, g, r = origin_map[int(tip[1]), int(tip[0])]
-                if abs(b - 0) < 10 and abs(g - 0) < 10 and abs(r - 0) < 10:
-                    cv2.arrowedLine(
-                        overlay,
-                        (int(pt_prev[0]), int(pt_prev[1])),
-                        (int(tip[0]), int(tip[1])),
-                        color_map[angle],
-                        15,
-                        tipLength=0.001,
-                    )
-                # if first_found:
-                #     point_pos_list.append((int(tip[0]), int(tip[1])))
-                #     label_list.append(i)
-                #     angle_list.append(angle)
-                # first_found = False
+        #    for s in np.arange(0.0, scale, step):
+        #        tip = start + rotated * s
+        #        # not in white area and yellow area
+        #        if (
+        #            tip[0] < 0
+        #            or tip[1] < 0
+        #            or tip[0] >= origin_map.shape[1]
+        #            or tip[1] >= origin_map.shape[0]
+        #        ):
+        #            continue
+        #        b, g, r = origin_map[int(tip[1]), int(tip[0])]
+        #        if abs(b - 0) < 10 and abs(g - 0) < 10 and abs(r - 0) < 10:
+        #            cv2.arrowedLine(
+        #                overlay,
+        #                (int(pt_prev[0]), int(pt_prev[1])),
+        #                (int(tip[0]), int(tip[1])),
+        #                color_map[angle],
+        #                15,
+        #                tipLength=0.001,
+        #            )
+        #        # if first_found:
+        #        #     point_pos_list.append((int(tip[0]), int(tip[1])))
+        #        #     label_list.append(i)
+        #        #     angle_list.append(angle)
+        #        # first_found = False
 
-                pt_prev = tip  # 更新前一點
+        #        pt_prev = tip  # 更新前一點
         cv2.arrowedLine(
             annotated_image,
             (mask_x, mask_y),
@@ -648,22 +648,22 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
                 pt_prev = tip  # 更新前一點
         cv2.addWeighted(overlay, 0.4, annotated_image, 1, 0, annotated_image)
 
-    for i, (x, y) in enumerate(actions):
-        x, y = (map_size[1] - y) * 10, (map_size[0] - x) * 10
-        cv2.circle(annotated_image, (x, y), 18, (255, 255, 255), -1)
-        cv2.circle(annotated_image, (x, y), 18, (225, 0, 0), 3)
-        text_width, text_height = cv2.getTextSize(
-            f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2
-        )[0]
-        cv2.putText(
-            annotated_image,
-            f"{i}",
-            (x - text_width // 2, y + text_height // 2),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 100, 150),
-            2,
-        )
+    # for i, (x, y) in enumerate(actions):
+    #     x, y = (map_size[1] - y) * 10, (map_size[0] - x) * 10
+    #     cv2.circle(annotated_image, (x, y), 18, (255, 255, 255), -1)
+    #     cv2.circle(annotated_image, (x, y), 18, (225, 0, 0), 3)
+    #     text_width, text_height = cv2.getTextSize(
+    #         f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2
+    #     )[0]
+    #     cv2.putText(
+    #         annotated_image,
+    #         f"{i}",
+    #         (x - text_width // 2, y + text_height // 2),
+    #         cv2.FONT_HERSHEY_SIMPLEX,
+    #         0.8,
+    #         (0, 100, 150),
+    #         2,
+    #     )
 
     overlay = annotated_image.copy()
 
@@ -767,7 +767,7 @@ def get_base(
         for i in range(iterations):
             print(f"bias_sigma: {bias_sigma:.2f} dist_sigma: {dist_sigma:.2f}")
             alpha = get_dynamic_alpha(i, iterations, max_alpha=0.5)
-            alpha = 0.5
+            # alpha = 1
             print(f"Iteration {i + 1}/{iterations}, alpha: {alpha:.2f}")
             while True:
                 actions = sample_gaussian_actions_on_map(

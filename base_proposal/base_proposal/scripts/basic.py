@@ -46,6 +46,8 @@ from base_proposal.policy.rekep import Policy as rekep_Policy
 from dotenv import load_dotenv
 import os
 
+import cv2
+
 load_dotenv()  # 讀取 .env 檔案
 api_key = os.getenv("API_KEY")  # 獲取 API Key
 
@@ -129,28 +131,29 @@ def parse_hydra_configs(cfg: DictConfig):
             #     algo="astar_rough",
             # )
             # pick_and_place(
-            #    env,
-            #    policy,
-            #    global_position,
-            #    local_nav="spaceAware_pivot",
-            #    algo="astar_rough",
+            #     env,
+            #     policy,
+            #     global_position,
+            #     local_nav="spaceAware_pivot",
+            #     algo="astar_rough",
             # )
-            # pull(env, policy, global_position, local_nav="None", algo="astar")
-            # pull(env, policy, global_position, local_nav="pivot", algo="astar_rough")
-            pull(
-                env,
-                policy,
-                global_position,
-                local_nav="spaceAware_pivot",
-                algo="astar_rough",
-            )
-        #     pull(
-        #         env,
-        #         policy,
-        #         global_position,
-        #         local_nav="rekep",
-        #         algo="astar_rough",
-        #     )
+            get_initial(env, policy, global_position, local_nav="None", algo="astar")
+        # pull(env, policy, global_position, local_nav="None", algo="astar")
+        # pull(env, policy, global_position, local_nav="pivot", algo="astar_rough")
+        # pull(
+        #     env,
+        #     policy,
+        #     global_position,
+        #     local_nav="spaceAware_pivot",
+        #     algo="astar_rough",
+        # )
+        # pull(
+        #     env,
+        #     policy,
+        #     global_position,
+        #     local_nav="rekep",
+        #     algo="astar_rough",
+        # )
         except Exception as e:
             print(e)
             print("Error")
@@ -168,6 +171,20 @@ def parse_hydra_configs(cfg: DictConfig):
         print(f"Success rate: {success_num}/{current_time}")
 
     env._simulation_app.close()
+
+
+def get_initial(env, policy, global_position, local_nav="none", algo="astar"):
+
+    rgb, depth, occupancy_2d_map, robot_pos, _ = env.step(["set_initial_base"])
+    map = occupancy_2d_map.copy()
+    if os.path.exists("or2m.png"):
+        map = cv2.imread("or2m.png")
+        # draw the pos on 2d map
+
+    x = int(global_position[0][0] / 0.05) + 100
+    y = int(global_position[0][1] / 0.05) + 100
+    cv2.circle(map, (200 - x, y), 1, (0, 255, 0), -1)
+    cv2.imwrite("or2m.png", map)
 
 
 def pull(env, policy, global_position, local_nav="none", algo="astar"):
