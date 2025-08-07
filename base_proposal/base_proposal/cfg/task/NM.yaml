@@ -26,8 +26,13 @@ env:
   se3_vis: False
 
   object_config: null
-
+  # Please modify the close_gripper function (set_joint_efforts) in handlers/TiagoDualWBHandler according to the task
+  # Please modify the base_backward function (set_joint_efforts) in handlers/TiagoDualWBHandler according to the task (open)
   env_folder: "base_proposal/cfg/env/pickplace_mug_shelf"
+  #  env_folder: "base_proposal/cfg/env/pickplace_can_bin"
+  #  env_folder: "base_proposal/cfg/env/pickplace_pot_mug"
+  #  env_folder: "base_proposal/cfg/env/pull_cabinet"
+  #  env_folder: "base_proposal/cfg/env/pull_dishwasher"
   house: True
   plane: True
 

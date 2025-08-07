@@ -249,6 +249,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
     def close_gripper(self, action=torch.tensor([-0.1, -0.1])):
         # Close gripper
         self.robots.set_joint_efforts(  # set joint efforts to close gripper
+            # MODIFIED: Set efforts to close gripper
             # open (cabinet , dishwasher)
             # efforts=torch.tensor([-1.0, -1.0], device=self._device),
             # pick and place (mug, can)
@@ -364,18 +365,11 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         )
         self.close_gripper()
 
-        # gripper_pos = self.robots.get_joint_positions(
-        #     joint_indices=self.gripper_left_dof_idxs, clone=True
-        # )
-        # self.robots.set_joint_position_targets(
-        #     positions=gripper_pos, joint_indices=self.gripper_left_dof_idxs
-        # )
-
         self.robots.set_joint_velocities(  # set joint velocity targets
             velocities=torch.tensor([0.0, -0.1, 0.0], device=self._device),
             joint_indices=self.base_dof_idxs,
         )
-
+        # MODIFIED: Set move
         # 1000 (cabinet)
         # -1000 (dishwasher)
         self.robots.set_joint_efforts(
