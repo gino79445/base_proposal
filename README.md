@@ -21,6 +21,8 @@
     pip install -e .
     ```
 
+- Download the **[sam_vit_h](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)** model and place it in the `affordance/` folder.
+
 ## Experiments
 
 ### Launching the experiments
