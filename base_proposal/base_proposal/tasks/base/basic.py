@@ -264,23 +264,7 @@ class Task(BaseTask):
         )
 
         RESOLUTION = (1280, 720)
-        # EDIT:
-        # rep_camera = rep.create.camera(camera)
         self.camera_path = camera_path
-        # render_product = rep.create.render_product(camera_path, RESOLUTION)
-
-        # rgb = rep.AnnotatorRegistry.get_annotator("rgb")
-        # distance_to_image_plane = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
-        #
-        # distance_to_image_plane.attach(render_product)
-        # rgb.attach(render_product)
-        #
-        # rep.orchestrator.step()
-
-        # self.depth_data = distance_to_image_plane
-        # self.rgb_data = rgb
-        # print("depth_data: ", self.depth_data)
-        #
         self.ego_viewport = get_active_viewport()
         self.ego_viewport.camera_path = str(camera_prim.GetPath())
         # vp_window = vp_utils.create_viewport_window("viewport")
@@ -297,24 +281,21 @@ class Task(BaseTask):
             camera_prim = UsdGeom.Camera(stage.GetPrimAtPath(camera_path))
 
         camera = UsdGeom.Camera(camera_prim)
-        camera.GetFocalLengthAttr().Set(20.0)  # 更窄視角、拉近感
+        camera.GetFocalLengthAttr().Set(20.0)
 
-        # 3. 設定 camera 的位置與旋轉
         xform = UsdGeom.Xformable(camera_prim)
-        xform.ClearXformOpOrder()  # 清除舊的 transform（避免疊加）
+        xform.ClearXformOpOrder()
 
-        # 位置與旋轉（你可以自由修改）
         position = Gf.Vec3d(-1, -2, 2)
         rotation1 = Gf.Rotation(Gf.Vec3d(0, 0, 1), -90)
         rotation2 = Gf.Rotation(Gf.Vec3d(0, 1, 0), -60)
         rotation = rotation1 * rotation2
 
-        # 設定 Transform
         transform = Gf.Matrix4d().SetRotate(rotation) * Gf.Matrix4d().SetTranslate(
             position
         )
         xform.AddTransformOp().Set(transform)
-        vp_utils.create_viewport_window("viewport")  # 如果還沒建立
+        vp_utils.create_viewport_window("viewport")
         vp = vp_utils.get_viewport_from_window_name("viewport")
 
         # 套用你的攝影機
@@ -394,41 +375,8 @@ class Task(BaseTask):
                 [-np.sin(np.radians(-30)), 0, np.cos(np.radians(-30))],
             ]
         )
-        #  R = np.array([[1, 0, 0],
-        #                  [0, 1, 0],
-        #                  [0, 0, 1]])
-        #        # rotate z axis
-        #        R = np.array([[np.cos(np.radians(-10)), -np.sin(np.radians(-10)), 0],
-        #                        [np.sin(np.radians(-10)), np.cos(np.radians(-10)), 0],
-        #                        [0, 0, 1]])
-
-        # R =  np.array([[1,0,0],[0,1,0],[0,0,1]])
-
-        # rotation_x, rotation_y, rotation_z = -10,0,-90
-
-        # rotation = Rotation.from_euler('xyz', [rotation_x, rotation_y, rotation_z], degrees=True)
-        # rotation_matrix = rotation.as_matrix()
-        # R = np.array([[rotation_matrix[0][0], rotation_matrix[0][1], rotation_matrix[0][2]],
-        #                  [rotation_matrix[1][0], rotation_matrix[1][1], rotation_matrix[1][2]],
-        #                  [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2]]])
-        # T = np.array([[0], [0], [-0.9]])
-        # R = self.camera_world_rotation
-
-        # R = self.camera_world_rotation
         T = self.camera_world_position
         T = np.array([[T[0][0]], [T[1][0]], [T[2][0] + 0.25]])
-        # T = np.zeros((3,1))
-        # T[0][0] = 0
-        # T[1][0] = 0
-        # T[2][0] = 0.3
-        ##print("R: ", R)
-        # print("T: ", T)
-        # print("self.camera_world_position: ", self.camera_world_position)
-        # print("self.camera_world_rotation: ", self.camera_world_rotation)
-        # make rotaion to angle axis
-        # rotation = Rotation.from_matrix(self.camera_world_rotation)
-        # rotation = rotation.as_euler('xyz', degrees=True)
-        # print("rotation: ", rotation)
 
         return R, T, focal_x, focal_y, center_x, center_y
 
@@ -459,71 +407,9 @@ class Task(BaseTask):
         """
         return self._num_envs
 
-    #
-    #    @property
-    #    def num_actions(self):
-    #        """ Retrieves dimension of actions.
-    #
-    #        Returns:
-    #            num_actions(int): Dimension of actions.
-    #        """
-    #        return self._num_actions
-    #
-    #    @property
-    #    def num_observations(self):
-    #        """ Retrieves dimension of observations.
-    #
-    #        Returns:
-    #            num_observations(int): Dimension of observations.
-    #        """
-    #        return self._num_observations
-    #
-    #    @property
-    #    def num_states(self):
-    #        """ Retrieves dimesion of states.
-    #
-    #        Returns:
-    #            num_states(int): Dimension of states.
-    #        """
-    #        return self._num_states
-    #
-    #    @property
-    #    def num_agents(self):
-    #        """ Retrieves number of agents for multi-agent environments.
-    #
-    #        Returns:
-    #            num_agents(int): Dimension of states.
-    #        """
-    #        return self._num_agents
-    #
-    #    def get_states(self):
-    #        """ API for retrieving states buffer, used for asymmetric AC training.
-    #
-    #        Returns:
-    #            states_buf(torch.Tensor): States buffer.
-    #        """
-    #        return self.states_buf
-    #
-    #    def get_extras(self):
-    #        """ API for retrieving extras data for RL.
-    #
-    #        Returns:
-    #            extras(dict): Dictionary containing extras data.
-    #        """
-    #        return self.extras
-    #
     def reset(self):
         """Flags all environments for reset."""
         self.reset_buf = torch.ones_like(self.reset_buf)
-
-    #
-    #    def pre_physics_step(self, actions):
-    #        """ Optionally implemented by individual task classes to process actions.
-    #
-    #        Args:
-    #            actions (torch.Tensor): Actions generated by RL policy.
-    #        """
-    #        pass
 
     def post_physics_step(self):
         """Processes RL required computations for observations, states, rewards, resets, and extras.

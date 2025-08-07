@@ -23,24 +23,10 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         )  # placement of the robot in the world
         self._device = device
 
-        # Custom default values of arm joints
-        # middle of joint ranges
-        # self.arm_left_start =  torch.tensor([0.19634954, 0.19634954, 1.5708,
-        #                                     0.9817477, 0.0, 0.0, 0.0], device=self._device)
-        # self.arm_right_start = torch.tensor([0.19634954, 0.19634954, 1.5708,
-        #                                     0.9817477, 0.0, 0.0, 0.0], device=self._device)
-        # Start at 'home' positions
-        #        self.arm_left_start = torch.tensor([-1.2708, 1.3708, 0,
-        #                                            -0.8, 1.5708, 1.5708, 0], device=self._device)
-        #        self.arm_right_start = torch.tensor([-1.2708, 1.3708, 0,
-        #                                            -0.8, 1.5708, 1.5708, 0], device=self._device)
-
-        # self.joint_pos_min = np.array([-1.1780972451, -1.1780972451, -0.785398163397, -0.392699081699, -2.09439510239, -1.41371669412, -2.09439510239])
-        # self.joint_pos_max = np.array([+1.57079632679, +1.57079632679, +3.92699081699, +2.35619449019, +2.09439510239, +1.41371669412, +2.09439510239])
         self.arm_left_start = torch.tensor(
             [
-                1.1,  #  arm 向前
-                -0.85,  # 抬高 shoulder
+                1.1,  #  arm forward
+                -0.85,  # lift shoulder
                 0.3,
                 1.0,  # elbow
                 0.0,
@@ -72,10 +58,6 @@ class TiagoDualWBHandler(TiagoBaseHandler):
 
         self.default_zero_env_path = "/World/envs/env_0"
 
-        # self.max_arm_vel = torch.tensor(self._sim_config.task_config["env"]["max_rot_vel"], device=self._device)
-        # self.max_base_rot_vel = torch.tensor(self._sim_config.task_config["env"]["max_rot_vel"], device=self._device)
-        # self.max_base_xy_vel = torch.tensor(self._sim_config.task_config["env"]["max_base_xy_vel"], device=self._device)
-        # Get dt for integrating velocity commands
         self.dt = torch.tensor(
             self._sim_config.task_config["sim"]["dt"]
             * self._sim_config.task_config["env"]["controlFrequencyInv"],
@@ -97,14 +79,6 @@ class TiagoDualWBHandler(TiagoBaseHandler):
         # Future: Use end-effector link names and get their poses and velocities from Isaac
         self.ee_left_prim = ["gripper_left_grasping_frame"]
         self.ee_right_prim = ["gripper_right_grasping_frame"]
-        # self.ee_left_tf =  torch.tensor([[ 0., 0.,  1.,  0.      ], # left_7_link to ee tf
-        #                                  [ 0., 1.,  0.,  0.      ],
-        #                                  [-1., 0.,  0., -0.196575],
-        #                                  [ 0., 0.,  0.,  1.      ]])
-        # self.ee_right_tf = torch.tensor([[ 0., 0., -1.,  0.      ], # right_7_link to ee tf
-        #                                  [ 0., 1.,  0.,  0.      ],
-        #                                  [ 1., 0.,  0.,  0.196575],
-        #                                  [ 0., 0.,  0.,  1.      ]])
         self._gripper_left_names = [
             "gripper_left_left_finger_joint",
             "gripper_left_right_finger_joint",
@@ -275,9 +249,12 @@ class TiagoDualWBHandler(TiagoBaseHandler):
     def close_gripper(self, action=torch.tensor([-0.1, -0.1])):
         # Close gripper
         self.robots.set_joint_efforts(  # set joint efforts to close gripper
+            # open (cabinet , dishwasher)
             # efforts=torch.tensor([-1.0, -1.0], device=self._device),
-            # efforts=torch.tensor([-15.0, -15.0], device=self._device),
-            efforts=torch.tensor([-100.0, -100.0], device=self._device),
+            # pick and place (mug, can)
+            efforts=torch.tensor([-15.0, -15.0], device=self._device),
+            #  pick and place (pot)
+            # efforts=torch.tensor([-100.0, -100.0], device=self._device),
             joint_indices=self.gripper_left_dof_idxs,
         )
 
@@ -399,78 +376,12 @@ class TiagoDualWBHandler(TiagoBaseHandler):
             joint_indices=self.base_dof_idxs,
         )
 
+        # 1000 (cabinet)
+        # -1000 (dishwasher)
         self.robots.set_joint_efforts(
             efforts=torch.tensor([0, -1000.0, 0.0], device=self._device),
             joint_indices=self.base_dof_idxs,
         )
-
-    def apply_base_actions1(self, actions):
-        from pyquaternion import Quaternion
-
-        # set arm
-        arm_pos = self.robots.get_joint_positions(  # get current joint positions
-            joint_indices=self.arm_left_dof_idxs, clone=True
-        )
-        self.robots.set_joint_positions(  # set joint position targets to lift arm
-            positions=arm_pos, joint_indices=self.arm_left_dof_idxs
-        )
-
-        base_actions = actions.clone()
-
-        # 取得當前 base 的位置
-        jt_pos = self.robots.get_joint_positions(
-            joint_indices=self.base_dof_idxs, clone=True
-        )
-        jt_pos = jt_pos[0]
-        base_actions = base_actions[0]
-
-        # **計算移動方向並旋轉**
-        rotated_x = base_actions[0] * math.cos(jt_pos[2]) - base_actions[1] * math.sin(
-            jt_pos[2]
-        )
-        rotated_y = base_actions[0] * math.sin(jt_pos[2]) + base_actions[1] * math.cos(
-            jt_pos[2]
-        )
-
-        # **計算新的位置變化量**
-        dx = rotated_x * self.dt
-        dy = rotated_y * self.dt
-        dtheta = base_actions[2] * self.dt
-
-        # **計算速度**
-        vx = dx / self.dt  # X 方向速度
-        vy = dy / self.dt  # Y 方向速度
-        omega = dtheta / self.dt  # 角速度
-
-        # **應用速度控制**
-        self.robots.set_joint_velocities(
-            velocities=torch.tensor([vx, vy, omega], device=self._device),
-            joint_indices=self.base_dof_idxs,
-        )
-
-        # **更新機器人的姿態（僅用於記錄）**
-        jt_pos[0] += dx
-        jt_pos[1] += dy
-        jt_pos[2] += dtheta
-
-        # 計算新的四元數姿態
-        current_orientation = Quaternion(axis=[0, 0, 1], radians=jt_pos[2])
-        rotation = Quaternion(axis=[0, 0, 1], radians=dtheta)
-        new_orientation = current_orientation * rotation
-
-        # 更新機器人的內部 pose
-        quatpose = np.array(
-            [
-                jt_pos[0],
-                jt_pos[1],
-                0,
-                new_orientation.real,
-                new_orientation.imaginary[0],
-                new_orientation.imaginary[1],
-                new_orientation.imaginary[2],
-            ]
-        )
-        self._robot_pose = quatpose
 
     def set_left_arm_dof_pos(self):
         dof_pos = self.robots.get_joint_positions(  # get joint positions
@@ -666,7 +577,7 @@ class TiagoDualWBHandler(TiagoBaseHandler):
             )
             # Clip needed? dof_pos[:] = tensor_clamp(self.initial_dof_pos[env_ids] + dof_pos, self.dof_limits_lower, self.dof_limits_upper)
             # jt_pos[:, self.upper_body_dof_idxs] = noise
-            jt_pos[:, self.upper_body_dof_idxs] += (
-                noise  # Optional: Add to default instead
-            )
+            jt_pos[
+                :, self.upper_body_dof_idxs
+            ] += noise  # Optional: Add to default instead
         self.robots.set_joint_positions(jt_pos, indices=indices)

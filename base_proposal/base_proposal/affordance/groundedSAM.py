@@ -8,8 +8,7 @@ from segment_anything import sam_model_registry, SamPredictor
 from segment_anything.utils.transforms import ResizeLongestSide
 import gc
 
-# ✅ 全局快取
-_dino_models = {}  # 每個 object_name 對應一個 DINO
+_dino_models = {}
 _sam_predictor = None
 _transform = None
 
@@ -36,7 +35,6 @@ def detect_and_segment(
 ):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # ✅ 載入對應物體模型與 SAM
     load_models(object_name, sam_checkpoint)
 
     image = cv2.imread(image_path)
@@ -92,13 +90,11 @@ def detect_and_segment(
         )
 
     cv2.imwrite(output_path, image)
-    print(f"✅ Segmentation result saved to {output_path}")
 
     for i, result in enumerate(results):
         mask = result["mask"]
         mask_output_path = os.path.join(os.path.dirname(output_path), "mask.png")
         cv2.imwrite(mask_output_path, mask.astype(np.uint8) * 255)
-        print(f"✅ Mask saved to {mask_output_path}")
         break
     success = True
     if len(results) == 0:
@@ -115,6 +111,5 @@ def detect_and_segment(
         mask[y1:y2, x1:x2] = 1
         mask_output_path = os.path.join(os.path.dirname(output_path), "mask.png")
         cv2.imwrite(mask_output_path, mask.astype(np.uint8) * 255)
-        print(f"✅ Mask saved to {mask_output_path}")
 
     return success

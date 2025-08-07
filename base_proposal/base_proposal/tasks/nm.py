@@ -138,16 +138,6 @@ class NMTask(Task):
             self.instruction = self.env_yaml["instruction"]
             self.initial_base = self.env_yaml["initial_base"]
             self.destination = self.env_yaml["destination"]
-        # Environment object settings: (reset() randomizes the environment)
-        #  self._obstacle_names = self._task_cfg["env"]["obstacles"]
-        #  # self._tabular_obstacle_mask = [False, True] # Mask to denote which objects are tabular (i.e. grasp objects can be placed on them)
-        #  self._grasp_obj_names = self._task_cfg["env"]["target"]
-        #  self._num_obstacles = min(
-        #      self._task_cfg["env"]["num_obstacles"], len(self._obstacle_names)
-        #  )
-        #  self._num_grasp_objs = min(
-        #      self._task_cfg["env"]["num_grasp_objects"], len(self._grasp_obj_names)
-        #  )
         self._obstacles = []
         self._obstacles_dimensions = []
         self._grasp_objs = []
@@ -441,8 +431,8 @@ class NMTask(Task):
 
     def transform_path(self, path):
         transformed_path = []
-        pre_angle = 0  # 初始角度
-        pre_x, pre_y = 0, 0  # 初始座標
+        pre_angle = 0
+        pre_x, pre_y = 0, 0
 
         for i, (cur_x, cur_y) in enumerate(path):
             if i == 0:
@@ -469,11 +459,9 @@ class NMTask(Task):
     def angle_between(self, u, v):
         ux, uy = u
         vx, vy = v
-        # 內積：u dot v = |u|*|v|*cos(theta)
         dot = ux * vx + uy * vy
         mag_u = np.sqrt(ux * ux + uy * uy)
         mag_v = np.sqrt(vx * vx + vy * vy)
-        # 為避免浮點誤差超出 [-1,1]，我們夾住在 [-1,1]
         cos_theta = max(-1.0, min(1.0, dot / (mag_u * mag_v + 1e-12)))
         return np.arccos(cos_theta)
 
@@ -527,8 +515,7 @@ class NMTask(Task):
 
         else:
             radius = 7
-            des = np.stack([occupancy_2d_map.copy()] * 3, axis=-1)  # 轉換成 RGB 影像
-
+            des = np.stack([occupancy_2d_map.copy()] * 3, axis=-1)
             for i in range(-radius, radius + 1):
                 for j in range(-radius, radius + 1):
                     if (
@@ -541,9 +528,9 @@ class NMTask(Task):
                             0,
                             0,
                         ]  # 紅色標記
-                        des[end[0] + i, end[1] + j] = [0, 255, 0]  # 綠色標記
+                        des[end[0] + i, end[1] + j] = [0, 255, 0]
 
-            im = Image.fromarray(des.astype(np.uint8))  # 確保資料類型正確
+            im = Image.fromarray(des.astype(np.uint8))
             im.save("./data/destination.png")
 
             if reached:
@@ -599,66 +586,6 @@ class NMTask(Task):
             y = (p[0] - map_size[0] // 2) * cell_size
             self.path.append([x, y])
 
-        #        # transform the path to the robot coordinate
-        #        robot_position = self.tiago_handler.get_robot_obs()[0, :3]
-        #        R = np.array(
-        #            [
-        #                [np.cos(robot_position[2]), -np.sin(robot_position[2])],
-        #                [np.sin(robot_position[2]), np.cos(robot_position[2])],
-        #            ]
-        #        )
-        #        # R = np.linalg.inv(R)
-        #        T = np.array([robot_position[0], robot_position[1]])
-        #        print(R, T)
-        #        # T = R @ T
-        #        T_inv = -R @ T
-
-        #        path = np.array([x, y])
-        #        robot_points = R @ path + T_inv
-
-        #        path = robot_points.tolist()
-        #        x = path[0]
-        #        y = path[1]
-
-        #        self.path.append([x, y])
-        #    # transform the path to the robot coordinate
-        #    robot_position = self.tiago_handler.get_robot_obs()[0, :3]
-
-        # theta = robot_position[2]
-        # R_inv = np.array(
-        #    [[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]]
-        # )
-        # T = np.array([robot_position[0], robot_position[1]])
-        # T_inv = R_inv @ T
-        ## R_inv = np.linalg.inv(R_inv)
-        ## world_points = np.array(self.path)
-        ## robot_points = (R_inv @ world_points) + T_inv
-        # path = []
-        # for p in self.path:
-        #    path.append((R_inv @ np.array(p) - R_inv @ T).tolist())
-        # print(f"Robot points: {path}")
-
-        # self.path = path
-
-        #        rotation_matrix = np.array(
-        #            [
-        #                [np.cos(robot_position[2]), -np.sin(robot_position[2])],
-        #                [np.sin(robot_position[2]), np.cos(robot_position[2])],
-        #            ]
-        #        )
-        #        translation_vector = np.array([robot_position[0], robot_position[1]])
-        #        self.path = (
-        #            rotation_matrix
-        #            @ (np.array(self.path) + translation_vector[np.newaxis, :]).T
-        #        ).T
-
-        # self.path = self.transform_points(  # 將路徑轉換到機器人座標系
-        #    np.array(self.path),  # 路徑
-        #    np.array([0, 0]),  # 舊原點
-        #    np.array([robot_position[0], robot_position[1]]),  # 新原點
-        #    np.array([1, 0]),  # 舊向量
-        #    np.array([np.cos(robot_position[2]), np.sin(robot_position[2])]),
-        # )
         self.path = self.transform_path(self.path)
         self.path = self.merge_small_angle_increments(self.path, deg_threshold=3.0)
         return self.path
@@ -825,35 +752,7 @@ class NMTask(Task):
         # save the depth np
         np.save("./data/depth.npy", self.depth_data)
 
-   #     r = self.rgb_data.copy()
-   #     pos = self._curr_goal_tf[5, 0:3, 3]
-   #     point3d = np.array([[pos[0]], [pos[1]], [pos[2]]])
-   #     a, b = self.get_pixel(point3d, R, T, fx, fy, cx, cy)
-   #     b = self.rgb_data.shape[0] - b
-   #     a = self.rgb_data.shape[1] - a
-   #     cv2.circle(r, (a, b), 10, (255, 0, 255), 3)
-   #     # save
-   #     im = Image.fromarray(r)
-   #     cv2.imwrite("./data/robot.png", r)
-
-        #   #     a, b = self.get_pixel(affordance_point, R, T, fx, fy, cx, cy)
-        #   #     b = rgb.shape[0] - b
-        #   #     a = rgb.shape[1] - a
-        #   #     cv2.circle(rgb, (a, b), 10, (255, 0, 255), 3)
-        # for box in self.bounding_box:
-        #    if box['semanticLabel'] == 'target':
-        #        x_min, y_min, x_max, y_max = int(box['x_min']), int(box['y_min']), int(box['x_max']), int(box['y_max'])
-        #        cv2.rectangle(rgb, (x_min, y_min), (x_max, y_max), (220, 0, 0), 1)
-        #        # save the rgb image
-        #        im = Image.fromarray(rgb)
-        #        im.save("./data/original.png")
-
         self.occupancy_2d_map = np.zeros(map_size, dtype=np.uint8)
-        # open the occupancy_2d_map png
-        #   if os.path.exists("./data/occupancy_2d_map.npy"):
-        #       self.occupancy_2d_map = np.load("./data/occupancy_2d_map.npy")
-        #       self.occupancy_2d_map = self.occupancy_2d_map.reshape(200, 200)
-        # open occupancy_2d_map png
         if os.path.exists("./data/or2m.png"):
             self.occupancy_2d_map = cv2.imread("./data/or2m.png", 0)
             self.occupancy_2d_map = np.array(self.occupancy_2d_map, dtype=np.uint8)
@@ -868,22 +767,6 @@ class NMTask(Task):
 
         import scipy.ndimage
 
-        # === 🟢 計算機器人位置對應的索引 (在 global_map 中的 pixel) ===
-        #  robot_pixel_x = int((robot_x / cell_size) + map_size[0] // 2)
-        #  robot_pixel_y = int((robot_y / cell_size) + map_size[1] // 2)
-
-        #  # === 🔴 旋轉地圖到機器人座標 ===
-        #  # scipy.ndimage 直接旋轉影像，不用手動計算旋轉矩陣
-
-        #  robot_map = global_map.copy()
-        #  # === 🔵 平移地圖，讓機器人居中 ===
-        #  dx = map_size[0] // 2 - robot_pixel_x
-        #  dy = map_size[1] // 2 - robot_pixel_y
-        #  robot_map = np.roll(robot_map, shift=(dy, dx), axis=(0, 1))
-
-        #  robot_map = scipy.ndimage.rotate(
-        #      robot_map, np.rad2deg(theta), reshape=False, order=1
-        #  )
         from scipy.ndimage import shift
 
         px = (robot_x / cell_size) + map_size[0] // 2
@@ -909,7 +792,6 @@ class NMTask(Task):
         radius = 8
         for i in range(-radius, radius + 1):
             for j in range(-radius, radius + 1):
-                # ✅ 只檢查圓形內的點 (i, j)
                 if i**2 + j**2 > radius**2:
                     continue  # 忽略圓外的格子
                 map[99 + j, 99 + i] = 255
@@ -1524,14 +1406,10 @@ class NMTask(Task):
         self._goal_tf[:, :3, :3] = torch.tensor(
             goal_rots.as_matrix(), dtype=float, device=self._device
         )
-        self._goal_tf[:, :3, -1] = torch.tensor(
-            self._goal[:, :3], device=self._device
-        )  # 設定每個 goal 的 x, y, z
-        self._goal_tf[:, -1, -1] = 1.0  # 保持齊次變換矩陣的結構
+        self._goal_tf[:, :3, -1] = torch.tensor(self._goal[:, :3], device=self._device)
+        self._goal_tf[:, -1, -1] = 1.0
         self._curr_goal_tf = self._goal_tf.clone()
-        self._goals_xy_dist = torch.linalg.norm(
-            self._goal[:, 0:2], dim=1
-        )  # 計算每個 goal 到原點的 x, y 距離
+        self._goals_xy_dist = torch.linalg.norm(self._goal[:, 0:2], dim=1)
         # Pitch visualizer by 90 degrees for aesthetics
         if self.se3_vis:
             for i in range(goal_num):
@@ -1621,32 +1499,6 @@ class NMTask(Task):
                     ):
                         return True  # Collision detected with some part of the robot
 
-            #  for grasp_obj in self._grasp_objs:
-            #      #    if grasp_obj == self._curr_grasp_obj: continue # Important. Exclude current target object for collision checking
-
-            #      raw_readings = (
-            #          self._contact_sensor_interface.get_contact_sensor_raw_data(
-            #              grasp_obj.prim_path + "/Contact_Sensor"
-            #          )
-            #      )
-            #      if raw_readings.shape[0]:
-            #          for reading in raw_readings:
-            #              if "Tiago" in str(
-            #                  self._contact_sensor_interface.decode_body_name(
-            #                      reading["body1"]
-            #                  )
-            #              ):
-            #                  return (
-            #                      True  # Collision detected with some part of the robot
-            #                  )
-            #              if "Tiago" in str(
-            #                  self._contact_sensor_interface.decode_body_name(
-            #                      reading["body0"]
-            #                  )
-            #              ):
-            #                  return (
-            #                      True  # Collision detected with some part of the robot
-            #                  )
             return False
 
     def calculate_metrics(self) -> None:
@@ -1660,18 +1512,8 @@ class NMTask(Task):
         rgb = self.get_rgb_data()
         im = Image.fromarray(rgb)
         im.save("./data/end.png")
-        # for box in data:
-        #    sem_label = box["semanticLabel"]
-        #    if sem_label == "good_part":
-        #        print(f"Detect {sem_label}")
-        #        if self._is_success[0] == 1:
-        #            print("Success")
 
     def is_done(self) -> None:
-        # resets = torch.where(torch.abs(cart_pos) > self._reset_dist, 1, 0)
-        # resets = torch.where(torch.abs(pole_pos) > np.pi / 2, 1, resets)
-        # resets = torch.zeros(self._num_envs, dtype=int, device=self._device)
-
         # reset if success OR collided OR if reached max episode length
         resets = self._is_success.clone()
         resets = torch.where(self._collided.bool(), 1, resets)

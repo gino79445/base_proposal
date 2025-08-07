@@ -48,8 +48,8 @@ import os
 
 import cv2
 
-load_dotenv()  # 讀取 .env 檔案
-api_key = os.getenv("API_KEY")  # 獲取 API Key
+load_dotenv()
+api_key = os.getenv("API_KEY")
 
 
 @hydra.main(config_name="config", config_path="../cfg")
@@ -76,19 +76,6 @@ def parse_hydra_configs(cfg: DictConfig):
         t += 1
 
     env.step(["start"])
-    # env.step(["set_initial_base", [0.7, -1]])
-    # env.step(["rotate", [np.pi * 100]])
-    # env.step(["set_initial_base", [0.7, -1]])
-    # env.step(["rotate", [np.pi / 2]])
-    # env.step(["rotate", [np.pi / 2]])
-    # env.step(["rotate", [np.pi / 2]])
-    # env.step(["rotate", [np.pi / 2]])
-    # env.step(["set_initial_base", [0.7, -3.6]])
-
-    # env.step(["rotate", [np.pi / 2]])
-    # env.step(["rotate", [np.pi / 2]])
-    # env.step(["rotate", [np.pi / 2]])
-    # env.step(["rotate", [np.pi / 2]])
 
     time = 20
     current_time = 0
@@ -97,11 +84,6 @@ def parse_hydra_configs(cfg: DictConfig):
         torch.cuda.empty_cache()
 
         current_time += 1
-        global_position = [[1.47, 0.85], [2, -4.4]]
-        # global_position = [[-0.2, -1.3], [0.15, 1.54]]
-        global_position = [[1.85, -2.4], [1.64, -1]]
-        # global_position = [[-0.2, -1.3], [0.15, 1.43]]
-        # global_position = [[-0.58, -4.4]]
         instruction = env.get_instruction()
 
         policy = spaceAware_Policy(instruction)
@@ -137,7 +119,6 @@ def parse_hydra_configs(cfg: DictConfig):
                 local_nav="spaceAware_pivot",
                 algo="astar_rough",
             )
-            # get_initial(env, policy, global_position, local_nav="None", algo="astar")
         # pull(env, policy, global_position, local_nav="None", algo="astar")
         # pull(env, policy, global_position, local_nav="pivot", algo="astar_rough")
         # pull(
@@ -154,6 +135,7 @@ def parse_hydra_configs(cfg: DictConfig):
         #     local_nav="rekep",
         #     algo="astar_rough",
         # )
+        # get_initial(env, policy, global_position, local_nav="None", algo="astar")
         except Exception as e:
             print(e)
             print("Error")

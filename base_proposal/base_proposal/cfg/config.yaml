@@ -20,11 +20,7 @@ seed: -1
 # set to True for deterministic performance
 torch_deterministic: False
 # Use the isaac sim configuration from file
-#sim_app_cfg_path: "/isaac_app_configs/omni.isaac.sim.python_minimal.kit"
-#sim_app_cfg_path: "/isaac_app_configs/omni.isaac.sim.python.kit"
-sim_app_cfg_path: "/home/gino79445/Downloads/isaac-sim-standalone@4.2.0-rc.18+release.16044.3b2ed111.gl.linux-x86_64.release/apps/omni.isaac.sim.python.kit"
-# set the maximum number of learning iterations to train for. overrides default per-environment setting
-# max_iterations: 500
+sim_app_cfg_path: "/isaac_app_configs/omni.isaac.sim.python_minimal.kit"
 
 ## Device config
 physics_engine: "physx"
@@ -46,18 +42,7 @@ solver_type: 1 # 0: pgs, 1: tgs
 test: False
 # used to set checkpoint path
 #setPosition 2 m
-checkpoint:
-  ""
-  #checkpoint: '/home/gino79445/Desktop/Research/base_proposal/base_proposal/base_proposal/logs/SetPosition/SetPositionBHyRL/2025-01-19-10-57-34/2025-01-19-10-57-34/agent-22.msh'
-  # setPosition 1 m
-  #checkpoint : '/home/gino79445/Desktop/Research/origin_rlmmbp/rlmmbp/learned_robot_placement/logs/SetPosition/SetPositionBHyRL/2024-10-10-21-10-48/2024-10-10-21-10-48/agent-28.msh'
-  # pointNav
-  #checkpoint: '/home/gino79445/Desktop/Research/origin_rlmmbp/rlmmbp/learned_robot_placement/logs/PointNav/PointNavSAC/2024-10-09-02-11-33/2024-10-09-02-11-33/agent-23.msh'
-  #checkpoint: '/home/gino79445/Desktop/Research/origin_rlmmbp/rlmmbp/learned_robot_placement/logs/PointNav/PointNavSAC/2024-10-07-04-36-48/2024-10-07-04-36-48/agent-82.msh'
-  #checkpoint: '/home/gino79445/Desktop/Research/origin_rlmmbp/rlmmbp/learned_robot_placement/logs/TiagoDualMultiObjFetchingVisual/TiagoDualMultiObjFetchingVisualBHyRL/2024-09-30-14-12-40/2024-09-30-14-12-40/agent-20.msh'
-  #checkpoint: '/home/gino79445/Desktop/Research/origin_rlmmbp/rlmmbp/learned_robot_placement/logs/PointNav/PointNavSAC/2024-10-02-06-33-06/2024-10-02-06-33-06/agent-32.msh'
-  #checkpoint: '/home/gino79445/Desktop/Research/origin_rlmmbp/rlmmbp/learned_robot_placement/logs/TiagoDualReaching/TiagoDualReachingBHyRL/2024-09-29-17-09-46/2024-09-29-17-09-46/agent-34.msh'
-  #checkpoint: '/home/gino79445/Desktop/Research/origin_rlmmbp/rlmmbp/learned_robot_placement/logs/TiagoDualMultiObjFetchingVisual/TiagoDualMultiObjFetchingVisualBHyRL/2024-09-28-06-54-17/2024-09-28-06-54-17/agent-16.msh'
+checkpoint: ""
 # number of seeds to run (run sequentially by default)
 num_seeds: 5
 
