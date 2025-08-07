@@ -1,4 +1,4 @@
-# Nav2Manip
+# Affordance-Guided Coarse-to-Fine Exploration for Base Placement in Open-Vocabulary Mobile Manipulation
 
 
 ## Installation
