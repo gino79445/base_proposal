@@ -17,10 +17,8 @@
     conda activate Nav2Manip
     conda install pinocchio -c conda-forge
     cd base_proposal/base_proposal/
+    pip install -r requirements.txt
     pip install -e .
-    pip install open3d
-    pip install openai
-    pip install dotenv
     ```
 
 ## Experiments
