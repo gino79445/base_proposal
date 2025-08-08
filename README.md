@@ -71,7 +71,7 @@ The example task sequence includes:
     ├── Shapenet/                  
     └── YCB/                      
   ```
-https://drive.google.com/drive/folders/1fCjWBXw-kdtnIv1Sl1UHT88W0paeg84t?usp=sharing
+Alternatively, download both OmniGibson and Props from this [Google Drive link](https://drive.google.com/drive/folders/1fCjWBXw-kdtnIv1Sl1UHT88W0paeg84t?usp=sharing)
 
-     
+
 
