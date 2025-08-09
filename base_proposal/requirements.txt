@@ -1,0 +1,7 @@
+open3d
+openai
+python-dotenv
+torch
+autodistill
+roboflow
+autodistill_grounding_dino
