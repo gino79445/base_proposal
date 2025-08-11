@@ -410,6 +410,22 @@ def annotate_map(image, destination, actions, direction_id=0, occupancy_2d_map=N
                 pt_prev = tip
         cv2.addWeighted(overlay, 0.4, annotated_image, 1, 0, annotated_image)
 
+    for i, (x, y) in enumerate(actions):
+        x, y = (map_size[1] - y) * 10, (map_size[0] - x) * 10
+        cv2.circle(annotated_image, (x, y), 18, (255, 255, 255), -1)
+        cv2.circle(annotated_image, (x, y), 18, (225, 0, 0), 3)
+        text_width, text_height = cv2.getTextSize(
+            f"{i}", cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2
+        )[0]
+        cv2.putText(
+            annotated_image,
+            f"{i}",
+            (x - text_width // 2, y + text_height // 2),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0, 100, 150),
+            2,
+        )
     overlay = annotated_image.copy()
 
     cv2.addWeighted(overlay, 0.3, annotated_image, 0.7, 0, annotated_image)
